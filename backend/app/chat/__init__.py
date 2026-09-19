@@ -33,50 +33,61 @@ _SCRUB = [
 ]
 
 
-_REF = "[[M{}]]"
-_REF_RE = re.compile(r"\[\[M(\d+)\]\]")
+_REF = "\u2e24M{}\u2e25"          # two-and-a-half em brackets; not on a keyboard
+_REF_RE = re.compile("\u2e24M(\\d+)\u2e25")
 
 
-def mask_descriptors(text: str, descriptors: Sequence[str]) -> tuple[str, list[str]]:
+def descriptor_refs(descriptors: Sequence[str]) -> list[str]:
+    """The stable reference list, built from the descriptors alone.
+
+    Derived from the request rather than from whichever text happened to mention
+    a merchant first, so the instruction and every conversation turn share one
+    numbering. Longest first so a descriptor containing a shorter one is replaced
+    whole; `(-len, value)` rather than length alone because ties would otherwise
+    break on set iteration order, which varies with PYTHONHASHSEED.
+    """
+    return sorted({d for d in descriptors if d and d.strip()}, key=lambda d: (-len(d), d))
+
+
+def mask_descriptors(text: str, refs: Sequence[str]) -> str:
     """Replace every merchant descriptor with an opaque reference.
 
     This is how the two rules stop fighting. Earlier attempts tried to work out,
     from the model's own output, whether a banned word was a merchant's name or
-    the product's claim — first by protecting spans, then by requiring upper case,
-    then by matching case-sensitively. Every version was bypassable, because
-    provenance cannot be recovered from a string after the fact: a model writing
-    "This plan IS GUARANTEED to clear" is indistinguishable from one quoting a
-    merchant called "IS GUARANTEED".
+    the product's claim — protected spans, then an upper-case rule, then
+    case-sensitive matching. Every one was bypassable, because provenance cannot
+    be recovered from a string after the fact: a model writing "This plan IS
+    GUARANTEED to clear" is indistinguishable from one quoting a merchant called
+    "IS GUARANTEED".
 
-    So the model never sees a descriptor at all. It sees `[[M0]]`, and the real
-    text is put back after scrubbing. Everything the model writes is prose and is
+    So the model never sees a descriptor. It sees a reference, and the real text
+    is put back after scrubbing. Everything the model writes is prose and is
     scrubbed unconditionally; descriptors are restored afterwards and cannot be
-    corrupted. Neither rule has to guess.
+    corrupted.
 
-    Longest first so a descriptor containing a shorter one is replaced whole, and
-    sorted by (-len, value) rather than length alone because ties would otherwise
-    break on set iteration order, which varies with PYTHONHASHSEED.
+    ONE pass, not one per descriptor. Replacing sequentially lets a later
+    descriptor rewrite the placeholders an earlier one just inserted — a merchant
+    named "M" was enough to corrupt every reference in the text. `re.sub` does not
+    rescan what it has substituted, so a single alternation cannot collide with
+    its own output.
     """
-    seen: list[str] = []
-    for descriptor in sorted({d for d in descriptors if d and d.strip()},
-                             key=lambda d: (-len(d), d)):
-        if descriptor not in text:
-            continue
-        text = text.replace(descriptor, _REF.format(len(seen)))
-        seen.append(descriptor)
-    return text, seen
+    if not refs:
+        return text
+    index = {d: i for i, d in enumerate(refs)}
+    pattern = re.compile("|".join(re.escape(d) for d in refs))
+    return pattern.sub(lambda m: _REF.format(index[m.group(0)]), text)
 
 
-def unmask_descriptors(text: str, descriptors: Sequence[str]) -> str:
+def unmask_descriptors(text: str, refs: Sequence[str]) -> str:
     """Put the real descriptors back, after scrubbing.
 
-    An index the model invented — it can echo `[[M7]]` when only three exist — is
-    dropped rather than guessed at, because inventing a merchant name into a
+    An index the model invented — a reference to the eighth merchant when three
+    exist — is dropped rather than guessed at. Inventing a merchant name into a
     sentence about someone's money is worse than a slightly clipped sentence.
     """
     def _restore(match: re.Match[str]) -> str:
         i = int(match.group(1))
-        return descriptors[i] if i < len(descriptors) else ""
+        return refs[i] if i < len(refs) else ""
 
     return _REF_RE.sub(_restore, text)
 
@@ -85,8 +96,8 @@ def scrub(text: str) -> str:
     """Rewrite the words the product never says.
 
     Unconditional, with no exceptions and nothing to bypass. Merchant names are
-    not here to be protected: `mask_descriptors` took them out before the model
-    saw them, and `unmask_descriptors` puts them back after this has run.
+    not here to be protected: they were taken out before the model saw them and
+    are put back after this has run.
     """
     for pattern, replacement in _SCRUB:
         text = pattern.sub(replacement, text)
@@ -106,11 +117,13 @@ def chat(req: ChatRequest, config: GeminiConfig | None = None, source: str = "se
     # The model never sees a merchant descriptor, only an opaque reference, so
     # nothing it writes can be mistaken for one — and nothing it writes escapes
     # the scrubber. The real text goes back afterwards. See mask_descriptors.
-    instruction, refs = mask_descriptors(
-        system_instruction(req.request, req.response, source),
-        [t.description for t in req.request.scheduled],
-    )
-    turns = [(m.role, m.text) for m in req.messages]
+    refs = descriptor_refs([t.description for t in req.request.scheduled])
+    instruction = mask_descriptors(system_instruction(req.request, req.response, source), refs)
+    # The history too, not just the instruction. A user who types a merchant's
+    # name into the chat puts it back in front of the model, which echoes it, and
+    # the scrubber corrupts it again — the original bug, reached by a different
+    # road.
+    turns = [(m.role, mask_descriptors(m.text, refs)) for m in req.messages]
     try:
         reply, model = generate_with_fallback(config, instruction, turns)
     except GeminiError as e:

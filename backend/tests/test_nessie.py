@@ -262,3 +262,18 @@ def test_whole_and_exponent_notation_still_convert():
     assert to_cents(Decimal("1E+2")) == 10_000
     assert to_cents(5) == 500
     assert to_cents(Decimal("-5")) == -500
+
+
+def test_trailing_zeros_are_precision_not_value():
+    """Decimal("19.990") has exponent -3 and is still exactly 1999 cents.
+    Rejecting on the exponent alone refused amounts a bank writes routinely."""
+    assert to_cents(Decimal("19.990")) == 1999
+    assert to_cents(Decimal("0.000")) == 0
+    assert to_cents(Decimal("-5.050")) == -505
+    assert to_cents(Decimal("1.00000000000000000000")) == 100
+
+
+def test_genuinely_sub_cent_values_are_still_refused():
+    for bad in ["1.005", "0.001", "19.99000000000000000000000000001", "-0.005"]:
+        with pytest.raises(NessieError, match="sub-cent"):
+            to_cents(Decimal(bad))

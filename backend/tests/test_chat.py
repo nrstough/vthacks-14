@@ -15,8 +15,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.chat.gemini as gemini
-from app.chat import mask_descriptors, scrub, unmask_descriptors
+from app.chat import chat, descriptor_refs, mask_descriptors, scrub, unmask_descriptors
 from app.chat.prompt import dollars, render_context, system_instruction
+from app.chat.schemas import ChatRequest
 from app.main import create_app
 from app.schemas import SolveRequest
 from app.solver.solve import solve
@@ -418,42 +419,81 @@ def test_the_scrubber_has_no_exceptions_left_to_exploit():
 
 
 def test_a_descriptor_is_taken_out_before_the_model_sees_it():
-    masked, refs = mask_descriptors(f"- 2026-09-22 {_TRAP}: -$38.59", [_TRAP])
+    refs = descriptor_refs([_TRAP])
+    masked = mask_descriptors(f"- 2026-09-22 {_TRAP}: -$38.59", refs)
     assert _TRAP not in masked
-    assert "[[M0]]" in masked
     assert refs == [_TRAP]
 
 
 def test_a_descriptor_comes_back_intact_after_scrubbing():
-    masked, refs = mask_descriptors(f"row {_TRAP} here", [_TRAP])
+    refs = descriptor_refs([_TRAP])
+    masked = mask_descriptors(f"row {_TRAP} here", refs)
     assert unmask_descriptors(scrub(masked), refs) == f"row {_TRAP} here"
 
 
 def test_a_reply_gets_both_treatments_and_they_do_not_interfere():
-    _, refs = mask_descriptors(f"x {_TRAP} y", [_TRAP])
-    reply = "Skipping [[M0]] frees $38.59, and the result is guaranteed."
+    refs = descriptor_refs([_TRAP])
+    reply = mask_descriptors(f"Skipping {_TRAP} frees $38.59, and it is guaranteed.", refs)
     out = unmask_descriptors(scrub(reply), refs)
     assert _TRAP in out, "the merchant name must survive"
-    assert "is guaranteed" not in out, "the product's claim must not"
+    assert "it is guaranteed" not in out, "the product's claim must not"
     assert "sufficient under the schedule shown" in out
 
 
 def test_an_invented_reference_is_dropped_not_guessed():
     """Inventing a merchant name into a sentence about someone's money is worse
     than a clipped sentence."""
-    assert unmask_descriptors("Skipping [[M7]] helps.", [_TRAP]) == "Skipping  helps."
+    refs = descriptor_refs([_TRAP])
+    invented = unmask_descriptors(mask_descriptors(_TRAP, refs).replace("M0", "M7"), refs)
+    assert invented == ""
 
 
 def test_masking_does_not_depend_on_set_ordering():
     pair = [_TRAP, "GUARANTEED AUTO PROTECTIOX"]
     text = f"a {_TRAP} b"
-    first = mask_descriptors(text, pair)
-    assert mask_descriptors(text, list(reversed(pair))) == first
+    assert mask_descriptors(text, descriptor_refs(pair)) == \
+           mask_descriptors(text, descriptor_refs(list(reversed(pair))))
 
 
 def test_the_longer_descriptor_wins_when_one_contains_another():
-    masked, refs = mask_descriptors("KROGER #382 STORE", ["KROGER #382", "KROGER #382 STORE"])
-    assert masked == "[[M0]]"
-    assert refs == ["KROGER #382 STORE"]
+    refs = descriptor_refs(["KROGER #382", "KROGER #382 STORE"])
+    masked = mask_descriptors("KROGER #382 STORE", refs)
+    assert unmask_descriptors(masked, refs) == "KROGER #382 STORE"
+    assert "KROGER" not in masked
+
+
+def test_a_short_descriptor_cannot_clobber_the_references():
+    """Replacing one descriptor at a time let a later one rewrite the placeholders
+    an earlier one had just inserted. A merchant named "M" was enough."""
+    refs = descriptor_refs([_TRAP, "M"])
+    text = f"row {_TRAP} and M here"
+    assert unmask_descriptors(mask_descriptors(text, refs), refs) == text
+
+
+def test_the_conversation_history_is_masked_too(monkeypatch):
+    """A user who types a merchant's name into the chat puts it back in front of
+    the model, which echoes it, and the scrubber corrupts it again — the original
+    bug reached by a different road."""
+    import app.chat as chat_mod
+
+    seen: dict = {}
+
+    def fake(config, instruction, turns, sleep=None):
+        seen["instruction"] = instruction
+        seen["turns"] = turns
+        return turns[-1][1], "stub-model"
+
+    monkeypatch.setattr(chat_mod, "generate_with_fallback", fake)
+    raw = copy.deepcopy(SCENARIOS["clears"])
+    raw["scheduled"][0]["description"] = _TRAP
+    solved = solve(SolveRequest.model_validate(raw))
+    req = ChatRequest.model_validate({
+        "messages": [{"role": "user", "text": f"why skip {_TRAP}?"}],
+        "request": raw,
+        "response": json.loads(solved.model_dump_json()),
+    })
+    out = chat(req, config=gemini.GeminiConfig(api_key="x", model="stub", timeout_s=5.0))
+    assert _TRAP not in seen["turns"][-1][1], "the model saw the raw descriptor"
+    assert _TRAP in out.reply, "and it must still come back intact"
 
 

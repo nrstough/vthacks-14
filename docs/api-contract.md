@@ -267,7 +267,10 @@ bank's. A client that renders an account from this endpoint must say so on
 screen, in the same spirit as the offline-solver chip.
 
 Every account carries a payday inside the horizon and a dip below `buffer_cents`
-before the first one, so there is always something to solve. Amounts are integer
+before the first one, so the solver always has work to do. A dip is not the same
+as a solvable dip: roughly 7% of seeds reach tier 3 with an empty plan, which is
+a wanted outcome — naming a shortfall that no combination of changes closes is
+half of what this product is for. Amounts are integer
 cents, heavy-tailed rather than uniform; pay lands on business days.
 
 Responses: `200` with the body above, or `422` when `horizon_days` is out of

@@ -35,7 +35,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, localcontext
 from pathlib import Path
 from typing import Any
 
@@ -155,14 +155,31 @@ def to_cents(amount: Any) -> int:
     if not value.is_finite():
         raise NessieError(f"Nessie sent a non-finite amount: {amount!r}")
 
-    # Check the precision BEFORE scaling. `value * 100` runs in the default
-    # context of 28 significant digits, so Decimal("19.99000000000000000000000000001")
-    # rounds to exactly 1999 during the multiply and the sub-cent check then finds
-    # nothing wrong with it. The exponent is exact and needs no arithmetic:
-    # anything finer than a hundredth cannot be represented in cents.
-    if -value.as_tuple().exponent > 2:
+    # Check the precision BEFORE scaling, and check the DIGITS rather than the
+    # exponent.
+    #
+    # Scaling first is wrong: `value * 100` runs in the default context of 28
+    # significant digits, so Decimal("19.99000000000000000000000000001") rounds to
+    # exactly 1999 during the multiply and the sub-cent check then finds nothing
+    # wrong with it.
+    #
+    # The exponent alone is also wrong: Decimal("19.990") has exponent -3 and is
+    # still exactly 1999 cents. Trailing zeros are precision, not value, and
+    # refusing them would reject amounts a bank writes routinely.
+    #
+    # So: look at the digits past the hundredths place and require them to be
+    # zero. This is exact arithmetic on the digit tuple, with no context and
+    # nothing to round.
+    digits = value.as_tuple().digits
+    beyond_cents = -value.as_tuple().exponent - 2
+    if beyond_cents > 0 and any(digits[-beyond_cents:]):
         raise NessieError(f"Nessie sent a sub-cent amount that cannot be exact: {amount!r}")
-    out = int(value.scaleb(2))
+
+    # A local context wide enough for the whole coefficient, so the scale itself
+    # cannot round what the check above just approved.
+    with localcontext() as ctx:
+        ctx.prec = len(digits) + 4
+        out = int(value.scaleb(2).to_integral_value())
     if abs(out) > CENTS_ABS:
         raise NessieError(f"Nessie sent an amount outside the supported range: {amount!r}")
     return out
