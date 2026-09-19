@@ -1,0 +1,30 @@
+[Unit]
+Description=Overdraft Guard — solver API and frontend, one process
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+WorkingDirectory=/opt/overdraft-guard
+
+# Bound to loopback on purpose: Caddy is the only thing that should be able to
+# reach it, so the box never serves the app unencrypted on its public IP.
+ExecStart=/opt/overdraft-guard/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+# GEMINI_API_KEY lives here, root-owned and 0600. It is deliberately NOT in the
+# repo and not in the rsync list — put it on the box by hand, once:
+#   install -m600 /dev/null /etc/overdraft-guard.env && vim /etc/overdraft-guard.env
+EnvironmentFile=-/etc/overdraft-guard.env
+
+Restart=always
+RestartSec=2
+
+# The process reads its own directory and writes nothing. If it ever needs to,
+# that is a design change worth noticing, not a setting to loosen quietly.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

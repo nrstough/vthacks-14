@@ -9,3 +9,4 @@ Checking.csv
 .env
 .npm-cache/
 .pytest_cache/
+.deploy.env
