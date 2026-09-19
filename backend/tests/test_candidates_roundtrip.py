@@ -150,7 +150,7 @@ def test_the_response_properties_hold_on_generated_accounts():
         inv.test_no_transaction_is_changed_two_ways,
         inv.test_strictly_needed_matches_the_certificate,
         inv.test_the_plan_is_described_consistently_everywhere,
-        inv.test_plan_is_ordered_by_the_day_you_must_act,
+        inv.test_plan_is_ordered_by_the_day_the_change_takes_effect,
         inv.test_paydays_are_marked,
     ]
     for win in WINDOWS[:50]:

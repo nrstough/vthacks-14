@@ -99,3 +99,66 @@ def test_both_engines_word_things_identically():
         a = user_facing(raw, Settings(force_engine="cp-sat"))
         b = user_facing(raw, Settings(force_engine="brute-force"))
         assert a == b, name
+
+
+# --------------------------------------------------------------------------
+# The certificate's claim about the changes it does not name.
+#
+# Found by the frontend lane on the demo's own 1:45 beat: with the card minimum
+# ruled out, the sentence named one change and said "The rest hold the cushion"
+# while three of seven were load-bearing.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(("name", "raw"), ALL_CASES, ids=[c[0] for c in ALL_CASES])
+def test_the_certificate_never_calls_a_load_bearing_change_optional(name, raw):
+    from app.solver.objective import load_bearing
+
+    res = solve(SolveRequest.model_validate(raw))
+    carrying = [i for i in res.certificate.per_item if load_bearing(i)]
+    if "The rest hold the cushion" in res.certificate.sentence:
+        assert len(carrying) == 1, (
+            f"{name}: the sentence says the rest hold the cushion, but "
+            f"{len(carrying)} changes are load-bearing"
+        )
+
+
+def test_the_demo_beat_says_how_many_changes_are_load_bearing():
+    from app.solver.objective import load_bearing
+    from tests.fixtures.scenarios import request as make
+
+    raw = make(20_000, 2_500)
+    raw["locks"] = {"in": [], "out": ["c_card_min"]}
+    res = solve(SolveRequest.model_validate(raw))
+    carrying = [i for i in res.certificate.per_item if load_bearing(i)]
+    assert len(res.plan) == 7 and len(carrying) == 3
+    assert res.certificate.sentence.startswith("Three of these seven changes are load-bearing.")
+    assert "The rest hold the cushion" not in res.certificate.sentence
+
+
+def test_one_load_bearing_change_still_says_the_rest_hold_the_cushion():
+    # The original wording is correct in the one case it was written for, and
+    # the fix must not lose it.
+    for _, raw in ALL_CASES:
+        from app.solver.objective import load_bearing
+
+        res = solve(SolveRequest.model_validate(raw))
+        carrying = [i for i in res.certificate.per_item if load_bearing(i)]
+        if len(carrying) == 1 and len(res.plan) > 1 and res.certificate.per_item and res.tier < 3:
+            if not res.certificate.irredundant:
+                assert "The rest hold the cushion" in res.certificate.sentence
+                return
+    pytest.skip("no case in the corpus has exactly one load-bearing change in a larger plan")
+
+
+def test_an_empty_plan_at_tier_three_does_not_claim_the_schedule_clears():
+    # Every candidate ruled out: the plan is empty because nothing could be
+    # changed, not because nothing needed to be.
+    from tests.fixtures.scenarios import CANDIDATES, request as make
+
+    raw = make(6_000, 2_500)
+    raw["locks"] = {"in": [], "out": sorted(c["id"] for c in CANDIDATES)}
+    res = solve(SolveRequest.model_validate(raw))
+    assert res.tier == 3 and res.plan == []
+    assert "already clears" not in res.certificate.sentence
+    assert res.certificate.sentence.startswith("Nothing here can be changed in time")

@@ -33,29 +33,18 @@ def _normalise(payload: dict) -> dict:
     return d
 
 
-def _is_known_departure(key: str, ours: dict, theirs: dict) -> bool:
-    """The one place this service deliberately contradicts the reference.
-
-    With an empty plan the reference always says "No changes needed. The
-    schedule already clears." At tier 3 the schedule does not clear — the plan
-    is empty because nothing could be changed in time — so the certificate
-    would flatly contradict the verdict printed above it.
-    """
-    return (
-        key == "certificate"
-        and theirs["tier"] == 3
-        and not theirs["plan"]
-        and theirs["certificate"]["sentence"] == "No changes needed. The schedule already clears."
-        and ours["certificate"]["sentence"].startswith("Nothing here can be changed in time")
-        and {k: v for k, v in ours["certificate"].items() if k != "sentence"}
-        == {k: v for k, v in theirs["certificate"].items() if k != "sentence"}
-    )
-
-
 def assert_agrees(request: dict, ours: dict, theirs: dict) -> None:
+    """Every field, with no exceptions.
+
+    There used to be one: the reference solver said "the schedule already
+    clears" for any empty plan, which is false at tier 3, where the plan is
+    empty because nothing could be changed in time. Both implementations now
+    say the same true thing, so the exception is gone — and with it the risk of
+    it quietly covering a second divergence.
+    """
     ours, theirs = _normalise(ours), _normalise(theirs)
     for key in theirs:
-        if ours.get(key) == theirs[key] or _is_known_departure(key, ours, theirs):
+        if ours.get(key) == theirs[key]:
             continue
         raise AssertionError(
             f"{key} differs\n  ours:   {json.dumps(ours.get(key))[:600]}\n"

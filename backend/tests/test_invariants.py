@@ -166,7 +166,7 @@ def test_the_plan_is_described_consistently_everywhere(case):
             assert by_date[cid] == b["date"]
 
 
-def test_plan_is_ordered_by_the_day_you_must_act(case):
+def test_plan_is_ordered_by_the_day_the_change_takes_effect(case):
     _, res = case
     keys = [(p["date"], p["candidate_id"]) for p in res["plan"]]
     assert keys == sorted(keys)

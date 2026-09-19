@@ -37,6 +37,10 @@ _COUNT_WORDS = (
 )
 
 
+def _count(n: int) -> str:
+    return _COUNT_WORDS[n] if n < len(_COUNT_WORDS) else str(n)
+
+
 def _changes(n: int) -> str:
     if n == 1:
         return "one change"
@@ -96,9 +100,20 @@ def certificate_sentence(
 
     if worst and worst.marginal_cents > 0 and worst.worst_date:
         label = next((c.label for c in plan_order if c.id == worst.candidate_id), "the largest change")
-        return (
+        under = (
             f"Remove {label} and you go under on {short_date(worst.worst_date)} by "
-            f"{money(worst.worst_shortfall_cents)}. The rest hold the cushion."
+            f"{money(worst.worst_shortfall_cents)}."
+        )
+        # "The rest hold the cushion" is a claim about every other change, and it
+        # is false as soon as a second one is load-bearing. On the demo account
+        # with the card minimum ruled out, three of seven are. Say how many
+        # rather than describing the worst and implying the rest are optional.
+        carrying = [item for item in cert.per_item if load_bearing(item)]
+        if len(carrying) == 1:
+            return f"{under} The rest hold the cushion."
+        return (
+            f"{_count(len(carrying)).capitalize()} of these {_changes(len(cert.per_item))} "
+            f"are load-bearing. {under}"
         )
 
     return "Every change here is keeping you above the cushion, not above zero."

@@ -55,7 +55,8 @@ solver returns.
       "label": "Skip DoorDash",
       "detail": "DOORDASH*CHIPOTLE",
       "action": "skip",
-      "date": "2026-09-22",           // the day the user must act
+      "date": "2026-09-22",           // the day the change takes effect, NOT the deadline:
+                                      // act by date - lead_time_days
       "freed_cents": 3180,
       "pain": 2,
       "strictly_needed": true,        // false when it only protects the cushion

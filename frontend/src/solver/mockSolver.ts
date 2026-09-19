@@ -178,6 +178,12 @@ function hasDuplicateTarget(chosen: Candidate[]): boolean {
 
 /* ---------- solve ---------- */
 
+const COUNT_WORDS = [
+  'zero', 'one', 'two', 'three', 'four', 'five', 'six',
+  'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
+]
+const countWord = (n: number): string => COUNT_WORDS[n] ?? String(n)
+
 export function solve(req: SolveRequest, previousPlanArg: string[] = []): SolveResponse {
   // The request field wins when present; the argument stays for local callers.
   const previousPlan = req.previous_plan ?? previousPlanArg
@@ -239,7 +245,7 @@ export function solve(req: SolveRequest, previousPlanArg: string[] = []): SolveR
   // went below zero, which is automatically true at tier 3 where the plan is
   // below zero anyway. That made the proof pass vacuously in exactly the case
   // it mattered most, and print a sentence that was false on its face.
-  // Sort by the day you must act, then by id, so the order never depends on
+  // Sort by the day the change takes effect, then by id, so the order never depends on
   // the order candidates happened to arrive in. Plain comparison, not
   // localeCompare: ICU collation orders punctuation differently from code
   // points, and the Python side sorts by code point.
@@ -276,7 +282,20 @@ export function solve(req: SolveRequest, previousPlanArg: string[] = []): SolveR
   const planClearsZero = bestTrace.worstShortfall === 0
   let sentence: string
   if (best.length === 0) {
-    sentence = 'No changes needed. The schedule already clears.'
+    if (tier === 3) {
+      // Not "no changes needed": the plan is empty because nothing could be
+      // changed in time, and the schedule does not clear. Saying otherwise
+      // contradicts the verdict printed directly above it.
+      sentence = bestTrace.firstBelowZeroDate
+        ? `Nothing here can be changed in time. The gap stands at ${money(
+            bestTrace.worstShortfall,
+          )} on ${shortDate(bestTrace.firstBelowZeroDate)}.`
+        : `Nothing here can be changed in time. The gap stands at ${money(
+            bestTrace.worstShortfall,
+          )}.`
+    } else {
+      sentence = 'No changes needed. The schedule already clears.'
+    }
   } else if (!planClearsZero) {
     // Tier 3. Be explicit that the plan itself does not clear, then say what
     // the changes are still buying.
@@ -290,11 +309,20 @@ export function solve(req: SolveRequest, previousPlanArg: string[] = []): SolveR
       worstItem.worst_date,
     )}, by as much as ${money(worstItem.worst_shortfall_cents)}.`
   } else if (worstItem && worstItem.marginal_cents > 0 && worstItem.worst_date) {
-    sentence = `Remove ${
-      best.find((c) => c.id === worstItem.candidate_id)?.label ?? 'the largest change'
-    } and you go under on ${shortDate(worstItem.worst_date)} by ${money(
-      worstItem.worst_shortfall_cents,
-    )}. The rest hold the cushion.`
+    const label = best.find((c) => c.id === worstItem.candidate_id)?.label ?? 'the largest change'
+    const under = `Remove ${label} and you go under on ${shortDate(
+      worstItem.worst_date,
+    )} by ${money(worstItem.worst_shortfall_cents)}.`
+    // "The rest hold the cushion" claims every other change is optional, and it
+    // is false the moment a second one is load-bearing. Rule out the card
+    // minimum on the $200 demo account and three of seven are.
+    const carrying = perItem.filter(loadBearing)
+    sentence =
+      carrying.length === 1
+        ? `${under} The rest hold the cushion.`
+        : `${countWord(carrying.length).replace(/^./, (c) => c.toUpperCase())} of these ${countWord(
+            perItem.length,
+          )} changes are load-bearing. ${under}`
   } else {
     sentence = 'Every change here is keeping you above the cushion, not above zero.'
   }
@@ -332,7 +360,7 @@ export function solve(req: SolveRequest, previousPlanArg: string[] = []): SolveR
   /* verdict wording; never the word infeasible */
   const tightest = days[bestTrace.balances.indexOf(bestTrace.minBalance)]
   const n = plan.length
-  const changeWord = n === 1 ? 'one change' : `${['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve'][n] ?? n} changes`
+  const changeWord = n === 1 ? 'one change' : `${countWord(n)} changes`
   let verdict: string
   let qualifier: string
 

@@ -30,7 +30,7 @@ from .wording import certificate_sentence, plan_reason, verdict_and_qualifier
 
 
 def plan_sort_key(c: Candidate) -> tuple[str, str]:
-    """By the day you must act, then by id.
+    """By the day the change takes effect, then by id.
 
     Both parts compare as plain strings, never by locale: a collation that
     ordered `c_1` against `c-a` differently from Python's code-point order would
