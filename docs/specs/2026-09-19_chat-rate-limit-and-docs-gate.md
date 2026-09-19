@@ -224,6 +224,32 @@ The feature-spec and stance edits land in the implementation commit, when the
 behaviour they describe is real. This spec is committed before any code, so
 history establishes that the design preceded the implementation.
 
+## Audit
+
+**Codex, at `b5dba9f`: Overall Acceptable.** Plan adherence, scope discipline,
+test coverage, regression check and documentation each Acceptable; review
+compliance Excellent; freeze integrity skipped for want of P1/P2/P3 hashes.
+
+Its four points, and what was done:
+
+1. *Plan adherence.* The amendment and the review artifact landed with the
+   implementation commit, so history cannot establish the revised design was
+   approved first. Already disclosed in the amendment above; the correction
+   for next time is to commit the review artifact ahead of the code.
+2. *Scope discipline.* The demo-script timings and the wider security stance
+   exceeded the two-item scope. Disclosed as deviations, bounded to
+   documentation, no runtime behaviour added.
+3. *Regression.* 1,329 passed with 3 setup errors in its sandbox, all from
+   fixtures needing a writable temporary directory. Not reproducible outside
+   that sandbox: the same three pass here, and the two prior audits in
+   `docs/specs/` recorded the same environmental limitation.
+4. *Documentation, cosmetic.* The mutation table cited two test names that
+   had been replaced. **Fixed**, and every test name in this document is now
+   checked to exist.
+
+**Claude critique: five rounds, ending Acceptable with a recommendation to
+stop.** Recorded below.
+
 ## Results
 
 **Tests.** Full suites, observed in this worktree:
@@ -271,8 +297,8 @@ and the named test had to fail. All of the following bite:
 | Server detail echoed on a 429 | frontend `chat-errors` (3 fail) |
 | App stops reading `os.environ` for the gate | `test_the_environment_variable_actually_reaches_the_app` |
 | The `ExecStart` continuation backslash is lost | `test_the_unit_parses_the_way_systemd_reads_it` |
-| Backwards clock strands the timestamp | `test_a_clock_that_goes_backwards_does_not_lock_an_address_out` |
-| The zero guard is removed | `test_a_limiter_cannot_be_configured_into_dividing_by_zero` |
+| Resync `at` on a backwards step (reopens the oscillation hole) | `test_a_clock_that_oscillates_cannot_manufacture_tokens`, `test_the_budget_resumes_once_the_clock_passes_where_it_had_been` |
+| The constructor's guard is removed, for any of `per_minute`, `burst`, `max_keys` | `test_a_limiter_cannot_be_configured_into_a_hole` |
 
 **Two vacuous tests were found this way and fixed**, which is the reason the
 exercise is run at all:
