@@ -42,6 +42,8 @@ from .errors import ImportRefused
 from .labels import candidate_detail, candidate_label
 from .payee import payee_key
 from .project import project
+from app.solver.dates import money
+
 from .residual import (
     ASSUMED_DESCRIPTION,
     ASSUMED_PREFIX,
@@ -236,15 +238,33 @@ def import_account(req: ImportRequest, today: datetime.date) -> dict:
                 "detail": candidate_detail(candidate.action, category, candidate.freed_cents),
             }
         )
-    # Relabelling can collide where the brand used to separate two rows of the
-    # same category. Ids stay unique; the words get a date so the list reads.
-    seen: dict[str, int] = {}
-    for item in candidates:
-        seen[item["label"]] = seen.get(item["label"], 0) + 1
-    repeats = {label for label, n in seen.items() if n > 1}
-    for item in candidates:
-        if item["label"] in repeats:
-            item["label"] = f"{item['label']} on {item['effective_date'][5:]}"
+    # Relabelling can collide where the brand used to separate two rows of
+    # the same category. Two streaming subscriptions billed on one day would
+    # otherwise both read "Cancel the streaming subscription on 10-15", and
+    # their checkboxes would have identical accessible names. Disambiguate by
+    # date, then by amount, then by a stable ordinal — brand-free at every
+    # step, and deterministic because the ids are sorted first.
+    def _disambiguate(items: list[dict]) -> None:
+        for key in ("date", "amount", "ordinal"):
+            counts: dict[str, int] = {}
+            for item in items:
+                counts[item["label"]] = counts.get(item["label"], 0) + 1
+            repeats = {label for label, n in counts.items() if n > 1}
+            if not repeats:
+                return
+            ordinals: dict[str, int] = {}
+            for item in sorted(items, key=lambda c: (c["effective_date"], c["id"])):
+                if item["label"] not in repeats:
+                    continue
+                if key == "date":
+                    item["label"] = f"{item['label']} on {item['effective_date'][5:]}"
+                elif key == "amount":
+                    item["label"] = f"{item['label']} ({money(item['freed_cents'])})"
+                else:
+                    ordinals[item["label"]] = ordinals.get(item["label"], 0) + 1
+                    item["label"] = f"{item['label']} #{ordinals[item['label']]}"
+
+    _disambiguate(candidates)
 
     upcoming = sorted(d for d in income_dates if d[0] >= as_of)
     next_payday, pay_cadence = upcoming[0] if upcoming else (None, None)

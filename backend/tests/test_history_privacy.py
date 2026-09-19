@@ -227,3 +227,33 @@ def test_candidate_sentences_are_grammatical_for_plural_categories():
             sentence = f"{candidate_label(action, category)}. {candidate_detail(action, category, 1234)}"
             assert " this " not in sentence, sentence
             assert sentence.endswith(".")
+
+
+def test_two_subscriptions_of_one_category_get_distinguishable_labels(client):
+    # The brand used to do this work. Without it, two streaming
+    # subscriptions billed on the same day read identically, and their
+    # "Can't do this" checkboxes get identical accessible names.
+    rows = H.monthly_bill(datetime.date(2026, 1, 15), 9, 15, -1599, "NETFLIX.COM", weekend_shift=False)
+    rows += H.monthly_bill(datetime.date(2026, 1, 15), 9, 15, -2299, "HULU.COM", weekend_shift=False)
+    rows += H.everyday_spending(datetime.date(2026, 6, 1), datetime.date(2026, 9, 18))
+    out = imported(client, rows=rows)
+    labels = [c["label"] for c in out["candidates"]]
+    assert len(labels) == len(set(labels)), labels
+    streaming = [label for label in labels if "streaming" in label]
+    assert len(streaming) == 2, labels
+    blob = json.dumps(out).upper()
+    for brand in ("NETFLIX", "HULU"):
+        assert brand not in blob
+
+
+def test_labels_stay_unique_when_date_and_amount_both_collide(client):
+    # Same category, same day, same amount: only an ordinal can separate
+    # them, and it has to be stable.
+    rows = H.monthly_bill(datetime.date(2026, 1, 15), 9, 15, -1599, "NETFLIX.COM", weekend_shift=False)
+    rows += H.monthly_bill(datetime.date(2026, 1, 15), 9, 15, -1599, "HULU.COM", weekend_shift=False)
+    rows += H.everyday_spending(datetime.date(2026, 6, 1), datetime.date(2026, 9, 18))
+    first = imported(client, rows=rows)
+    labels = [c["label"] for c in first["candidates"]]
+    assert len(labels) == len(set(labels)), labels
+    second = imported(client, rows=rows)
+    assert [c["label"] for c in second["candidates"]] == labels, "the ordinal must be stable"

@@ -2,28 +2,19 @@
 
 | Dimension | Grade | Notes |
 |-----------|-------|-------|
-| Plan adherence | **Fail** | Active monthly rent can disappear from the schedule, violating D4/A3. |
-| Scope discipline | Excellent | Changes stay within import, integration, and verification scope. |
-| Test coverage | **Fail** | Missing late-posting regression case; A10 screenshot absent. |
-| Review compliance | Acceptable | Referenced Codex findings have corresponding implementation changes and tests. |
-| Freeze integrity | Acceptable | Skipped: no P1/P2/P3 hashes present. |
-| Regression check | Acceptable | 2281 backend tests passed; four environmental errors. Frontend: 305 passed. |
-| Documentation | Acceptable | Declared documentation updated; demo-script omission explicitly justified. |
-| **Overall** | **Fail** | Projection defect can produce a false sufficient verdict. |
+| Plan adherence | Acceptable | Main behavior implemented; deviations are explained. |
+| Scope discipline | Excellent | Changes stay within the import feature and supporting integration. |
+| Test coverage | Acceptable | Automated coverage passes where runnable; screenshot evidence is missing. |
+| Review compliance | Fail | Review finding 7’s label-uniqueness requirement remains unresolved. |
+| Freeze integrity | Acceptable | Skipped: no P1/P2/P3 freeze hashes present. |
+| Regression check | Acceptable | No assertion failures; four backend tests blocked by sandbox permissions. |
+| Documentation | Excellent | Declared documentation covers the changed behavior; demo omission is explained. |
+| **Overall** | **Fail** | **Candidate labels still collide after sanitization.** |
 
 ### Commentary
 
-1. **Plan adherence / Test coverage — causes Fail.** [project.py:140](/Users/nathanstough/Desktop/vthacks-history-import/backend/app/history/project.py:140) treats any payment between the previous expected occurrence and the upcoming occurrence as settling the upcoming bill. A late payment for the previous month therefore suppresses the next month’s bill.
+1. **Review compliance — causes Fail.** [Import candidate relabeling](/Users/nathanstough/Desktop/vthacks-history-import/backend/app/history/__init__.py:239) only appends the date to duplicate labels. Two subscriptions in the same category on the same date remain indistinguishable by label. Reproduced with monthly Netflix ($15.99) and Hulu ($22.99) transactions: both candidates become **“Cancel the streaming subscription on 10-15.”** Review finding 7 explicitly requires preserving uniqueness. This also produces identical accessible names for their “Can’t do this” checkboxes. Add deterministic, brand-free disambiguation using amount and then an ordinal, with tests for same-date and same-amount collisions.
 
-   Reproduced through the real import and solve endpoints using $1,000 rent posted on January 1, February 2, March 2, April 1, May 1, June 1, July 1, and August 3, 2026, plus three small unrelated transactions ending August 31. With `as_of=2026-08-31`, the detector correctly identifies active monthly rent anchored to the 1st, but returns **no projected rent**. With a $10 opening balance and zero buffer, the solver returns **tier 1**; restoring September 1 rent produces **tier 3**.
+2. **Test coverage — limits grade to Acceptable.** A10 explicitly calls for screenshot-backed browser verification, but the run spec retains only reported DOM assertions. Those assertions document the interactions but do not provide inspectable visual evidence. Retain screenshots from the browser pass, including the provenance panel and offline state.
 
-   Match posted payments to their actual cadence occurrence, allowing posting jitter without assigning last month’s late payment to next month. Add endpoint regression tests for late monthly and weekly bills while preserving early-payment suppression.
-
-2. **Test coverage — causes Fail independently.** A10 explicitly requires a browser screenshot. The run spec states none was retained and substitutes a DOM assertion table. Capture the required browser evidence for the panel, untick/reselect behavior, and offline state.
-
-3. **Regression check — limits grade to Acceptable; not a code failure.** On branch `history-import`, in the supplied worktree, Python **3.14.7** ran:
-   `PYTHONDONTWRITEBYTECODE=1 .venv/bin/pytest backend/ -q --capture=sys -p no:cacheprovider`
-
-   Result: **2281 passed, 10 deselected, four setup errors**. All four errors arose from temporary-directory creation under the read-only sandbox, in existing static-serving and dotenv tests. Collection found 2285 selected tests, **135 above the stated baseline**. No executed existing test failed.
-
-4. **Test coverage — verification limitation, no additional downgrade.** Node **22.17.1** ran `npm run lint` and `npm test`: lint passed and **305 tests passed**, 52 above baseline. Both TypeScript configurations also passed checks with `--noEmit --incremental false`. A fresh production build was not performed under read-only access, so bundle-test success applies to the existing `dist/`, not a newly generated bundle.
+3. **Regression check — limits independent verification to Acceptable; no demonstrated code regression.** Audited branch `history-import`, HEAD `c324f1f`, in the supplied worktree. Python 3.14.7 ran `PYTHONDONTWRITEBYTECODE=1 .venv/bin/pytest backend/ -q -s -p no:cacheprovider`: **2,284 passed, 10 deselected, four setup errors**. All four errors require temporary files prohibited by this read-only sandbox. Node 22.17.1 ran frontend lint and tests: **305 passed**, lint clean. Both TypeScript projects passed read-only type checking. A fresh Vite build could not be independently verified under these permissions; the frontend bundle tests used existing build artifacts.
