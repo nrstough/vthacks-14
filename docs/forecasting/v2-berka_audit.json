@@ -1,6 +1,7 @@
 {
   "blocking_items": [],
   "content_duplicate_policy": "Identical numeric histories alone do not prove record leakage (especially all-zero histories). Report content overlap separately from group/origin keys.",
+  "documentation_copy_note": "Aggregate-only documentation copy; account-origin examples remain in the local audit. The manifest audit_sha256 identifies the original full local audit, not this redacted documentation copy.",
   "eligibility": {
     "test": {
       "candidate_windows": 15000,
@@ -165,28 +166,6 @@
     "test": {
       "accounts": 625,
       "all_zero_histories": 208,
-      "all_zero_history_examples": [
-        "118@1998-01-01",
-        "118@1998-01-16",
-        "118@1998-01-31",
-        "118@1998-02-15",
-        "134@1998-02-15",
-        "134@1998-03-02",
-        "140@1998-01-01",
-        "140@1998-01-16",
-        "140@1998-06-15",
-        "140@1998-09-13",
-        "178@1998-01-01",
-        "178@1998-01-16",
-        "308@1998-01-01",
-        "308@1998-03-02",
-        "308@1998-03-17",
-        "308@1998-04-01",
-        "308@1998-05-31",
-        "308@1998-06-15",
-        "308@1998-06-30",
-        "308@1998-07-15"
-      ],
       "constant_histories": 208,
       "context_start_min": "1997-11-06",
       "daily_target_zero_fraction_range": [
@@ -488,28 +467,6 @@
     "train": {
       "accounts": 2327,
       "all_zero_histories": 5003,
-      "all_zero_history_examples": [
-        "1@1995-05-31",
-        "1@1995-06-15",
-        "4@1996-04-30",
-        "4@1996-05-15",
-        "4@1996-05-30",
-        "4@1996-06-14",
-        "4@1996-06-29",
-        "6@1994-11-27",
-        "6@1994-12-12",
-        "6@1995-01-01",
-        "6@1995-01-16",
-        "6@1995-01-31",
-        "11@1995-12-12",
-        "11@1996-01-01",
-        "11@1996-01-16",
-        "11@1996-01-31",
-        "15@1993-11-27",
-        "18@1993-07-30",
-        "18@1993-08-14",
-        "18@1993-08-29"
-      ],
       "constant_histories": 5003,
       "context_start_min": "1993-01-05",
       "daily_target_zero_fraction_range": [
@@ -811,28 +768,6 @@
     "validation": {
       "accounts": 688,
       "all_zero_histories": 439,
-      "all_zero_history_examples": [
-        "12@1997-06-15",
-        "12@1997-06-30",
-        "103@1997-01-31",
-        "129@1997-11-27",
-        "129@1997-12-12",
-        "157@1997-05-31",
-        "157@1997-06-15",
-        "157@1997-06-30",
-        "157@1997-07-15",
-        "164@1997-01-01",
-        "166@1997-01-01",
-        "189@1997-06-15",
-        "241@1997-01-01",
-        "241@1997-01-16",
-        "258@1997-09-13",
-        "258@1997-09-28",
-        "258@1997-10-13",
-        "258@1997-10-28",
-        "258@1997-11-12",
-        "406@1997-01-01"
-      ],
       "constant_histories": 439,
       "context_start_min": "1996-11-06",
       "daily_target_zero_fraction_range": [

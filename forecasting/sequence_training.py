@@ -271,6 +271,9 @@ def fit_model(kind: str, train_history: np.ndarray, train_y: np.ndarray,
                       "validation_14day_mae": score,
                       "elapsed_seconds": time.monotonic() - started}
             records.append(record)
+            if epoch == 1 or epoch % 5 == 0 or not complete:
+                print(f"kind={kind} seed={seed} epoch={epoch} updates={updates} "
+                      f"validation_14day_mae={score:.4f} elapsed={record['elapsed_seconds']:.1f}s", flush=True)
             if score < best_score:
                 best_score, best_epoch, best_update, bad = score, epoch, updates, 0
                 checkpoint = _state_copy(model)
@@ -365,6 +368,9 @@ def pretrain_ssl(train_history: np.ndarray, train_origins: np.ndarray,
             records.append({"epoch": epoch, "completed": complete, "updates": updates,
                             "masked_normalized_mse": epoch_loss / epoch_examples,
                             "elapsed_seconds": time.monotonic() - started})
+            print(f"ssl seed={seed} epoch={epoch} updates={updates} "
+                  f"masked_mse={epoch_loss / epoch_examples:.4f} "
+                  f"elapsed={time.monotonic() - started:.1f}s", flush=True)
         if stop_reason in ("time_cap", "max_updates"):
             break
     if not updates:
