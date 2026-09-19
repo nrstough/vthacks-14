@@ -68,17 +68,35 @@ function plural(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`
 }
 
-// Reported in a fixed order so the sentence reads the same way every time, and
-// counted by reason because "3 rows changed" would be false when one was
-// dropped, one was undated and one was moved.
-const REASON_TEXT: [NotRoundTrippedReason, string, string][] = [
-  ['written but not returned', 'row not returned', 'rows not returned'],
-  ['amount changed by the sandbox', 'amount changed by the sandbox', 'amounts changed by the sandbox'],
-  ['no usable date', 'row without a date', 'rows without a date'],
-  ['outside the window', 'row outside the window', 'rows outside the window'],
-]
-
 type NotRoundTrippedReason = NessieAccountResponse['not_round_tripped'][number]['reason']
+
+// A Record, not a list of pairs: the compiler then refuses a reason the server
+// can send and this file has no words for. A missing one used to be dropped
+// from the sentence in silence, which is the failure this whole field exists
+// to prevent.
+export const REASON_TEXT: Record<NotRoundTrippedReason, [string, string]> = {
+  'written but not returned': ['row not returned', 'rows not returned'],
+  'amount changed by the sandbox': [
+    'amount changed by the sandbox',
+    'amounts changed by the sandbox',
+  ],
+  'no usable date': ['row without a date', 'rows without a date'],
+  'outside the window': ['row outside the window', 'rows outside the window'],
+  'amount rounds to zero dollars': [
+    'amount too small for the sandbox to hold',
+    'amounts too small for the sandbox to hold',
+  ],
+}
+
+// Fixed, so the sentence reads the same way every time. A test pins that this
+// covers every key above.
+export const REASON_ORDER: NotRoundTrippedReason[] = [
+  'written but not returned',
+  'amount changed by the sandbox',
+  'amount rounds to zero dollars',
+  'no usable date',
+  'outside the window',
+]
 
 export function provenanceLine(account: LoadedAccount | null, base: SolveRequest): string {
   const window = `${shortDate(base.as_of)} to ${shortDate(base.horizon_end)}`
@@ -91,9 +109,11 @@ export function provenanceLine(account: LoadedAccount | null, base: SolveRequest
       ? `${where} account ${account.nessie.account_id.slice(-6)}, ${plural(account.scheduled.length, 'row', 'rows')}`
       : `${where}, ${account.returned} of ${account.written} rows read back`
 
-  const clauses = REASON_TEXT.map(([reason, one, many]) => {
+  const clauses = REASON_ORDER.map((reason) => {
     const n = account.not_round_tripped.filter((p) => p.reason === reason).length
-    return n === 0 ? null : `${n} ${n === 1 ? one : many}`
+    if (n === 0) return null
+    const [one, many] = REASON_TEXT[reason]
+    return `${n} ${n === 1 ? one : many}`
   }).filter((c): c is string => c !== null)
 
   return [head, ...clauses].join(', ') + `, ${window}.`

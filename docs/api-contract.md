@@ -323,8 +323,9 @@ Nessie's `balance`, so reading it would report an input as though it were a
 result.
 
 `not_round_tripped` reasons, one per row, in this precedence: `no usable date`,
-`outside the window`, `written but not returned`, `amount changed by the
-sandbox`. The first two are dropped from `scheduled`; the last keeps the
+`outside the window`, `written but not returned`, `amount rounds to zero
+dollars` (under fifty cents, so rounding left nothing to write), `amount
+changed by the sandbox`. The first two are dropped from `scheduled`; the last keeps the
 sandbox's value, because that is what the sandbox holds.
 
 **Errors.** `503` when no key is configured, when the sandbox returns nothing,

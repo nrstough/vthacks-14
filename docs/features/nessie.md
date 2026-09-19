@@ -124,6 +124,7 @@ what it dropped.
 | `amount changed by the sandbox` | Returned with a different amount. The sandbox's value is kept, because that is what it holds. |
 | `no usable date` | No date, or one that fails the schema. Dropped, because an empty date 422s the next request. |
 | `outside the window` | Returned dated outside `[as_of, horizon_end]`. Dropped, because the generator and both solvers drop it silently, and silence is what makes a short plan look like a wrong one. |
+| `amount rounds to zero dollars` | Under fifty cents, so rounding left nothing to write. Read-back equality cannot see this one: zero was sent and zero came back, so the row looks faithful while its whole value is gone. |
 
 One reason per row, in that precedence, so nothing is counted twice. The
 provenance line counts them separately: "3 rows changed" would be false when one

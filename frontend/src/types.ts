@@ -154,6 +154,7 @@ export interface NotRoundTripped {
     | 'amount changed by the sandbox'
     | 'no usable date'
     | 'outside the window'
+    | 'amount rounds to zero dollars'
 }
 
 export interface NessieProvenance {
