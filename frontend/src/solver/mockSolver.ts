@@ -176,7 +176,9 @@ function hasDuplicateTarget(chosen: Candidate[]): boolean {
 
 /* ---------- solve ---------- */
 
-export function solve(req: SolveRequest, previousPlan: string[] = []): SolveResponse {
+export function solve(req: SolveRequest, previousPlanArg: string[] = []): SolveResponse {
+  // The request field wins when present; the argument stays for local callers.
+  const previousPlan = req.previous_plan ?? previousPlanArg
   const started = performance.now()
   const days = dayRange(req.as_of, req.horizon_end)
   if (days.length === 0) {
@@ -282,10 +284,14 @@ export function solve(req: SolveRequest, previousPlan: string[] = []): SolveResp
   }
 
   /* plan rows, ordered by the day the user has to act */
-  const byDate = (a: Candidate, b: Candidate) => a.effective_date.localeCompare(b.effective_date)
-  const plan: PlanItem[] = best
-    .slice()
-    .sort(byDate)
+  // Sort by the day you must act, then by id, so the order never depends on
+  // the order candidates happened to arrive in.
+  const byDate = (a: Candidate, b: Candidate) =>
+    a.effective_date === b.effective_date
+      ? a.id.localeCompare(b.id)
+      : a.effective_date.localeCompare(b.effective_date)
+  const planOrder = best.slice().sort(byDate)
+  const plan: PlanItem[] = planOrder
     .map((c) => {
       const cert = perItem.find((p) => p.candidate_id === c.id)
       const needed = cert ? loadBearing(cert) : false
@@ -371,15 +377,30 @@ export function solve(req: SolveRequest, previousPlan: string[] = []): SolveResp
     baseline_cents: baseline.balances[i],
     with_plan_cents: bestTrace.balances[i],
     is_payday: paydays.has(date),
-    changes_here: changesByDay.get(date) ?? [],
+    changes_here: (changesByDay.get(date) ?? []).slice().sort(),
   }))
+
+  // Pinned changes that could not be honoured: past their lead time, or a
+  // second change on a transaction another pinned change already covers.
+  const excludedLockedIn = req.candidates
+    .filter((c) => lockedIn.has(c.id) && !forced.some((f) => f.id === c.id))
+    .map((c) => c.id)
+    .sort()
 
   return {
     tier,
     verdict,
     qualifier,
     plan,
-    certificate: { irredundant, sentence, per_item: perItem },
+    certificate: {
+      irredundant,
+      // Exhaustive search always proves it; a time-limited solver may not.
+      minimal_proven: true,
+      sentence,
+      per_item: planOrder
+        .map((c) => perItem.find((p) => p.candidate_id === c.id)!)
+        .filter(Boolean),
+    },
     shortfall: {
       worst_cents: bestTrace.worstShortfall,
       worst_date: bestTrace.worstShortfallDate,
@@ -400,6 +421,7 @@ export function solve(req: SolveRequest, previousPlan: string[] = []): SolveResp
       status: 'OPTIMAL',
       wall_ms: Math.round((performance.now() - started) * 10) / 10,
       candidates_considered: actionable.length,
+      excluded_locked_in: excludedLockedIn,
     },
   }
 }

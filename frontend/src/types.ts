@@ -38,6 +38,7 @@ export interface SolveRequest {
   scheduled: ScheduledTxn[]
   candidates: Candidate[]
   locks: Locks
+  previous_plan?: string[] // plan the user was last shown; the server keeps no state
 }
 
 export interface PlanItem {
@@ -62,6 +63,7 @@ export interface CertificateItem {
 
 export interface Certificate {
   irredundant: boolean
+  minimal_proven: boolean // false when a solver stage hit its time limit
   sentence: string
   per_item: CertificateItem[]
 }
@@ -89,8 +91,9 @@ export interface SolveResponse {
   balances: BalanceRow[]
   meta: {
     solver: string
-    status: string
+    status: 'OPTIMAL' | 'FEASIBLE'
     wall_ms: number
     candidates_considered: number
+    excluded_locked_in: string[] // pinned ids dropped because they are no longer actionable
   }
 }

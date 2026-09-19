@@ -44,8 +44,9 @@ export default function App() {
     }))
   }
 
-  function preset(cents: number) {
+  function preset(cents: number, cushion: number) {
     setOpening(cents)
+    setBuffer(cushion)
     setLocks(NO_LOCKS)
     previousPlan.current = []
   }
@@ -85,8 +86,13 @@ export default function App() {
               <button
                 key={s.key}
                 type="button"
-                aria-pressed={s.request.opening_balance_cents === opening}
-                onClick={() => preset(s.request.opening_balance_cents)}
+                title={`${money(s.request.opening_balance_cents)} to start, ${money(
+                  s.request.buffer_cents,
+                )} cushion`}
+                aria-pressed={
+                  s.request.opening_balance_cents === opening && s.request.buffer_cents === buffer
+                }
+                onClick={() => preset(s.request.opening_balance_cents, s.request.buffer_cents)}
               >
                 {money(s.request.opening_balance_cents)}
               </button>

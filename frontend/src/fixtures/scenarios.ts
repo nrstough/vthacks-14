@@ -48,7 +48,13 @@ export interface Scenario {
   request: SolveRequest
 }
 
-function account(key: string, name: string, blurb: string, opening: number): Scenario {
+function account(
+  key: string,
+  name: string,
+  blurb: string,
+  opening: number,
+  buffer: number = BUFFER,
+): Scenario {
   return {
     key,
     name,
@@ -57,7 +63,7 @@ function account(key: string, name: string, blurb: string, opening: number): Sce
       as_of: AS_OF,
       horizon_end: HORIZON_END,
       opening_balance_cents: opening,
-      buffer_cents: BUFFER,
+      buffer_cents: buffer,
       scheduled,
       candidates,
       locks: { in: [], out: [] },
@@ -65,8 +71,12 @@ function account(key: string, name: string, blurb: string, opening: number): Sce
   }
 }
 
+// Each preset carries a cushion as well as a balance, because the tier depends
+// on both. The tight case used to be a $95 balance needing eight of the eleven
+// changes, which is a poor thing to put in front of a judge. A $180 balance
+// against a $100 cushion reaches the same tier in three.
 export const SCENARIOS: Scenario[] = [
   account('clears', 'Checking, $200.00', 'A dip before payday that a short plan covers.', 20000),
-  account('tight', 'Checking, $95.00', 'Clears zero, but the cushion is gone.', 9500),
+  account('tight', 'Checking, $180.00', 'Clears zero, but the cushion is gone.', 18000, 10000),
   account('gap', 'Checking, $60.00', 'No combination of changes closes the gap.', 6000),
 ]
