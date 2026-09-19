@@ -343,3 +343,45 @@ class CandidatesMeta(Strict):
 class CandidatesResponse(Strict):
     candidates: list[Candidate] = Field(max_length=MAX_N)
     meta: CandidatesMeta
+
+
+# ---- modelled accounts ----
+
+
+class SampleAccountRequest(Strict):
+    """What POST /api/accounts/sample needs.
+
+    `seed` is optional and echoed back on the response, so any account a person
+    sees on screen can be regenerated exactly from the response alone. That is
+    the difference between a demo and a party trick.
+
+    `horizon_days` is bounded well inside MAX_T. The upper end is held at 45
+    rather than the schema's ceiling because candidate count grows with the
+    window and the exhaustive engine is 2^n above nothing.
+    """
+
+    seed: Annotated[StrictInt, Field(ge=0, le=2**31)] | None = None
+    as_of: StrictStr | None = None
+    horizon_days: Annotated[StrictInt, Field(ge=14, le=45)] = 30
+
+    @field_validator("as_of")
+    @classmethod
+    def _as_of(cls, v: str | None) -> str | None:
+        return None if v is None else iso(v, "as_of")
+
+
+class SampleAccountResponse(Strict):
+    """A modelled account, shaped so it can be posted straight to the other two
+    endpoints without translation.
+
+    `source` is required and always the literal "modelled". It is not decoration:
+    this is generated data and nothing downstream may present it as a bank's.
+    """
+
+    seed: StrictInt
+    as_of: StrictStr
+    horizon_end: StrictStr
+    opening_balance_cents: Cents
+    buffer_cents: NonNegCents
+    scheduled: list[ScheduledTxn] = Field(max_length=MAX_SCHED)
+    source: Literal["modelled"]

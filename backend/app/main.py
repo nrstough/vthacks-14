@@ -8,6 +8,7 @@ there is no store of anyone's transactions to breach.
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 from typing import Literal
@@ -17,12 +18,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.accounts.product import sample_account
 from app.candidates import generate
 from app.chat import ChatUnavailable, ChatUpstreamError, chat, status as chat_status
 from app.chat.schemas import ChatRequest, ChatResponse, ChatStatus
 from app.schemas import (
     CandidatesRequest,
     CandidatesResponse,
+    SampleAccountRequest,
+    SampleAccountResponse,
     SolveRequest,
     SolveResponse,
 )
@@ -86,9 +90,20 @@ def create_app(dist_dir: Path | None = DEFAULT_DIST) -> FastAPI:
     ) -> ChatResponse:
         return chat(req, source=source)
 
+    @app.post("/api/accounts/sample", response_model=SampleAccountResponse)
+    def api_sample_account(req: SampleAccountRequest) -> SampleAccountResponse:
+        return SampleAccountResponse.model_validate(
+            sample_account(
+                seed=req.seed,
+                as_of=date.fromisoformat(req.as_of) if req.as_of else None,
+                horizon_days=req.horizon_days,
+            )
+        )
+
     # Mounted last. A mount at "/" registered first would shadow every route
     # above it, and the API would answer 404 for /health and 405 for the two
-    # /api routes.
+    # /api routes. The sample-account route above is inside the same window; a
+    # route added below this mount is silently shadowed and answers 405.
     if dist_dir is not None and dist_dir.is_dir():
         app.mount("/", StaticFiles(directory=dist_dir, html=True), name="frontend")
 
