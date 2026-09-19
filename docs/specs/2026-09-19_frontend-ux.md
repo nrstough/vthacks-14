@@ -603,3 +603,37 @@ debounce; and a balance drag landing between two responses.
 | `npm test` | **87 passed, 0 failed** |
 | `.venv/bin/pytest backend/ -q -m "not perf"` | **977 passed**, 6 deselected |
 | oracle / types / contract / backend diff vs `main` | empty |
+
+## Codex audit, fifth pass (~04:30) — **Acceptable**
+
+Plan adherence, Scope discipline, Review compliance and Freeze integrity all **Excellent**;
+Test coverage, Regression check and Documentation Acceptable. Verdict: "No substantive
+implementation defect identified."
+
+One documentation nit, fixed: the feature doc's empty-plan table gave the proven tier-3 wording
+without marking it proven-only or listing the softened alternative, although both are
+implemented and tested. The table now has a row for each and states the rule.
+
+The other two notes are the standing verification limits, both already disclosed in this record
+and neither an implementation defect:
+
+- **AC12's keyboard integration.** The focus rules are pure functions with 17 tests, but the
+  wiring between them and React's focus events is not exercised, because no DOM test runner can
+  be installed on this connection and the verification pane reports `document.hasFocus()` false,
+  so synthetic keys produce no default action and focus events never fire. Established by
+  measurement: an arrow key on a native range input does nothing there either. Every focus rule
+  was instead driven through the live app by activating controls directly, seven sequences, all
+  recorded above with their outcomes.
+- **The backend count.** The audit sandbox is read-only and one API test needs a writable
+  temporary directory, so it measures 976 passed and 1 setup error every round. Run normally in
+  this worktree it is 977 passed, reproduced after every commit.
+
+## Close
+
+Five Codex rounds and three Claude critique rounds. Eleven defects found and fixed, six of them
+user-visible: a false act-by date, a plan described as one change when it was two, a page saying
+no changes were needed while naming the money needed, a wording that claimed changes were gone
+while their rows were on screen, reasons computed against an answer that never saw the user's
+override, and a forbidden-word gate that could not read the bundle in the real checkout. Final
+state: **87 frontend tests, 977 backend tests**, lint and build clean, the parity oracle and the
+API contract byte-identical to `main`.

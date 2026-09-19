@@ -94,11 +94,16 @@ the tier and on how many changes were on the table:
 |---|---|---|
 | Tier 1 or 2 | No changes needed | Nothing to change. The schedule already clears on its own. |
 | Tier 3, nothing considered | No changes available | Everything is ruled out or too late to act. The gap stays. |
-| Tier 3, changes still on the table | No change helps here | None of the changes still on the table would leave you fewer days below zero. |
+| Tier 3, changes still on the table, minimality proven | No change helps here | None of the changes still on the table would leave you fewer days below zero. |
+| Tier 3, changes still on the table, unproven | No change was found to help | Nothing on the table helped in the time the solver had. |
 
 Saying "no changes needed" at tier 3 would flatly contradict the verdict band above it, which is
 naming money the user has to find by a date. Rule out all eleven changes on the $200 account:
 tier 3, empty plan, $120.05 needed by Sep 24.
+
+The last two rows follow the same proof rule as everything else on the screen: "would not leave
+you fewer days below zero" is a claim about an optimal solve, so an unproven one gets the softer
+sentence instead.
 
 Saying "everything is ruled out or too late" when changes remain is equally false, and the user
 can see the rows. Rule out all but Netflix on the same account: it is actionable, it just takes
