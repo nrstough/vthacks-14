@@ -1,0 +1,34 @@
+# HTTPS in front of the one uvicorn process. Caddy gets a certificate on its
+# own the first time it starts with a real domain, so nothing here holds a key.
+#
+# deploy.sh substitutes __DOMAIN__ when DOMAIN is set. Left as-is, the site
+# answers on the box's IP over plain HTTP, which is fine for a first smoke test
+# and not fine for anything shown to a judge — a domain costs fifteen minutes
+# and is its own MLH entry.
+
+__DOMAIN__ {
+	encode gzip
+
+	header {
+		# The app loads nothing from anywhere else: no CDN, no font host, no
+		# analytics. `connect-src 'self'` is the load-bearing one — it means a
+		# script that somehow got onto the page still cannot post a
+		# transaction list off the box.
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+
+		# 'unsafe-inline' above is for styles only, and only because React and
+		# Recharts set element style attributes at runtime. Scripts get no such
+		# exemption, which is the half that matters.
+
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		X-Frame-Options "DENY"
+
+		-Server
+	}
+
+	# One origin for the API and the bundle, exactly as in development, so the
+	# client's relative /api/solve needs no build-time switch.
+	reverse_proxy 127.0.0.1:8000
+}

@@ -36,3 +36,11 @@ test('the built bundle still discloses the offline fallback', () => {
   const found = bundles().some((code) => code.includes('Running on the built-in solver'))
   assert.ok(found, 'the fallback chip text is missing from the bundle')
 })
+
+// The boundary is the only thing standing between a render throw and an empty
+// page. Tree-shaking or a dropped import in main.tsx would remove it silently,
+// and nothing else in the suite renders React, so this grep is the guard.
+test('the built bundle still carries the crash fallback', () => {
+  const found = bundles().some((code) => code.includes('This page stopped working'))
+  assert.ok(found, 'the error boundary fallback text is missing from the bundle')
+})

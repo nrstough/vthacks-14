@@ -548,3 +548,52 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 .chat-form button:disabled { opacity: 0.45; cursor: default; }
 
 .chat-note { margin: var(--s1) 0 0; font-size: 12px; color: var(--ink-3); }
+
+/* ---------- crash ---------- */
+
+/* Only ever seen when the tree threw. Plain on purpose: this is the one screen
+   that must not depend on anything the app computed. */
+.crash {
+  max-width: 520px;
+  margin: var(--s5) auto;
+  padding: var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.crash h1 {
+  margin: 0 0 var(--s1);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.crash p { margin: 0 0 var(--s2); color: var(--ink-2); font-size: 15px; }
+
+.crash button {
+  padding: 10px 16px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  background: var(--accent);
+  border: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.crash button:hover { background: var(--accent-ink); }
+
+.crash details { margin-top: var(--s3); font-size: 13px; color: var(--ink-3); }
+.crash summary { cursor: pointer; }
+
+.crash-detail {
+  margin: var(--s1) 0 0;
+  padding: var(--s1);
+  font-size: 12px;
+  color: var(--ink-2);
+  background: var(--panel-2);
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+}
