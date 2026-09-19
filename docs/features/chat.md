@@ -45,7 +45,7 @@ conversation and the plan live.
 | 502 | Gemini was called and failed (quota, timeout, safety block, unreachable). `detail` carries the reason. |
 | 503 | No key on the server. The panel shows "Explainer off". The solver is unaffected. |
 
-`source` is what the client's footer chip says: `local` when the numbers came
+`source` is what the client's nav chip says: `local` when the numbers came
 from the built-in fallback solver. The instruction tells the model, so it can
 say where the numbers came from if asked.
 
