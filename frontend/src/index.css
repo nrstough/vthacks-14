@@ -597,3 +597,173 @@ details.considered[open] summary { margin-bottom: var(--s1); }
   border-radius: 6px;
   overflow-wrap: anywhere;
 }
+
+/* ---------- tabs and the demo wallet ---------- */
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.75rem;
+}
+
+.tabs button {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8125rem;
+  padding: 0.3rem 0.85rem;
+}
+
+.tabs button.on {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+
+.tabs button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.wallet-head {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+/* Always visible, never subtle: a test token must not read as real money. */
+.wallet-chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-dim);
+  font-size: 0.8125rem;
+  padding: 0.2rem 0.7rem;
+}
+
+.wallet-balance {
+  font-size: 1.5rem;
+}
+
+.wallet-note {
+  color: var(--ink-dim);
+  font-size: 0.875rem;
+  margin: 0.75rem 0 1.25rem;
+  max-width: 60ch;
+}
+
+.wallet-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+}
+
+.wallet-panel {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.wallet-panel h2 {
+  font-size: 0.8125rem;
+  letter-spacing: 0.04em;
+  margin: 0 0 0.75rem;
+  text-transform: uppercase;
+}
+
+.wallet-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.wallet-rows li {
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: 6.5rem 1fr auto;
+  padding: 0.5rem 0;
+}
+
+.wallet-rows li:last-child {
+  border-bottom: 0;
+}
+
+.wallet-date {
+  color: var(--ink-dim);
+  font-size: 0.8125rem;
+}
+
+.wallet-rows li.in .wallet-amt {
+  color: var(--good);
+}
+
+.wallet-reserve {
+  color: var(--ink-dim);
+  font-size: 0.8125rem;
+  margin: 0.75rem 0 0;
+}
+
+.wallet-input {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.25rem;
+  padding: 0.4rem 0.6rem;
+  width: 100%;
+}
+
+.wallet-verdict {
+  border-left: 3px solid var(--line);
+  font-size: 0.9375rem;
+  margin: 1rem 0;
+  padding-left: 0.75rem;
+}
+
+/* The two verdicts must not look alike: only one of them can enable Sign. */
+.wallet-verdict.affordable { border-left-color: var(--good); }
+.wallet-verdict.conditional,
+.wallet-verdict.never_clears { border-left-color: var(--warn); }
+
+.wallet-sign {
+  background: var(--ink);
+  border: 0;
+  border-radius: 6px;
+  color: var(--bg);
+  cursor: pointer;
+  font: inherit;
+  padding: 0.5rem 1rem;
+}
+
+.wallet-sign:disabled {
+  background: var(--line);
+  color: var(--ink-dim);
+  cursor: not-allowed;
+}
+
+.wallet-why {
+  color: var(--ink-dim);
+  font-size: 0.8125rem;
+  margin: 0.5rem 0 0;
+}
+
+.wallet-loading {
+  color: var(--ink-dim);
+  padding: 2rem 0;
+}
+
+.wallet-down {
+  border: 1px solid var(--warn);
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.wallet-down h2 {
+  margin-top: 0;
+}
