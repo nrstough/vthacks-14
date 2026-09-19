@@ -27,8 +27,8 @@ def one(dicts, history_end=END):
     return streams[0]
 
 
-def dates(stream, as_of=AS_OF, days=30, posted=frozenset()):
-    projected, withheld = project(stream, as_of, as_of + datetime.timedelta(days=days - 1), set(posted))
+def dates(stream, as_of=AS_OF, days=30):
+    projected, withheld = project(stream, as_of, as_of + datetime.timedelta(days=days - 1))
     return [d for _id, d, _amount in projected], withheld
 
 
@@ -103,16 +103,33 @@ def test_income_expected_today_is_withheld_and_named():
 
 def test_a_bill_due_today_is_projected_unless_the_export_already_shows_it():
     monday = datetime.date(2026, 9, 21)
-    data = H.monthly_bill(datetime.date(2026, 1, 21), 9, 21, -4500, "ZZQ7K4 HOLDINGS", weekend_shift=False)
+    # Eight months, so the export ends in August and today's charge has not
+    # been taken yet.
+    data = H.monthly_bill(datetime.date(2026, 1, 21), 8, 21, -4500, "ZZQ7K4 HOLDINGS", weekend_shift=False)
     stream = one(data, history_end=monday)
     days, _ = dates(stream, as_of=monday)
     assert monday in days
 
     # Unless the export already carries it: the balance the person typed
     # includes everything posted today, so charging it again is a double count.
-    key = stream.rows[0].key
-    days_posted, _ = dates(stream, as_of=monday, posted={key})
+    already = one(data + [H.row(monday, "ZZQ7K4 HOLDINGS", -4500)], history_end=monday)
+    days_posted, _ = dates(already, as_of=monday)
     assert monday not in days_posted
+
+
+def test_two_subscriptions_at_one_merchant_are_suppressed_independently():
+    # They share a payee key, so a key-based test silently drops the one that
+    # has NOT been taken yet along with the one that has.
+    monday = datetime.date(2026, 9, 21)
+    data = H.monthly_bill(datetime.date(2026, 1, 21), 9, 21, -1599, "NETFLIX.COM", weekend_shift=False)
+    data += H.monthly_bill(datetime.date(2026, 2, 21), 8, 21, -2299, "NETFLIX.COM", weekend_shift=False)
+    streams, _ = detect_streams(rows(data), monday)
+    assert len(streams) == 2, [s.amount_cents for s in streams]
+    for stream in streams:
+        projected, _ = project(stream, monday, monday + datetime.timedelta(days=13))
+        posted_today = any(r.date == monday for r in stream.rows)
+        landed = [d for _i, d, _a in projected]
+        assert (monday in landed) is not posted_today, stream.amount_cents
 
 
 def test_a_semimonthly_stream_lands_twice_a_month():

@@ -81,8 +81,9 @@ export default function ProvenancePanel({
       <p className="prov-assumed">{model.assumedLine}</p>
       {model.truncatedLine && <p className="ctl-note">{model.truncatedLine}</p>}
       <p className="ctl-note">
-        Merchant names stayed in your browser. Unticking a row removes it from the plan and clears any
-        “Can’t do this” choices.
+        Merchant names are used on the server to group these rows and are not stored, not logged and
+        not sent back — the labels above are all that leaves. Unticking a row removes it from the plan
+        and clears any “Can’t do this” choices.
       </p>
     </section>
   )

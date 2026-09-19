@@ -228,7 +228,13 @@ def _fit_semimonthly(dates: list[datetime.date]) -> tuple[int, int] | None:
     counts = Counter(d.day for d in dates)
     if sum(counts[d] for d in first) < MIN_OCCURRENCES or sum(counts[d] for d in second) < MIN_OCCURRENCES:
         return None
-    anchor_a, anchor_b = _mode_day_of_month(first), _mode_day_of_month(second)
+    # The mode over the OCCURRENCES in each cluster, not over the cluster's
+    # distinct days: a stream paid on the 15th thirty times with two strays
+    # on the 16th and 17th has three distinct days, all tied at one apiece,
+    # and the tie-break then anchors it to the 17th.
+    recent = dates[-2 * ANCHOR_WINDOW :]
+    anchor_a = _mode_day_of_month([d.day for d in recent if d.day in set(first)] or list(first))
+    anchor_b = _mode_day_of_month([d.day for d in recent if d.day in set(second)] or list(second))
     separation = _circular_distance(anchor_a, anchor_b)
     if not (SEMIMONTHLY_MIN_SEPARATION <= separation <= SEMIMONTHLY_MAX_SEPARATION):
         return None

@@ -183,18 +183,31 @@ execution: `docs/demo-script.md` (a beat only if the local run is clean).
 
 ## Results
 
-**Gates.** Backend `.venv/bin/pytest backend/ -q`: **2262 passed, 10
+**Gates.** Backend `.venv/bin/pytest backend/ -q`: **2265 passed, 10
 deselected** (2150 before this change). Frontend `npm run lint && npm run
 build && npm test`: lint clean, build clean, **295 passed** (253 before).
 Existing canaries unmoved; the generator golden hash unmoved.
 
 **Browser pass** (frontend 5176 proxying to backend 8002, the configurable
-target added by this change). A 335-row synthetic export imported, planned,
-and rendered: provenance panel with five streams, next payday named, the
-assumption sentence under the verdict, no console errors. Unticking rent took
-the plan from three changes to "Nothing to change"; re-ticking restored all
-three. Done live in the browser; no image was kept, so this paragraph is the
-only record.
+target added by this change). A 335-row synthetic export imported, planned
+and rendered. No image was retained — the pane's screenshots do not reach
+disk — so the evidence is the list of assertions below, each read back out of
+the live DOM and each re-runnable:
+
+| Checked | Result |
+|---|---|
+| file parsed in the browser | "335 transactions read" |
+| provenance panel | five streams, income first, brand-free labels |
+| next payday | "Next pay expected Sep 22, weekly." |
+| assumed line | "about $27.33 a day, the median of the same weekday over your last 8 weeks" |
+| assumption sentence under the verdict | present |
+| untick rent | three changes became "Nothing to change" |
+| re-tick rent | back to three changes, assumed rows intact |
+| console | no errors |
+| privacy line on screen | names server-side grouping, not "stayed in your browser" |
+| import with the endpoint unreachable | "Import needs the server. Presets still work offline." |
+| after that failure | both account buttons re-enabled |
+| preset after that failure | loaded, "Sample checking account" |
 
 **Local run on a real consented export** (`SAFE_TO_SPEND_CSV`, 1,060 rows,
 2024-08-19 to 2026-09-18, 761 days):

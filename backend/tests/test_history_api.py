@@ -383,3 +383,39 @@ def test_out_of_order_rows_are_sorted_and_duplicates_are_kept(client):
     assert out["provenance"]["rows_used"] == len(rows)
     dates = [t["date"] for t in out["scheduled"]]
     assert dates == sorted(dates)
+
+
+def test_a_bill_from_the_next_month_pulled_back_over_a_weekend_is_not_lost(client):
+    # A rent charge anchored to the 1st of NOVEMBER lands on Friday
+    # October 30 and belongs in a window that ends October 31. Generating
+    # only up to the window's own last month drops it, and the person is
+    # shown a fortnight with their rent missing.
+    rows = H.monthly_bill(datetime.date(2025, 11, 1), 11, 1, -100000, "OAKWOOD PROPERTIES")
+    rows += H.everyday_spending(datetime.date(2026, 7, 1), datetime.date(2026, 10, 17))
+    out = imported(client, rows=rows, as_of="2026-10-18", horizon_days=14)
+    assert out["horizon_end"] == "2026-10-31"
+    rent = next(s for s in out["streams"] if s["amount_cents"] == -100000)
+    assert rent["projected_ids"], "the rent must appear in the window"
+    dates = [t["date"] for t in out["scheduled"] if t["id"] in rent["projected_ids"]]
+    assert dates == ["2026-10-30"], dates
+
+
+def test_two_subscriptions_at_one_merchant_do_not_suppress_each_other(client):
+    # They share a payee key. Suppressing today's charge by payee drops the
+    # one that has not been taken along with the one that has.
+    today = datetime.date(2026, 9, 21)
+    # The $15.99 one runs through today; the $22.99 one stopped in August,
+    # so only the first has already been taken.
+    rows = H.monthly_bill(datetime.date(2026, 1, 21), 9, 21, -1599, "NETFLIX.COM", weekend_shift=False)
+    rows += H.monthly_bill(datetime.date(2026, 2, 21), 7, 21, -2299, "NETFLIX.COM", weekend_shift=False)
+    rows += H.everyday_spending(datetime.date(2026, 6, 1), today)
+    out = imported(client, rows=rows, as_of=today.isoformat())
+    streams = {s["amount_cents"]: s for s in out["streams"] if s["amount_cents"] in (-1599, -2299)}
+    assert len(streams) == 2, [s["amount_cents"] for s in out["streams"]]
+    dated = {t["id"]: t["date"] for t in out["scheduled"]}
+    # The $15.99 one posted today and must not be charged again; the $22.99
+    # one last posted in August and is still to come.
+    posted_today = [d for i, d in dated.items() if i in streams[-1599]["projected_ids"] and d == today.isoformat()]
+    still_due = [d for i, d in dated.items() if i in streams[-2299]["projected_ids"] and d == today.isoformat()]
+    assert posted_today == []
+    assert still_due == [today.isoformat()]

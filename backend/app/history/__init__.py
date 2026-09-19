@@ -111,7 +111,6 @@ def import_account(req: ImportRequest, today: datetime.date) -> dict:
     history_days = (history_end - history_start).days + 1
 
     streams, unscheduled = detect_streams(rows, history_end)
-    posted_today = {r.key for r in rows if r.date == as_of}
 
     scheduled: list[dict] = []
     stream_models: list[dict] = []
@@ -130,7 +129,7 @@ def import_account(req: ImportRequest, today: datetime.date) -> dict:
         # would spread it across the horizon as invented discretionary charges.
         used_indexes.update(r.index for r in stream.rows)
 
-        projected, withheld = project(stream, as_of, horizon_end, posted_today)
+        projected, withheld = project(stream, as_of, horizon_end)
         if withheld:
             withheld_today.append(stream_id)
 

@@ -60,8 +60,10 @@ Three controls beside the presets load a whole account, not just a pair of balan
 A third source control beside the two account buttons: a file input labelled
 "Import a bank export". The CSV is parsed in the browser
 (`src/lib/importCsv.ts`), the person types today's balance, and the rows go to
-`POST /api/accounts/import`. The file itself never leaves the page, and the
-merchant names never come back.
+`POST /api/accounts/import`. The file itself never leaves the page; the rows
+do, merchant names included, because the server needs them to group and
+classify. They are not stored, not logged, and never returned: every row and
+candidate that comes back is labelled by category.
 
 Import fails closed when the server is unreachable: the built-in solver can
 re-solve a request but cannot detect streams in raw history, so there is

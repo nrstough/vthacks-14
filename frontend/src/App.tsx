@@ -422,7 +422,7 @@ export default function App() {
             >
               {loading === 'nessie' ? 'Loading…' : 'Capital One sandbox'}
             </button>
-            <label className="ctl-file" title="Plan from your own bank export. The file never leaves this page unparsed.">
+            <label className="ctl-file" title="Plan from your own bank export. Nothing is stored; merchant names are used to group the rows and are never returned.">
               <input
                 type="file"
                 accept=".csv,text/csv"

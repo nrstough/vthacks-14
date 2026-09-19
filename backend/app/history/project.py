@@ -48,22 +48,28 @@ def _weekly_dates(stream: Stream, as_of: datetime.date, horizon_end: datetime.da
 
 
 def _monthly_dates(stream: Stream, as_of: datetime.date, horizon_end: datetime.date) -> list[datetime.date]:
+    """Every candidate occurrence from a month either side of the window.
+
+    Both margins matter, and the far one is easy to lose: a bill anchored to
+    the 1st of the month AFTER the window is pulled back over a weekend onto
+    the last Friday of the window and belongs in the plan. Generating only up
+    to the window's own last month drops it, and the person is shown a
+    fortnight with their rent missing.
+    """
     out: list[datetime.date] = []
     year, month = as_of.year, as_of.month
-    # Start a month early: an anchor near the month end, pulled back over a
-    # weekend, can land inside the window from the previous month.
     if month == 1:
         year, month = year - 1, 12
     else:
         month -= 1
-    for _ in range(16):
+    for _ in range(18):  # a hard bound; the break below is the real end
         for day in stream.anchor_doms:
             out.append(on_day_of_month(year, month, day))
+        if (year, month) > (horizon_end.year, horizon_end.month):
+            break
         month += 1
         if month > 12:
             year, month = year + 1, 1
-        if datetime.date(year, month, 1) > horizon_end:
-            break
     return out
 
 
@@ -71,13 +77,13 @@ def project(
     stream: Stream,
     as_of: datetime.date,
     horizon_end: datetime.date,
-    posted_today_keys: set[str],
 ) -> tuple[list[tuple[str, datetime.date, int]], bool]:
     """Returns (rows as (id, date, amount), whether an occurrence today was withheld).
 
-    `posted_today_keys` holds the payee keys that already have a row dated
-    `as_of` in the export, so a bill due today that has already been taken is
-    not charged twice.
+    Whether a bill due today was already taken is answered from THIS stream's
+    own rows, not from the payee. Two subscriptions at one merchant share a
+    payee key, so a key-based test silently suppresses the $22.99 one because
+    the $15.99 one posted this morning.
     """
     if not stream.active:
         return [], False
@@ -98,7 +104,7 @@ def project(
             if stream.kind == "income":
                 withheld = True
                 continue
-            if stream.rows and stream.rows[0].key in posted_today_keys:
+            if any(row.date == as_of for row in stream.rows):
                 continue
         seen.add(shifted)
         out.append(("", shifted, stream.amount_cents))

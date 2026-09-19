@@ -63,11 +63,16 @@ adapters), `frontend/src/components/ProvenancePanel.tsx`.
 
 ## Limits
 
-- **An account with no recurring bills gets no candidates.** Measured on a
-  real consented export (1,060 rows, two years): both income streams were
-  found correctly, and *zero* bills, because every outflow group on that
-  account has an amount coefficient of variation between 0.76 and 1.30. There
-  is genuinely nothing recurring to cut. The plan is then income plus assumed
+- **Candidates come only from detected outflows, so an account with no
+  recurring outflow at all gets none.** The rule is about detection, not
+  about bills: a weekly grocery run is detected as regular spending and does
+  yield candidates. What produces nothing is an account whose every outflow
+  group is irregular in amount.
+
+  That is not hypothetical. On a real consented export (1,060 rows, two
+  years) both income streams were found correctly and *no* outflow stream
+  was, because every outflow group on that account has an amount coefficient
+  of variation between 0.76 and 1.30. The plan is then income plus assumed
   spending, and if it does not clear, the product can only name the outside
   amount — it cannot prescribe, because prescribing would mean inventing a
   charge to cancel. Offering an everyday-spending *lever* the person sets is
