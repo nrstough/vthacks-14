@@ -55,6 +55,31 @@ Two buttons beside the presets load a whole account, not just a pair of balances
 - **The explainer remounts** when the account changes, so a conversation never spans two
   accounts.
 
+## Importing a bank export
+
+A third source control beside the two account buttons: a file input labelled
+"Import a bank export". The CSV is parsed in the browser
+(`src/lib/importCsv.ts`), the person types today's balance, and the rows go to
+`POST /api/accounts/import`. The file itself never leaves the page, and the
+merchant names never come back.
+
+Import fails closed when the server is unreachable: the built-in solver can
+re-solve a request but cannot detect streams in raw history, so there is
+nothing honest to fall back to. Presets keep working offline as before.
+
+Below the chart, `ProvenancePanel` says what the plan is built from: the
+income and recurring charges found, the next payday in words, the assumed
+everyday-spending figure with its method, how many quiet days were counted as
+zero, one-off inflows left out, and a stale-export warning past a week. Every
+stream has a tick box; unticking one rebuilds the request without its rows and
+without the candidates aimed at them, and re-ticking restores them because the
+rebuild always starts from the original response.
+
+A standalone sentence under the verdict — passed to `VerdictBand` as `note` —
+says that everyday spending is an assumption. It is a separate sentence rather
+than an extra clause because tiers 2 and 3 do not end in "Sufficient under the
+schedule shown".
+
 ## The override model
 
 The user tells the app one thing about a change: whether they can do it. So every row, chosen

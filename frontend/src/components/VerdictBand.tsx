@@ -17,7 +17,18 @@ const TIER_LABEL_UNPROVEN: Record<1 | 2 | 3, string> = {
   3: 'Needs outside cash',
 }
 
-export default function VerdictBand({ res, req }: { res: SolveResponse; req: SolveRequest }) {
+export default function VerdictBand({
+  res,
+  req,
+  note,
+}: {
+  res: SolveResponse
+  req: SolveRequest
+  // A separate sentence, never appended to the qualifier: tiers 2 and 3 do
+  // not end in "Sufficient under the schedule shown", so a clause would read
+  // as "...puts you over., where everyday spending...".
+  note?: string
+}) {
   return (
     <section className="verdict" aria-live="polite" aria-atomic="true">
       <span className={`pill t${res.tier}`}>
@@ -25,6 +36,7 @@ export default function VerdictBand({ res, req }: { res: SolveResponse; req: Sol
       </span>
       <h1>{res.verdict}</h1>
       <p className="qualifier num">{res.qualifier}</p>
+      {note && <p className="qualifier-note">{note}</p>}
 
       {res.external_cash_needed && (
         <div className="cash-callout">

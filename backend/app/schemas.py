@@ -450,3 +450,166 @@ class NessieAccountResponse(Strict):
     written: Annotated[StrictInt, Field(ge=0)]
     returned: Annotated[StrictInt, Field(ge=0)]
     not_round_tripped: list[NotRoundTripped]
+
+
+# ---- imported accounts ----
+#
+# A person's own bank export, planned without storing anything. The rows arrive
+# already parsed by the browser; this service never sees a file.
+#
+# Two bounds below are deliberately tighter than the contract's own:
+#
+#   * `ImportRow.amount_cents` is capped at IMPORT_ROW_ABS, not CENTS_ABS,
+#     because everything derived from these rows — a same-day sum, a trimmed
+#     mean, a median — has to stay inside `Cents` when it reaches ScheduledTxn.
+#     At CENTS_ABS a single legal row could produce a projected amount the
+#     response model then rejects, which is a 500 on valid input.
+#   * dates are held to IMPORT_MIN_DATE..IMPORT_MAX_DATE so horizon arithmetic
+#     cannot overflow. `iso()` alone accepts 9999-12-31, and adding 45 days to
+#     that raises inside pydantic.
+
+IMPORT_ROW_ABS = 10**8  # $1,000,000 in cents
+MAX_IMPORT_ROWS = 20_000
+IMPORT_MIN_DATE = "1970-01-01"
+IMPORT_MAX_DATE = "2100-12-31"
+IMPORT_LOOKBACK_DAYS = 365 * 3
+
+ImportCents = Annotated[StrictInt, Field(ge=-IMPORT_ROW_ABS, le=IMPORT_ROW_ABS)]
+Cadence = Literal["weekly", "biweekly", "semimonthly", "monthly"]
+RejectReason = Literal["after_as_of", "older_than_3_years", "zero_amount"]
+
+
+def bounded_date(value: str) -> str:
+    """`iso()` plus a range every later calculation can survive."""
+    iso(value)
+    if not (IMPORT_MIN_DATE <= value <= IMPORT_MAX_DATE):
+        raise ValueError(f"date must be between {IMPORT_MIN_DATE} and {IMPORT_MAX_DATE}")
+    return value
+
+
+class ImportRow(Strict):
+    """One posted transaction from the person's export.
+
+    `description` is used to group and classify and is never returned: see
+    `Stream.label`. Zero is refused rather than ignored — a zero-amount row is
+    a parse failure upstream, and silently dropping it is how a statement's
+    missing column becomes an account that looks complete.
+    """
+
+    date: StrictStr
+    description: Annotated[StrictStr, Field(min_length=1, max_length=200)]
+    amount_cents: ImportCents
+
+    @field_validator("date")
+    @classmethod
+    def _date(cls, v: str) -> str:
+        return bounded_date(v)
+
+    @field_validator("amount_cents")
+    @classmethod
+    def _nonzero(cls, v: int) -> int:
+        if v == 0:
+            raise ValueError("a transaction of zero is not a transaction")
+        return v
+
+
+class ImportRequest(Strict):
+    """Rows in, a plannable schedule out. Nothing is kept.
+
+    `opening_balance_cents` is required because bank exports do not carry a
+    balance; the person types today's. It is the balance INCLUDING everything
+    posted through today, which is what fixes the double-count rule in
+    `app/history/project.py`.
+    """
+
+    rows: list[ImportRow] = Field(min_length=1, max_length=MAX_IMPORT_ROWS)
+    as_of: StrictStr | None = None
+    horizon_days: Annotated[StrictInt, Field(ge=14, le=45)] = 30
+    opening_balance_cents: Cents
+    buffer_cents: NonNegCents = 2500
+
+    @field_validator("as_of")
+    @classmethod
+    def _as_of(cls, v: str | None) -> str | None:
+        return None if v is None else bounded_date(v)
+
+
+class RejectedRow(Strict):
+    """A row the import refused, named so the screen can say how many and why."""
+
+    index: Annotated[StrictInt, Field(ge=0)]
+    reason: RejectReason
+
+
+class Stream(Strict):
+    """A recurring payee the detector found, by cadence rather than by name.
+
+    `label` is built from the lexicon CATEGORY, never the merchant brand, so a
+    recognised merchant reveals no more than an unrecognised one. The raw
+    descriptor stays in the request and is never echoed.
+
+    `active` is false for a lapsed stream: its rows still leave the residual —
+    a rent payment that stopped last month is not everyday spending — but
+    nothing is projected from it.
+    """
+
+    id: Id
+    kind: Literal["income", "bill", "discretionary"]
+    label: StrictStr
+    category: StrictStr
+    cadence: Cadence
+    anchor: StrictStr
+    amount_cents: Cents
+    occurrences: Annotated[StrictInt, Field(ge=3)]
+    last_seen: StrictStr
+    active: bool
+    source_row_indexes: list[Annotated[StrictInt, Field(ge=0, le=MAX_IMPORT_ROWS)]]
+    projected_ids: list[Id]
+
+
+class ImportProvenance(Strict):
+    """Where every number on the screen came from.
+
+    `assumed_method` is null when there was not enough history to assume
+    anything; the response then carries detected rows only and the screen says
+    so. It is a closed literal so the wording on screen cannot drift from the
+    statistic actually used.
+    """
+
+    history_start: StrictStr
+    history_end: StrictStr
+    history_days: Annotated[StrictInt, Field(ge=1)]
+    imputed_zero_days: Annotated[StrictInt, Field(ge=0)]
+    rows_used: Annotated[StrictInt, Field(ge=0)]
+    weeks_used_for_assumed: Annotated[StrictInt, Field(ge=0)] | None
+    assumed_method: Literal["same_weekday_8_week_median"] | None
+    assumed_ids: list[Id]
+    next_payday: StrictStr | None
+    pay_cadence: Cadence | None
+    income_not_counted_today: list[Id]
+    stale_days: Annotated[StrictInt, Field(ge=0)]
+    unscheduled_inflow_count: Annotated[StrictInt, Field(ge=0)]
+    unscheduled_inflow_cents: NonNegDerivedCents
+    truncated_assumed_rows: Annotated[StrictInt, Field(ge=0)]
+    rejected_rows: list[RejectedRow]
+
+
+class ImportAccountResponse(Strict):
+    """An account built from the person's own export.
+
+    A sibling of the other two account responses, with `source` a closed
+    literal for the same reason: a schedule derived from a real export is still
+    partly assumption, and nothing downstream may present the assumed rows as
+    transactions that exist.
+    """
+
+    as_of: StrictStr
+    horizon_end: StrictStr
+    opening_balance_cents: Cents
+    buffer_cents: NonNegCents
+    scheduled: list[ScheduledTxn] = Field(max_length=MAX_SCHED)
+    candidates: list[Candidate] = Field(max_length=MAX_N)
+    meta: CandidatesMeta
+    source: Literal["import"]
+    streams: list[Stream]
+    provenance: ImportProvenance

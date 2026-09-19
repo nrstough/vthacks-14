@@ -23,6 +23,36 @@
         "8000"
       ],
       "port": 8000
+    },
+    {
+      "name": "frontend-history",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "frontend",
+        "--",
+        "--port",
+        "5176",
+        "--strictPort"
+      ],
+      "port": 5176,
+      "env": {
+        "VITE_API_TARGET": "http://127.0.0.1:8002"
+      }
+    },
+    {
+      "name": "backend-history",
+      "runtimeExecutable": ".venv/bin/uvicorn",
+      "runtimeArgs": [
+        "--app-dir",
+        "backend",
+        "app.main:app",
+        "--port",
+        "8002"
+      ],
+      "port": 8002
     }
   ]
 }

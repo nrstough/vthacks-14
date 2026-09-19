@@ -6,9 +6,26 @@ import PrescriptionList from './components/PrescriptionList'
 import VerdictBand from './components/VerdictBand'
 import { SCENARIOS } from './fixtures/scenarios'
 import { solveViaApi } from './lib/api'
-import { chatKey, loadAccount, provenanceLine, sliderBounds } from './lib/accounts.ts'
+import { chatKey, loadAccount, loadImport, provenanceLine, sliderBounds } from './lib/accounts.ts'
 import type { LoadKind } from './lib/accountState.ts'
-import { accountReducer, fail, initial, preset as presetAction, start, succeed } from './lib/accountState.ts'
+import {
+  accountReducer,
+  fail,
+  initial,
+  preset as presetAction,
+  start,
+  streams as streamsAction,
+  succeed,
+} from './lib/accountState.ts'
+import ProvenancePanel from './components/ProvenancePanel.tsx'
+import { parseAmountCents, parseBankCsv } from './lib/importCsv.ts'
+import {
+  buildImportRequest,
+  isImport,
+  qualifierNote,
+  scheduleAfterUntick,
+  toBase as importToBase,
+} from './lib/history.ts'
 import { money, shortDate } from './lib/format'
 import { emptyPlanText, footerLines, narrateChart } from './lib/narrate'
 import type { Overrides } from './lib/overrides'
@@ -26,13 +43,28 @@ const WalletView = lazy(() => import('./wallet/WalletView.tsx'))
 
 const FIXTURE = SCENARIOS[0].request
 
+// The balance the person types. Same string arithmetic as the CSV parser, for
+// the same reason: no float ever touches money here.
+function parseBalance(raw: string): number | null {
+  const cents = parseAmountCents(raw)
+  return typeof cents === 'number' ? cents : null
+}
+
 export default function App() {
   const [tab, setTab] = useState<'plan' | 'wallet'>('plan')
   // The account the request is built from. A preset restores the fixture; the
   // two source buttons replace it wholesale. The lifecycle lives in a reducer
   // because the ways it goes wrong are about ordering, not rendering.
   const [acct, dispatch] = useReducer(accountReducer, FIXTURE, initial)
-  const { account, base, loading, error: loadError } = acct
+  const { account, base, loading, error: loadError, original, excluded } = acct
+  // The parsed rows stay in the browser so a re-import needs no second file
+  // read, and so the panel can label streams without the server ever
+  // returning a merchant name.
+  const importedRows = useRef<ReturnType<typeof parseBankCsv>['rows']>([])
+  const importSeq = useRef(0)
+  const [importBalance, setImportBalance] = useState('')
+  const [pendingFile, setPendingFile] = useState<string | null>(null)
+  const [importNote, setImportNote] = useState<string | null>(null)
   const seqRef = useRef(0)
   const loadCtl = useRef<AbortController | null>(null)
   const [opening, setOpening] = useState(FIXTURE.opening_balance_cents)
@@ -217,7 +249,7 @@ export default function App() {
     const mine = ++seqRef.current
     dispatch(start(kind, mine))
     try {
-      const loaded = await loadAccount(kind, ctl.signal)
+      const loaded = await loadAccount(kind === 'nessie' ? 'nessie' : 'modelled', ctl.signal)
       if (mine !== seqRef.current) return
       dispatch(succeed(mine, loaded.account, loaded.base))
       adopt(loaded.base, loaded.base.opening_balance_cents, loaded.base.buffer_cents)
@@ -225,6 +257,59 @@ export default function App() {
       if (ctl.signal.aborted || mine !== seqRef.current) return
       dispatch(fail(mine, e instanceof Error ? e.message : 'Could not load that account.'))
     }
+  }
+
+  async function runImport(cents: number) {
+    loadCtl.current?.abort()
+    const ctl = new AbortController()
+    loadCtl.current = ctl
+    // The same single counter the other two sources use, so a preset click
+    // during a slow import still wins the race.
+    const mine = ++seqRef.current
+    dispatch(start('import', mine))
+    try {
+      const body = buildImportRequest(importedRows.current, cents, buffer)
+      const account = await loadImport(body, ctl.signal)
+      if (mine !== seqRef.current) return
+      importSeq.current++
+      const next = importToBase(account)
+      dispatch(succeed(mine, account, next))
+      adopt(next, next.opening_balance_cents, next.buffer_cents)
+    } catch (e: unknown) {
+      if (ctl.signal.aborted || mine !== seqRef.current) return
+      dispatch(fail(mine, e instanceof Error ? e.message : 'Could not import that export.'))
+    }
+  }
+
+  async function chooseFile(file: File | null) {
+    if (!file) return
+    setImportNote(null)
+    const parsed = parseBankCsv(await file.text())
+    if (parsed.error !== null) {
+      importedRows.current = []
+      setPendingFile(null)
+      setImportNote(parsed.error)
+      return
+    }
+    importedRows.current = parsed.rows
+    const skipped = [
+      parsed.notPosted > 0 ? `${parsed.notPosted} not yet posted` : null,
+      parsed.rejected.length > 0 ? `${parsed.rejected.length} unreadable` : null,
+    ].filter(Boolean)
+    setPendingFile(
+      `${parsed.rows.length} transactions read` + (skipped.length ? `, ${skipped.join(', ')} skipped` : ''),
+    )
+    setImportNote(null)
+  }
+
+  function toggleStream(streamId: string) {
+    if (original === null) return
+    const next = new Set(excluded)
+    if (next.has(streamId)) next.delete(streamId)
+    else next.add(streamId)
+    const rebuilt = scheduleAfterUntick(original, next, opening, buffer)
+    dispatch(streamsAction(next, rebuilt))
+    adopt(rebuilt, opening, buffer)
   }
 
   const locked = count(ruledOut)
@@ -337,7 +422,48 @@ export default function App() {
             >
               {loading === 'nessie' ? 'Loading…' : 'Capital One sandbox'}
             </button>
+            <label className="ctl-file" title="Plan from your own bank export. The file never leaves this page unparsed.">
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                disabled={loading !== null}
+                onChange={(e) => {
+                  void chooseFile(e.target.files?.[0] ?? null)
+                  e.target.value = ''
+                }}
+              />
+              <span>Import a bank export</span>
+            </label>
           </span>
+          {pendingFile && (
+            <span className="ctl-import">
+              <span className="ctl-note">{pendingFile}. Today's balance:</span>
+              <input
+                className="num"
+                type="text"
+                inputMode="decimal"
+                placeholder="412.80"
+                value={importBalance}
+                aria-label="Your balance today, including anything that posted today"
+                onChange={(e) => setImportBalance(e.target.value)}
+              />
+              <button
+                type="button"
+                disabled={loading !== null || parseBalance(importBalance) === null}
+                onClick={() => {
+                  const cents = parseBalance(importBalance)
+                  if (cents !== null) void runImport(cents)
+                }}
+              >
+                {loading === 'import' ? 'Planning…' : 'Plan from this'}
+              </button>
+            </span>
+          )}
+          {importNote && (
+            <p className="ctl-note" role="status">
+              {importNote}
+            </p>
+          )}
           {loadError && (
             <p className="ctl-note" role="status">
               {loadError}
@@ -362,7 +488,7 @@ export default function App() {
         </label>
       </section>
 
-      <VerdictBand res={res} req={request} />
+      <VerdictBand res={res} req={request} note={qualifierNote(account)} />
 
       <section className="band">
         <div className="band-head">
@@ -394,6 +520,10 @@ export default function App() {
         <BalanceChart res={res} req={request} describedBy="chart-text" />
       </section>
 
+      {isImport(account) && (
+        <ProvenancePanel account={account} excluded={excluded} onToggle={toggleStream} />
+      )}
+
       <section className="band">
         <div className="band-head">
           <h2>
@@ -419,7 +549,7 @@ export default function App() {
       </section>
 
       <ChatPanel
-        key={chatKey(account)}
+        key={chatKey(account, importSeq.current)}
         req={request}
         res={res}
         source={source}
