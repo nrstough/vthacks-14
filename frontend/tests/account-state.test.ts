@@ -55,6 +55,9 @@ function page() {
       state = accountReducer(state, fail(mine, message))
     },
     choosePreset() {
+      // The component bumps its token here as well as resetting the reducer,
+      // so a response already in flight cannot apply its numbers.
+      token++
       state = accountReducer(state, preset(FIXTURE))
     },
   }

@@ -285,3 +285,82 @@ a protocol will pass whether or not the two sides agree.
   judging-morning step, not a code step.
 - This branch is **not merged**. It waits on the firewall, the public deploy
   checks, and the security branch, in that order.
+
+## Audit round — dated note (2026-09-19, after commit `cbf7708`)
+
+An adversarial Claude critique graded the committed change **Fail** on four
+dimensions. Nine findings; all fixed. Nothing above this line was rewritten.
+
+### The critical one: a malformed amount was a 500, not a 502
+
+`to_cents()` raises `NessieError`, and `app/main.py` maps `NessieUnavailable`
+and `NessieUpstreamError` only, so the bare type escaped to FastAPI. Reproduced
+through the route: a row whose `amount` is a string, `null`, a boolean,
+sub-cent or out of range answered **500 with a stack trace**, and so did a
+read-only `balance` of the same shapes. Seven reachable triggers.
+
+D5a and acceptance 4 both claim 502 for malformed upstream data, and
+`docs/api-contract.md` said so too, so the promise was in three places and the
+code kept none of them.
+
+Why the existing tests missed it: `_rows()` validates *list-ness* and
+*dict-ness*, and the tests exercised exactly those. A row with a rotten field
+in it is a perfectly good dict. **Shape checks do not catch content**, and the
+tests were written against the guard rather than against the failure.
+
+Fixed with an `_upstream()` wrapper around both conversion sites, plus tests
+for all seven shapes, one of them through the route so the status code itself
+is asserted.
+
+### The rest
+
+1. **A stale load could still apply its numbers.** The component guarded
+   `dispatch(succeed)` but called `adopt()` unconditionally, so after a preset
+   the reducer would reject the result while the balances were written anyway:
+   a sandbox account's figures under a line reading "Sample checking account".
+   Only the abort prevented it, and an abort does not reliably win a race.
+   `preset()` bumps the load token now.
+2. **A malformed `NESSIE_BASE_URL` leaked the key.** `Request()` was built
+   outside the `try`, and its `ValueError` carries the whole URL. Moved inside.
+3. **A row whose whole value rounds away read as faithful.** Below fifty cents,
+   `dollars()` is 0, so 0 was written, 0 came back, and the equality check
+   compared 0 to 0. Unreachable from today's generator, whose floor is $25, but
+   it is the one case D5's written-equals-read cannot see. New reason:
+   `amount rounds to zero dollars`.
+4. **`parse_nickname` was unbounded.** `\d+` accepted a 60-digit seed into an
+   unbounded `StrictInt`, and `match` accepted a trailing newline. Bounded to
+   ten digits and switched to `fullmatch`.
+5. **Dead code**: an unused `returned_ids`, and a `problems` argument `_finish`
+   never read. Both looked like unfinished checks. Removed.
+6. **Coverage gaps**: read-only provenance with a non-empty `not_round_tripped`
+   was never rendered by a test, and the chat-remount key was untestable inline.
+   The key is now `chatKey()` in `accounts.ts` with three tests, including two
+   accounts of the same source.
+
+### Corrections to the Results section above
+
+- **"Screenshots recorded below" was not met and is withdrawn.** The browser
+  checks were performed and their observed strings are recorded above as prose;
+  no image artifact was committed, and the sentence should not have implied
+  one. Re-verified after these fixes: `Capital One sandbox, 19 of 19 rows read
+  back, Sep 19 to Oct 18.`, opening `$477.00` — whole dollars, as D5 requires —
+  tier 1, one change.
+- **Two edits exceeded the spec**, both harmless and both kept: the dead
+  `TRANSIENT` constant was deleted, and `README.md`'s endpoint list gained
+  `/api/chat` and `/api/accounts/sample`, which were already missing from it.
+
+### Gates after the audit round
+
+- Backend **2076 passed**, 2 skipped, 8 deselected (5 more than at `cbf7708`).
+- Perf **8 passed**, 118 s, all 300 accounts agreeing across both engines.
+- Frontend lint clean, build clean, **245 passed** (4 more).
+- Golden hash unmoved.
+
+### Worth carrying forward
+
+Two failures in this change had the same shape, and it is not one the handoffs
+have named yet: **a test that supplies both sides of a contract cannot see the
+two sides disagree.** The reducer's tests invented their own sequence numbers
+and missed the counter drift; the transport's tests asserted the shape guard
+and missed the content failure behind it. Both were found by exercising the
+real composition — the browser in one case, a route-level test in the other.

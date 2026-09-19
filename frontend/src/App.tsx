@@ -6,7 +6,7 @@ import PrescriptionList from './components/PrescriptionList'
 import VerdictBand from './components/VerdictBand'
 import { SCENARIOS } from './fixtures/scenarios'
 import { solveViaApi } from './lib/api'
-import { loadAccount, provenanceLine, sliderBounds } from './lib/accounts.ts'
+import { chatKey, loadAccount, provenanceLine, sliderBounds } from './lib/accounts.ts'
 import type { LoadKind } from './lib/accountState.ts'
 import { accountReducer, fail, initial, preset as presetAction, start, succeed } from './lib/accountState.ts'
 import { money, shortDate } from './lib/format'
@@ -198,6 +198,13 @@ export default function App() {
 
   function preset(cents: number, cushion: number) {
     loadCtl.current?.abort()
+    // Bump the token too, not just the reducer's. The abort above is what
+    // stops an in-flight load today, and an abort is not guaranteed to win a
+    // race with a response already in flight: without this, the reducer would
+    // reject the stale result while `adopt` below still wrote its balances,
+    // putting a sandbox account's numbers under a line saying "Sample
+    // checking account".
+    seqRef.current++
     dispatch(presetAction(FIXTURE))
     adopt(FIXTURE, cents, cushion)
   }
@@ -412,13 +419,7 @@ export default function App() {
       </section>
 
       <ChatPanel
-        key={
-          account === null
-            ? 'preset'
-            : account.source === 'nessie'
-              ? account.nessie.account_id
-              : `m${account.seed}`
-        }
+        key={chatKey(account)}
         req={request}
         res={res}
         source={source}

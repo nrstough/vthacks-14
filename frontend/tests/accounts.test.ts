@@ -5,6 +5,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   CANDIDATE_LIMIT,
+  chatKey,
   parseAccount,
   provenanceLine,
   sliderBounds,
@@ -168,6 +169,48 @@ test('no provenance line breaks the wording rules', () => {
     assert.doesNotMatch(line, /infeasib/i)
     assert.doesNotMatch(line, /real bank/i)
   }
+})
+
+test('a read-only account still reports what it could not use', () => {
+  // The combination read-only mode actually produces: no write comparison, but
+  // rows the sandbox returned undated or outside the window.
+  const account = nessie({
+    written: 0,
+    returned: 1,
+    nessie: { customer_id: 'cust_0', account_id: 'abc123def456', mode: 'read_only' },
+    not_round_tripped: [
+      { id: 'n_a', reason: 'no usable date' },
+      { id: 'n_b', reason: 'outside the window' },
+      { id: 'n_c', reason: 'outside the window' },
+    ],
+  })
+  assert.equal(
+    provenanceLine(account, toBase(account, [])),
+    'Capital One sandbox account def456, 2 rows, 1 row without a date, ' +
+      '2 rows outside the window, Sep 19 to Oct 18.',
+  )
+})
+
+// ---- the explainer's conversation belongs to one account ----
+
+test('each account gets its own chat identity', () => {
+  // The key remounts the panel: a conversation must never span two accounts,
+  // and a pending reply about the old one must not land under the new one.
+  assert.equal(chatKey(null), 'preset')
+  assert.equal(chatKey(modelled), 'm12345')
+  assert.equal(chatKey(nessie()), 'abc123def456')
+})
+
+test('two accounts of the same source still remount the explainer', () => {
+  assert.notEqual(chatKey({ ...modelled, seed: 1 }), chatKey({ ...modelled, seed: 2 }))
+  const a = nessie()
+  const b = nessie({ nessie: { ...a.nessie, account_id: 'zzz999' } })
+  assert.notEqual(chatKey(a), chatKey(b))
+})
+
+test('leaving an account for a preset remounts the explainer', () => {
+  assert.notEqual(chatKey(nessie()), chatKey(null))
+  assert.notEqual(chatKey(modelled), chatKey(null))
 })
 
 // ---- the slider grid ----

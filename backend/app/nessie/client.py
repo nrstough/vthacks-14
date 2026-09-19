@@ -113,7 +113,13 @@ def _request(config: NessieConfig, method: str, path: str, body: dict | None = N
     url = _url(config, path)
     data = json.dumps(body).encode() if body is not None else None
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
-    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        # Inside the try: a malformed NESSIE_BASE_URL makes Request() raise a
+        # ValueError whose message is the whole URL, key included, and an
+        # uncaught one goes into a 500 body and the log.
+        req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    except ValueError as e:
+        raise NessieError(f"Nessie base URL is not usable: {_redact(url)}") from e
     try:
         with urllib.request.urlopen(req, timeout=config.timeout_s) as resp:
             raw = resp.read().decode()

@@ -99,6 +99,16 @@ export function provenanceLine(account: LoadedAccount | null, base: SolveRequest
   return [head, ...clauses].join(', ') + `, ${window}.`
 }
 
+// The explainer's conversation belongs to one account. Remounting on a change
+// of this key clears the log and aborts a pending reply, so an answer about the
+// previous account can never appear under the current one. Two modelled
+// accounts differ by seed, so switching between two of the same source
+// remounts too.
+export function chatKey(account: LoadedAccount | null): string {
+  if (account === null) return 'preset'
+  return account.source === 'nessie' ? account.nessie.account_id : `m${account.seed}`
+}
+
 // A range input snaps its value to min + k*step, so a balance that is not on
 // the grid renders with the thumb somewhere else and jumps on the first drag.
 // Move the floor instead of the balance: the number is the truth here.

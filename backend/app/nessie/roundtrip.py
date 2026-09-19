@@ -67,7 +67,10 @@ CUSTOMER = {
 # Creates are permanent here (DELETE answers 403), so a seeded account outlives
 # the process that made it, and read-only mode has no other way to learn which
 # window its rows belong to.
-NICKNAME_RE = re.compile(r"^og (\d+) (\d{4}-\d{2}-\d{2}) (\d{4}-\d{2}-\d{2})$")
+# The seed is bounded: the field it lands in is an unbounded StrictInt, and the
+# nickname is whatever is on the sandbox account, so an unbounded \d+ would let
+# a 60-digit seed through into JSON the browser cannot represent.
+NICKNAME_RE = re.compile(r"og ([0-9]{1,10}) (\d{4}-\d{2}-\d{2}) (\d{4}-\d{2}-\d{2})")
 
 KIND_PATHS = {
     "income": ("deposits", True),
@@ -107,7 +110,7 @@ def parse_nickname(text: Any) -> tuple[int, str, str] | None:
     """`og <seed> <as_of> <horizon_end>` back into its parts, or None."""
     if not isinstance(text, str):
         return None
-    m = NICKNAME_RE.match(text)
+    m = NICKNAME_RE.fullmatch(text)
     if not m:
         return None
     try:
@@ -158,6 +161,28 @@ def _rows(body: Any, what: str) -> list[dict[str, Any]]:
     return body
 
 
+def _upstream(what: str):
+    """Turn a transport-level NessieError into the one the route maps.
+
+    `to_cents` raises `NessieError` for an amount that is a string, a boolean,
+    non-finite, sub-cent or out of range, and `main.py` has no handler for that
+    type — so every one of those was a 500 with a stack trace rather than the
+    502 the contract promises. List-and-dict shape checks do not catch them:
+    the row is a perfectly good dict with a bad field in it.
+    """
+
+    class _Wrap:
+        def __enter__(self) -> None:
+            return None
+
+        def __exit__(self, kind, value, tb) -> bool:
+            if isinstance(value, NessieError):
+                raise NessieUpstreamError(f"Nessie sent an unusable {what}: {value}") from value
+            return False
+
+    return _Wrap()
+
+
 def _post(config: NessieConfig, path: str, body: dict, what: str) -> dict[str, Any]:
     try:
         return _record(post(config, path, body), what)
@@ -200,7 +225,9 @@ def _normalise(
     scheduled: list[dict[str, Any]] = []
     problems: list[dict[str, str]] = []
     for kind, (_, recurring) in KIND_PATHS.items():
-        for row in to_scheduled(lists[kind], kind, recurring):
+        with _upstream(f"{kind} amount"):
+            normalised = to_scheduled(lists[kind], kind, recurring)
+        for row in normalised:
             try:
                 scheduled.append(_usable(row, as_of, horizon_end))
             except _Unusable as e:
@@ -225,9 +252,7 @@ def _read_lists(config: NessieConfig, account_id: str) -> dict[str, list[dict[st
     return lists
 
 
-def _finish(
-    scheduled: list[dict[str, Any]], problems: list[dict[str, str]]
-) -> list[dict[str, Any]]:
+def _finish(scheduled: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if not scheduled:
         raise NessieUnavailable("Nessie returned no usable rows for this account.")
     return scheduled
@@ -282,11 +307,14 @@ def seed_and_read_back(account: dict[str, Any], config: NessieConfig) -> dict[st
             # is not actionable when creates are permanent: the next attempt
             # must know how much of this account already exists.
             raise type(e)(f"Nessie failed after {i} of {total} rows were written: {e}") from e
-        written[f"n_{made['_id'][:40]}"] = {"amount": amount, "kind": row["kind"]}
+        written[f"n_{made['_id'][:40]}"] = {
+            "amount": amount,
+            "cents": row["amount_cents"],
+            "kind": row["kind"],
+        }
 
     scheduled, problems = _normalise(_read_lists(config, account_id), as_of, horizon_end)
     reported = {p["id"] for p in problems}
-    returned_ids = {r["id"] for r in scheduled} | reported
 
     for ident, sent in written.items():
         if ident in reported:
@@ -294,10 +322,15 @@ def seed_and_read_back(account: dict[str, Any], config: NessieConfig) -> dict[st
         match = next((r for r in scheduled if r["id"] == ident), None)
         if match is None:
             problems.append({"id": ident, "reason": "written but not returned"})
+        elif sent["amount"] == 0 and sent["cents"] != 0:
+            # Rounded to nothing before it was ever written. Read-back equality
+            # cannot see this: 0 was sent and 0 came back, so the row looks
+            # faithful while its entire value is gone.
+            problems.append({"id": ident, "reason": "amount rounds to zero dollars"})
         elif abs(match["amount_cents"]) != sent["amount"] * 100:
             problems.append({"id": ident, "reason": "amount changed by the sandbox"})
 
-    scheduled = _finish(scheduled, problems)
+    scheduled = _finish(scheduled)
     return {
         "seed": seed,
         "as_of": as_of,
@@ -344,14 +377,17 @@ def read_back(
     else:
         seed = 0
 
+    with _upstream("account balance"):
+        opening = max(0, to_cents(body.get("balance", 0)))
+
     scheduled, problems = _normalise(_read_lists(config, account_id), as_of, horizon_end)
-    scheduled = _finish(scheduled, problems)
+    scheduled = _finish(scheduled)
     customer_id = body.get("customer_id")
     return {
         "seed": seed,
         "as_of": as_of,
         "horizon_end": horizon_end,
-        "opening_balance_cents": max(0, to_cents(body.get("balance", 0))),
+        "opening_balance_cents": opening,
         "buffer_cents": BUFFER_CENTS,
         "scheduled": scheduled,
         "source": "nessie",

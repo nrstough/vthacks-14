@@ -414,6 +414,7 @@ class NotRoundTripped(Strict):
         "amount changed by the sandbox",
         "no usable date",
         "outside the window",
+        "amount rounds to zero dollars",
     ]
 
 

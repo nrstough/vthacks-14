@@ -44,6 +44,9 @@ from app.schemas import (
 from tests.test_nessie import FakeResponse, http_error
 
 CFG = NessieConfig(api_key="k" * 32, base_url="https://example.invalid")
+# A distinct "knob off" marker: None is itself one of the bad values worth
+# sending, so it cannot double as the default.
+UNSET = object()
 SEED = 20260919  # a seed whose account carries all three row kinds
 
 
@@ -68,6 +71,8 @@ class Sandbox:
         no_id_customer=False,
         bad_list=None,
         string_row=False,
+        bad_amount=UNSET,
+        bad_balance=UNSET,
         html_body=False,
         nickname=None,
         balance=None,
@@ -85,6 +90,8 @@ class Sandbox:
         self.no_id_customer = no_id_customer
         self.bad_list = bad_list
         self.string_row = string_row
+        self.bad_amount = bad_amount
+        self.bad_balance = bad_balance
         self.html_body = html_body
         self.nickname = nickname
         self.balance = balance
@@ -141,7 +148,9 @@ class Sandbox:
                 "type": "Checking",
                 "customer_id": "cust_0",
                 "nickname": self.nickname if self.nickname is not None else "Demo Checking",
-                "balance": self.balance if self.balance is not None else 498,
+                "balance": self.bad_balance
+                if self.bad_balance is not UNSET
+                else (self.balance if self.balance is not None else 498),
             }
             return FakeResponse(account)
 
@@ -159,6 +168,9 @@ class Sandbox:
             if ident in self.drop_ids:
                 continue
             copy = dict(row)
+            if self.bad_amount is not UNSET:
+                field = "payment_amount" if kind == "bills" else "amount"
+                copy[field] = self.bad_amount
             if ident in self.change_amount:
                 field = "payment_amount" if kind == "bills" else "amount"
                 copy[field] = self.change_amount[ident]
@@ -555,6 +567,65 @@ def test_rows_that_all_lack_dates_are_unverified_not_an_empty_account(monkeypatc
     install(monkeypatch, Sandbox(omit_date_ids=everything))
     with pytest.raises(NessieUnavailable):
         seed_and_read_back(account, CFG)
+
+
+def test_an_unusable_amount_is_an_upstream_error_not_a_five_hundred(monkeypatch):
+    """A dict-shaped row with a rotten field in it. The list-and-dict checks
+    pass it, and `to_cents` raises NessieError, which no handler maps — so every
+    one of these was a 500 with a stack trace until it was wrapped."""
+    for bad in ["not a number", None, True, 19.994, 10**13]:
+        install(monkeypatch, Sandbox(bad_amount=bad))
+        with pytest.raises(NessieUpstreamError):
+            seed_and_read_back(seeded_account(seed=SEED, horizon_days=30), CFG)
+
+
+def test_an_unusable_balance_is_an_upstream_error_not_a_five_hundred(monkeypatch):
+    for bad in ["not a number", None, True]:
+        box = install(monkeypatch, Sandbox(nickname="Demo Checking"))
+        seed_and_read_back(seeded_account(seed=SEED, horizon_days=30), CFG)
+        box.bad_balance = bad
+        with pytest.raises(NessieUpstreamError):
+            read_back("acc_0", CFG, as_of="2026-09-19", horizon_end="2026-10-18")
+
+
+def test_the_route_answers_502_for_an_unusable_amount(monkeypatch):
+    """The contract promises 502 for malformed upstream data. Asserted through
+    the route, because the exception type is what decides the status."""
+    import app.chat.gemini as gemini
+    from fastapi.testclient import TestClient as _TC
+
+    from app.main import create_app as _create
+
+    monkeypatch.setattr(gemini, "_env_loaded", True)
+    monkeypatch.delenv("NESSIE_ACCOUNT_ID", raising=False)
+    monkeypatch.setenv("NESSIE_API_KEY", "k" * 32)
+    install(monkeypatch, Sandbox(bad_amount="not a number"))
+    r = _TC(_create(None)).post("/api/accounts/nessie", json={"seed": SEED})
+    assert r.status_code == 502, r.text
+
+
+def test_a_row_whose_whole_value_rounds_away_is_reported(monkeypatch):
+    """Read-back equality cannot see this one: 0 was sent and 0 came back, so
+    the row looks faithful while its entire value is gone."""
+    from app.nessie.roundtrip import dollars, round_to_dollars
+
+    assert dollars(40) == 0 and round_to_dollars(40) == 0
+
+    install(monkeypatch, Sandbox())
+    account = seeded_account(seed=SEED, horizon_days=30)
+    account["scheduled"] = [dict(r) for r in account["scheduled"]]
+    account["scheduled"][0]["amount_cents"] = -40  # below the generator's floor
+    out = seed_and_read_back(account, CFG)
+    assert _ids_by_reason(out, "amount rounds to zero dollars"), out["not_round_tripped"]
+
+
+def test_a_bad_base_url_does_not_leak_the_key(monkeypatch):
+    """Request() raises a ValueError carrying the whole URL, key included."""
+    bad = NessieConfig(api_key="k" * 32, base_url="notaurl")
+    monkeypatch.setattr(client.urllib.request, "urlopen", explode)
+    with pytest.raises(NessieUpstreamError) as e:
+        seed_and_read_back(seeded_account(seed=SEED), bad)
+    assert "k" * 32 not in str(e.value)
 
 
 # ---- read-only mode ----
