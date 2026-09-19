@@ -81,10 +81,12 @@ test('every font the built CSS asks for is actually in dist/fonts', () => {
   }
 
   // A vacuous pass is the failure mode this test exists to prevent, so the
-  // match count and the families are asserted before the files are.
+  // match count and the families are asserted before the files are. Three,
+  // because each family is one variable file covering every weight the page
+  // asks for.
   assert.ok(
-    referenced.size >= 8,
-    `expected at least 8 font references in the built CSS, found ${referenced.size}`,
+    referenced.size >= 3,
+    `expected at least 3 font references in the built CSS, found ${referenced.size}`,
   )
   for (const family of ['LibreBaskerville', 'Inter', 'JetBrainsMono']) {
     assert.ok(

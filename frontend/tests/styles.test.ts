@@ -49,18 +49,32 @@ test('no Doto, Clash or Array file survives in public/fonts', () => {
   assert.deepEqual(stale, [], `stale font files still on disk: ${stale.join(', ')}`)
 })
 
-test('public/fonts holds the eight woff2 files the sheet declares', () => {
+// One variable file per family, not one per weight: Google serves a single
+// file and hands back the same URL for every weight, so a per-weight layout
+// ships the same three payloads several times over.
+test('public/fonts holds the three variable files the sheet declares', () => {
   const woff2 = FONTS.filter((f) => f.endsWith('.woff2')).sort()
   assert.deepEqual(woff2, [
-    'Inter-400.woff2',
-    'Inter-500.woff2',
-    'Inter-600.woff2',
-    'JetBrainsMono-400.woff2',
-    'JetBrainsMono-500.woff2',
-    'JetBrainsMono-600.woff2',
-    'LibreBaskerville-400.woff2',
-    'LibreBaskerville-700.woff2',
+    'Inter-Variable.woff2',
+    'JetBrainsMono-Variable.woff2',
+    'LibreBaskerville-Variable.woff2',
   ])
+})
+
+// A range, not a single value. With one value the browser treats the file as
+// covering that weight alone and synthesises the rest — and synthesis is off
+// on the headings, so a bold wordmark would silently render regular.
+test('each family declares the weight range its file actually carries', () => {
+  for (const [family, range] of [
+    ['Libre Baskerville', '400 700'],
+    ['Inter', '100 900'],
+    ['JetBrains Mono', '400 800'],
+  ] as const) {
+    const face = CSS.match(new RegExp(`@font-face\\s*\\{[^}]*font-family:\\s*'${family}'[^}]*\\}`))
+    assert.ok(face, `no @font-face for ${family}`)
+    assert.match(face[0], new RegExp(`font-weight:\\s*${range}\\s*;`))
+    assert.match(face[0], /url\('\/fonts\/[A-Za-z]+-Variable\.woff2'\)/)
+  }
 })
 
 // ---------- the faces that are here ----------

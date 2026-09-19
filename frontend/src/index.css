@@ -2,25 +2,28 @@
 
 /* ---------- the typographic engine ---------- */
 
-/* Three families, self-hosted as latin-subset woff2 under public/fonts, one
-   file per weight the app actually asks for. Nothing is fetched at runtime:
-   venue wifi cannot be trusted to hand us a typeface mid-demo. `swap` on every
-   face, so a file that fails to arrive costs the fallback, never the text. */
+/* Three families, self-hosted as latin-subset woff2 under public/fonts. One
+   file each: Google serves a single variable file per family and hands the
+   same URL back for every weight you ask for, so the eight-file version of
+   this was three payloads written down eight times. Nothing is fetched at
+   runtime — venue wifi cannot be trusted to hand us a typeface mid-demo — and
+   every face is `swap`, so a file that fails to arrive costs the fallback and
+   never the text.
+
+   The ranges below are the ranges the files actually carry, measured off the
+   rendered glyphs rather than taken from Google's CSS, which advertises only
+   the weights that were asked for. Sweeping the axis and watching the ink:
+   Libre Baskerville moves between 400 and 700 and is flat outside it, Inter
+   moves across the whole 100-900, JetBrains Mono moves between 400 and 800.
+   Declaring a range wider than the file has would let the browser pick a
+   weight the font cannot draw and quietly clamp it. */
 
 /* Libre Baskerville: the wordmark, the verdict and every panel heading. A
    financial serif, which is the register this product is asking for. */
 @font-face {
   font-family: 'Libre Baskerville';
-  src: url('/fonts/LibreBaskerville-400.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Libre Baskerville';
-  src: url('/fonts/LibreBaskerville-700.woff2') format('woff2');
-  font-weight: 700;
+  src: url('/fonts/LibreBaskerville-Variable.woff2') format('woff2');
+  font-weight: 400 700;
   font-style: normal;
   font-display: swap;
 }
@@ -28,24 +31,8 @@
 /* Inter: body copy and every sentence a person reads. */
 @font-face {
   font-family: 'Inter';
-  src: url('/fonts/Inter-400.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Inter';
-  src: url('/fonts/Inter-500.woff2') format('woff2');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Inter';
-  src: url('/fonts/Inter-600.woff2') format('woff2');
-  font-weight: 600;
+  src: url('/fonts/Inter-Variable.woff2') format('woff2');
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
@@ -54,24 +41,8 @@
    construction, so a digit never changes width as a slider moves. */
 @font-face {
   font-family: 'JetBrains Mono';
-  src: url('/fonts/JetBrainsMono-400.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'JetBrains Mono';
-  src: url('/fonts/JetBrainsMono-500.woff2') format('woff2');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'JetBrains Mono';
-  src: url('/fonts/JetBrainsMono-600.woff2') format('woff2');
-  font-weight: 600;
+  src: url('/fonts/JetBrainsMono-Variable.woff2') format('woff2');
+  font-weight: 400 800;
   font-style: normal;
   font-display: swap;
 }
@@ -395,7 +366,6 @@ body {
   font-family: var(--mono);
   font-size: 12px;
   color: var(--ink-3);
-  margin-left: var(--s2);
   margin-bottom: var(--s2);
   letter-spacing: 0.01em;
 }
