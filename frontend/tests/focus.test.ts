@@ -1,6 +1,18 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { armOnToggle, decideRestore, domId } from '../src/lib/focus.ts'
+import { armOnToggle, decideRestore, domId, sameInputs } from '../src/lib/focus.ts'
+import type { FocusRequest } from '../src/lib/focus.ts'
+
+function req(over: Partial<FocusRequest> = {}): FocusRequest {
+  return {
+    as_of: '2026-09-19',
+    horizon_end: '2026-10-02',
+    opening_balance_cents: 20000,
+    buffer_cents: 2500,
+    locks: { in: [], out: [] },
+    ...over,
+  }
+}
 
 test('toggling the row you are standing on remembers it', () => {
   assert.equal(armOnToggle({ activeElementId: 'cant-c_gym', toggledId: 'c_gym' }), 'c_gym')
@@ -87,4 +99,49 @@ test('an unrelated re-solve after settling restores nothing', () => {
 
 test('the checkbox id is derived from the candidate id', () => {
   assert.equal(domId('c_gym'), 'cant-c_gym')
+})
+
+test('two requests asking the same question compare equal', () => {
+  assert.equal(sameInputs(req(), req()), true)
+  assert.equal(
+    sameInputs(req({ locks: { in: [], out: ['c_gym'] } }), req({ locks: { in: [], out: ['c_gym'] } })),
+    true,
+  )
+})
+
+test('a pending balance change means the answer on screen is not the current one', () => {
+  // Codex audit: settled was derived from the overrides alone, so dragging the
+  // balance while a solve was in flight looked settled, the remembered row was
+  // dropped, and the next response moved it with nothing left to focus.
+  assert.equal(sameInputs(req(), req({ opening_balance_cents: 30000 })), false)
+})
+
+test('a pending cushion change counts too', () => {
+  assert.equal(sameInputs(req(), req({ buffer_cents: 10000 })), false)
+})
+
+test('different overrides are not the same question', () => {
+  assert.equal(sameInputs(req(), req({ locks: { in: [], out: ['c_gym'] } })), false)
+  assert.equal(
+    sameInputs(
+      req({ locks: { in: [], out: ['c_gym'] } }),
+      req({ locks: { in: [], out: ['c_amzn'] } }),
+    ),
+    false,
+  )
+})
+
+test('a different horizon is not the same question', () => {
+  assert.equal(sameInputs(req(), req({ as_of: '2026-09-20' })), false)
+  assert.equal(sameInputs(req(), req({ horizon_end: '2026-10-09' })), false)
+})
+
+test('the row survives a balance drag landing between two responses', () => {
+  // The exact sequence: an older response arrives while a newer request is
+  // still pending, with the row mounted. Nothing is restored, and the row must
+  // NOT be forgotten, or the newer response has nothing to put focus on.
+  const older = decideRestore({ refId: 'c_gym', focusWasLost: false, settled: false })
+  assert.deepEqual(older, { focus: null, clear: false })
+  const newer = decideRestore({ refId: 'c_gym', focusWasLost: true, settled: true })
+  assert.deepEqual(newer, { focus: 'c_gym', clear: true })
 })

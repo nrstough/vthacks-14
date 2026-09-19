@@ -7,11 +7,11 @@ import { solveViaApi } from './lib/api'
 import { money } from './lib/format'
 import { emptyPlanText, footerLines, narrateChart } from './lib/narrate'
 import type { Overrides } from './lib/overrides'
-import { NONE, count, fromIds, pendingIds, toLocks, toggle } from './lib/overrides'
-import { armOnToggle, decideRestore, domId } from './lib/focus'
+import { NONE, count, fromIds, toLocks, toggle } from './lib/overrides'
+import { armOnToggle, decideRestore, domId, sameInputs } from './lib/focus'
 import { useDebounced } from './lib/useDebounced'
 import { solve } from './solver/mockSolver'
-import type { SolveResponse } from './types'
+import type { SolveRequest, SolveResponse } from './types'
 
 const BASE = SCENARIOS[0].request
 
@@ -39,6 +39,10 @@ export default function App() {
   // under the left-out changes are statements about THAT solve, so they cannot
   // be computed from a set the solver has not seen yet.
   const [solvedRuledOut, setSolvedRuledOut] = useState<Overrides>(NONE)
+  // The whole request the displayed answer came from, not just its overrides: a
+  // slider still moving means the answer on screen is not the one being waited
+  // for, even though the checkboxes match.
+  const [solvedRequest, setSolvedRequest] = useState<SolveRequest | null>(null)
   const [source, setSource] = useState<'local' | 'server'>('local')
   const [notice, setNotice] = useState<string | null>(null)
   const seq = useRef(0)
@@ -68,6 +72,7 @@ export default function App() {
       previousPlan.current = next.plan.map((p) => p.candidate_id)
       setRes(next)
       setSolvedRuledOut(sentOverrides)
+      setSolvedRequest(debounced)
       setNewIds(next.plan.map((p) => p.candidate_id).filter((id) => !before.includes(id)))
       setSource(from)
       setNotice(msg)
@@ -97,8 +102,9 @@ export default function App() {
       // Focus parked on the body (or the root) means it was lost when a row
       // unmounted, not moved there by the user.
       focusWasLost: !active || active === document.body || active === document.documentElement,
-      // Nothing else is in flight: what is on screen answers what the user asked.
-      settled: pendingIds(ruledOut, solvedRuledOut).size === 0,
+      // Nothing else is in flight: what is on screen answers exactly what the
+      // user is asking now, sliders included.
+      settled: solvedRequest !== null && sameInputs(solvedRequest, request),
     })
     if (decision.clear) focused.current = null
     if (!decision.focus) return

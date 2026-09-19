@@ -33,6 +33,37 @@ export function armOnToggle(input: ArmInput): string | null {
   return activeElementId.slice('cant-'.length)
 }
 
+/**
+ * Whether two requests ask the same question.
+ *
+ * Used to decide whether the answer on screen is still the one the user is
+ * waiting for. Overrides alone are not enough: dragging the balance slider or
+ * the cushion also starts a new solve, and treating the old answer as current
+ * because the checkboxes match is how focus gets dropped between two responses.
+ */
+export function sameInputs(a: FocusRequest, b: FocusRequest): boolean {
+  return (
+    a.opening_balance_cents === b.opening_balance_cents &&
+    a.buffer_cents === b.buffer_cents &&
+    a.as_of === b.as_of &&
+    a.horizon_end === b.horizon_end &&
+    sameIds(a.locks.out, b.locks.out) &&
+    sameIds(a.locks.in, b.locks.in)
+  )
+}
+
+export interface FocusRequest {
+  as_of: string
+  horizon_end: string
+  opening_balance_cents: number
+  buffer_cents: number
+  locks: { in: readonly string[]; out: readonly string[] }
+}
+
+function sameIds(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((id, i) => id === b[i])
+}
+
 export interface RestoreInput {
   refId: string | null
   /** True when focus was lost rather than deliberately moved. */

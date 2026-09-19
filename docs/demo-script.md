@@ -19,7 +19,7 @@ proof, which is the only part nobody else has.
 - [ ] Refresh the two numbers in the build section. They were 810 tests and
       under 3ms on Saturday morning and the suite is still growing; quoting a
       stale figure to someone who then runs it is worse than rounding. As of
-      Sat 04:30 it is 977 backend tests plus 75 frontend tests.
+      Sat 04:30 it is 977 backend tests plus 87 frontend tests.
 
 ---
 

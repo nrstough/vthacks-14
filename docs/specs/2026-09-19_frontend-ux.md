@@ -562,3 +562,44 @@ synthetic keys produce no default action and React focus events never fire. An a
 native range input does nothing here either, which is how that was established. The focus rules
 themselves are now pure functions with 11 tests; what remains unexercised is the wiring between
 them and React's events.
+
+## Codex audit, fourth pass (~04:20) — **Fail**, one finding, real
+
+One substantive finding and one stale count. Scope discipline and Freeze integrity Excellent.
+
+1. **"Settled" was derived from the overrides alone.** It compared the ruled-out set of the
+   displayed answer with the current one, and ignored the starting balance and the cushion — both
+   of which also start a new solve. So dragging the slider while a toggle was in flight looked
+   settled, the remembered row was dropped, and the next response moved that row with nothing
+   left to focus. Codex's sequence: unexclude the gym at $200, then move the balance to $300
+   while the first solve is pending.
+
+   Fixed by comparing the whole question rather than one part of it. The app now keeps the
+   request that produced the displayed answer and compares it against the current one through
+   `sameInputs` in `focus.ts`: balance, cushion, horizon and both lock lists. Six tests added,
+   including the balance-differs and cushion-differs cases that the previous shape could not
+   express, because `settled` was handed to the helper as a boolean and the wrong value was
+   computed by the caller.
+
+   Verified on screen with Codex's exact sequence: focus stays on the gym checkbox and the
+   balance lands at $300.
+
+2. The demo checklist's frontend test count was stale again. Corrected to 87.
+
+Test count 81 → 87.
+
+### Focus behaviour, seven sequences after this fix
+
+Re-checked in the browser, all correct: toggled row moves; user moves to a surviving row;
+activation with no prior focus; collapsed section; tick then undo; three toggles inside the
+debounce; and a balance drag landing between two responses.
+
+### Final run
+
+| Command | Result |
+|---|---|
+| `npm run lint` | clean |
+| `npm run build` | clean, 621.08 kB / 184.18 kB gzip |
+| `npm test` | **87 passed, 0 failed** |
+| `.venv/bin/pytest backend/ -q -m "not perf"` | **977 passed**, 6 deselected |
+| oracle / types / contract / backend diff vs `main` | empty |
