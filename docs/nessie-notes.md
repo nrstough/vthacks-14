@@ -27,16 +27,50 @@ untested; `backend/scripts/nessie_probe.py` exists to settle the rest in one run
 - everything else — you act as a customer, scoped to data you own. **The seed script writes,
   so it must use these.** *(confirmed)*
 
-## Model spending as WITHDRAWALS, not purchases
+## Nessie is a transaction log, not a ledger — and it drops cents
 
-This is the load-bearing decision. **Purchases have no documented create or list route** —
-only `GET`/`PUT`/`DELETE /purchase/{id}` singular. Deposits and withdrawals both have full
-account-scoped create and list paths.
+These two are the load-bearing findings. Both are **confirmed** by write-then-read-back probes
+from four unrelated hackathon teams in Sept 2026, across USD and MXN.
+
+1. **Every amount is truncated to whole dollars.** `1200.57 → 1200`, `17.99 → 17`,
+   `39.99 → 39`. Truncation, not rounding. Applies to opening balances and to deposit and
+   withdrawal amounts alike. Negative balances are rejected at account creation.
+2. **Writes never move `balance`.** Posted deposits, withdrawals and transfers leave it at its
+   opening value; `PUT /accounts/{id}` returns `202` and silently ignores the balance field.
+
+For a tool whose entire output is sub-dollar daily balances and below-zero detection, this
+means **Nessie cannot be the arithmetic source**. The architecture every one of those teams
+converged on, and the one to use here:
+
+> The local **integer-cent ledger is the system of record.** Nessie is a seeded account and
+> history source, and a downstream mirror. Never read a balance back. Never demo a
+> live-updating Nessie balance.
+
+This costs almost nothing here — the solver already works in integer cents and never wanted
+Nessie's arithmetic. It also does not hurt the track: at least one team hit every one of these
+limits and still shipped the integration.
+
+**Demo recommendation:** seed Nessie with **whole-dollar amounts** so the round trip is
+lossless and truncation never has to be explained on stage. The plan already calls for $5
+deficit rounding for stability, so nothing is lost. Cent precision lives on the synthetic and
+CSV paths, where it is free.
+
+## Spending: withdrawals are the simpler path
+
+Capital One's own Android, Go, Python and iOS SDKs all call `/accounts/{id}/purchases`, so the
+create route almost certainly exists despite being absent from the web reference — an earlier
+note here treated the doc gap as proof it did not. Withdrawals remain the better choice
+anyway: they need no merchant round trip and no `merchant_id`.
 
 So: income → `POST /accounts/{id}/deposits`, spending → `POST /accounts/{id}/withdrawals`,
 recurring → `POST /accounts/{id}/bills`. The messy merchant string goes in `description`,
-which is exactly what recurring-detection reads. This drops a dependency on an undocumented
-route and on a merchant round trip, and costs nothing. *(confirmed from the endpoint list)*
+which is exactly what recurring-detection reads.
+
+**There is no unified transaction endpoint.** Purchases, transfers, deposits and withdrawals
+are four separate sub-resources with different shapes, and purchases use `purchase_date` while
+the other three use `transaction_date`. History is a 4-GET fan-out normalized client-side; the
+date difference is a one-line alias, not four mappings. *(confirmed against Capital One's own
+SDKs)*
 
 Note the pluralization trap: account-scoped paths are plural (`/accounts/{id}/withdrawals`)
 but individual-object paths are singular (`/withdrawal/{id}`).
@@ -88,8 +122,17 @@ property table but appears as `["food"]` in the example; don't hard-code either.
 - **Transfers are under-documented.** `POST /accounts/{id}/transfers` is advertised in Quick
   Start but absent from the endpoint list; the transfer model carries no source or destination
   fields, and the expanded GET/PUT examples are `{}`. Do not put transfers on the demo path.
+- **A wrong key returns `200 []` on reads.** Reads are ungated, so a bad key presents as "no
+  data" rather than "bad key". Only **writes** return `401`. **Validate the key with a write in
+  hour one** — this is the single most expensive way to lose an hour here. *(confirmed by three
+  independent teams)*
+- **Creates are permanent.** `DELETE` on customers and merchants returns `403`, so seed-data
+  mistakes cannot be undone on a given key. Keep seeds small and name them with a nonce.
+  *(confirmed)*
 - `/documentation` and the root 403 to a programmatic fetch but render fine in a browser. A
   403 there does not mean the key is bad — probe `/accounts?key=...`. *(confirmed)*
+- There is **no approval queue**: GitHub sign-in, copy the key, go. Zero schedule risk from key
+  provisioning, unlike sponsor APIs gated on manual approval. *(confirmed)*
 - `GET /atms` has a broken schema reference in the docs (`/components/schemas/ATM` missing).
 - Resource overviews are not exhaustive: bill, loan and branch examples carry fields their
   property tables omit.
@@ -97,8 +140,15 @@ property table but appears as `["food"]` in the example; don't hard-code either.
   data-reset behavior, timezone handling, whether recurring bills actually execute, and
   whether any write moves a balance.
 
-## SDKs
+## SDKs — do not use the Python one
 
-All four are legacy — Swift targets Xcode ≥ 7.0, JavaScript depends on jQuery. The Examples
-page's five language tabs all say samples are "on their way" and contain no code. Write a
-small direct HTTP adapter instead; the probe is already one.
+The official Python SDK is **abandoned**: last real commit Sept 2019, last touched Dec 2022 by
+Dependabot only, no `python_requires`, and **not on PyPI** (install is `pip install -e` from a
+clone). Staleness is SDK-specific rather than org-wide — the JS, iOS and Android SDKs saw
+2024–2025 activity — but for a Python 3.14 / FastAPI stack the answer is a small direct HTTP
+adapter, which is what an AI coding agent produces fastest anyway. `nessie_probe.py` is
+already one, and it is stdlib-only. *(confirmed via the GitHub API)*
+
+The other SDKs carry legacy assumptions too — Swift targets Xcode ≥ 7.0, JavaScript depends on
+jQuery — and the Examples page's five language tabs all say samples are "on their way" and
+contain no code.

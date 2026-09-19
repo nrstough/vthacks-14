@@ -88,16 +88,23 @@ def call(method: str, path: str, body: dict | None = None, base: str = "") -> tu
 
 
 def pick_host() -> str:
-    """Note 1: the docs name three hosts and disagree. Find one that answers."""
+    """Note 1: the docs name three hosts and disagree. Find one that answers.
+
+    A 200 here does NOT mean the key is good. Reads are not gated: a wrong key
+    returns 200 with an empty list, so a bad key presents as "no data" rather
+    than "bad key". Only writes return 401, so the key is validated at step 2.
+    """
     print("\n1. Which host answers? (docs name three and disagree)")
     for host in HOSTS:
-        status, _ = call("GET", "/accounts", base=host)
+        status, payload = call("GET", "/accounts", base=host)
         if status == 200:
-            print(f"   -> using {host}")
+            n = len(payload) if isinstance(payload, list) else "?"
+            print(f"   -> using {host}  (returned {n} accounts)")
+            if payload == []:
+                print("   !! empty list -- this is ALSO what a wrong key returns.")
+                print("      Reads are ungated; step 2's write is the real key check.")
             return host
-        if status == 401:
-            sys.exit("\nKey rejected (401). Check it on your nessieisreal.com profile.")
-    sys.exit("\nNo host answered. Check connectivity, then the key.")
+    sys.exit("\nNo host answered. Check connectivity first, then the key.")
 
 
 def new_id(status: int, payload: object, collection: str, field: str, marker: str) -> str | None:
@@ -129,10 +136,19 @@ def new_id(status: int, payload: object, collection: str, field: str, marker: st
     return None
 
 
-def money(label: str, value: object) -> None:
-    """Note 3: integer cents or float dollars? Report, never assume."""
-    kind = type(value).__name__
-    print(f"   {label}: {value!r} ({kind})")
+OPENING_BALANCE = 400
+SENT = {"deposits": 780.25, "withdrawals": 63.40, "bills": 85.00}
+
+
+def reconcile(label: str, sent: float, got: object) -> None:
+    """Note 3: write-then-read-back. Independent reports say Nessie TRUNCATES to
+    whole dollars (1200.57 -> 1200). If that holds here, Nessie cannot be the
+    arithmetic source for a tool whose output is sub-dollar daily balances."""
+    print(f"   {label:24} sent {sent!r:>10}  got {got!r:>10} ({type(got).__name__})")
+    if isinstance(got, (int, float)):
+        dropped = round(sent - got, 2)
+        if dropped:
+            print(f"   {'':24} ^^ DROPPED {dropped:.2f} -- cents do not round-trip")
 
 
 def main() -> None:
@@ -140,19 +156,25 @@ def main() -> None:
     BASE = pick_host()
     today = date.today()
 
-    print("\n2. Customer")
+    print("\n2. Customer -- THIS is the key check. Writes are gated; reads are not.")
+    print("   Note: DELETE on customers and merchants returns 403 permanently, so")
+    print("   everything created below is permanent on this key. Keep seeds small.")
     status, payload = call("POST", "/customers", {
         "first_name": "Demo", "last_name": NONCE,
         "address": {"street_number": "925", "street_name": "Prices Fork Rd",
                     "city": "Blacksburg", "state": "VA", "zip": "24060"},
     })
+    if status == 401:
+        sys.exit("\nKey rejected (401 on a write). The read above still returned 200 --\n"
+                 "that is the trap. Recopy the key from your nessieisreal.com profile.")
     cid = new_id(status, payload, "/customers", "last_name", NONCE)
     if not cid:
         sys.exit("\nNo customer id. Everything downstream needs it -- read the responses above.")
 
     print("\n3. Checking account  (AccountCreate: type, nickname, rewards, balance)")
     status, payload = call("POST", f"/customers/{cid}/accounts", {
-        "type": "Checking", "nickname": f"demo-{NONCE}", "rewards": 0, "balance": 400,
+        "type": "Checking", "nickname": f"demo-{NONCE}", "rewards": 0,
+        "balance": OPENING_BALANCE,
     })
     aid = new_id(status, payload, f"/customers/{cid}/accounts", "nickname", NONCE)
     if not aid:
@@ -161,7 +183,8 @@ def main() -> None:
     print("\n4. Deposit (payroll). DepositCreate requires all five fields.")
     call("POST", f"/accounts/{aid}/deposits", {
         "medium": "balance", "transaction_date": str(today),
-        "status": "completed", "amount": 780.25, "description": "HARRIS TEETER PAYROLL",
+        "status": "completed", "amount": SENT["deposits"],
+        "description": "HARRIS TEETER PAYROLL",
     })
 
     print("\n5. Withdrawal (spending). This is the documented, account-scoped way to")
@@ -169,7 +192,8 @@ def main() -> None:
     print("   merchant string goes in description, which is what recurring-detection reads.")
     call("POST", f"/accounts/{aid}/withdrawals", {
         "medium": "balance", "transaction_date": str(today - timedelta(days=2)),
-        "status": "completed", "amount": 63.40, "description": "HARRIS TEETER #0123 BLACKSBURG VA",
+        "status": "completed", "amount": SENT["withdrawals"],
+        "description": "HARRIS TEETER #0123 BLACKSBURG VA",
     })
 
     print("\n6. Bill. BillCreate requires status/payee/payment_amount; nickname,")
@@ -177,7 +201,7 @@ def main() -> None:
     print("   INTEGER day-of-month, not a date. creation_date and upcoming_payment_date")
     print("   are response-only -- they are deliberately not sent here.")
     call("POST", f"/accounts/{aid}/bills", {
-        "status": "recurring", "payee": f"Verizon {NONCE}", "payment_amount": 85.00,
+        "status": "recurring", "payee": f"Verizon {NONCE}", "payment_amount": SENT["bills"],
         "nickname": "phone", "payment_date": str(today + timedelta(days=9)),
         "recurring_date": 14,
     })
@@ -196,13 +220,26 @@ def main() -> None:
         _, reads[resource] = call("GET", f"/accounts/{aid}/{resource}")
     _, account = call("GET", f"/accounts/{aid}")
 
-    print("\n9. Money representation (docs contradict themselves; this is the truth)")
-    if isinstance(account, dict):
-        money("account.balance", account.get("balance"))
+    print("\n9. Does cent precision survive a round trip?")
     for resource, items in reads.items():
         if isinstance(items, list) and items and isinstance(items[0], dict):
-            money(f"{resource}[0].amount",
-                  items[0].get("amount", items[0].get("payment_amount")))
+            row = items[0]
+            reconcile(f"{resource}[0]", SENT[resource],
+                      row.get("amount", row.get("payment_amount")))
+        else:
+            print(f"   {resource:24} no rows read back")
+
+    print("\n10. Do writes settle? Is balance a ledger or a frozen opening number?")
+    balance = account.get("balance") if isinstance(account, dict) else None
+    expected = OPENING_BALANCE + SENT["deposits"] - SENT["withdrawals"]
+    print(f"   opening {OPENING_BALANCE}  ->  balance now {balance!r}")
+    print(f"   a real ledger would read about {expected:.2f}")
+    if balance == OPENING_BALANCE:
+        print("   -> UNCHANGED. Nessie is a transaction log, not a ledger.")
+        print("      Compute the running balance locally; never read it back,")
+        print("      and never demo a live-updating Nessie balance.")
+    elif balance is not None:
+        print("   -> it moved. Worth re-checking; independent reports say it does not.")
 
     out = pathlib.Path(__file__).resolve().parents[2] / "docs" / "nessie-shapes.json"
     out.write_text(json.dumps(
@@ -211,8 +248,10 @@ def main() -> None:
     ))
     print(f"\nDone. Host {BASE}. Full transcript -> {out}")
     print(f"customer={cid}  account={aid}")
-    print("\nDid a deposit or withdrawal actually move account.balance? Compare step 9")
-    print("against the 400 opening balance -- the docs never say whether writes settle.")
+    print("\nSteps 9 and 10 decide the architecture: if cents are dropped and the")
+    print("balance is frozen, the local integer-cent ledger is the system of record")
+    print("and Nessie is the seeded source and mirror. Seed whole-dollar amounts so")
+    print("the round trip is lossless and truncation never appears in the demo.")
 
 
 if __name__ == "__main__":
