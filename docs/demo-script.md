@@ -67,13 +67,20 @@ Hand this one to the judge if they seem willing. It lands better when they
 press the button.
 
 > "The obvious objection is that I picked an example. So change it. Say you
-> can't cancel the gym, it's a contract."
+> don't want to carry a balance on that card. You want to pay it in full."
 
-**[Click "Can't do" on the gym row.]**
+**[Click "Can't do" on the "Pay the card minimum" row.]**
 
-> "Same account, no gym. It re-solves and now it needs seven changes instead of
-> three, because that thirty-five dollars was doing a lot of work. Nothing here
-> is a stored answer."
+> "Same account, and now it needs seven changes instead of three, because that
+> eighty dollars was doing a lot of work. Nothing here is a stored answer.
+>
+> Notice the proof changed too. It no longer says every change is
+> load-bearing, because now some of them are only protecting the cushion. It
+> tells you which."
+
+**Verified on the live app.** Three to seven. Do not use the gym row for this:
+ruling the gym out only moves it to four, which is a weaker moment. Reset with
+any preset button, which clears overrides.
 
 ## 2:20 to 2:55 — when cutting isn't enough
 
