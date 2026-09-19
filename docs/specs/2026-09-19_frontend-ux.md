@@ -637,3 +637,29 @@ while their rows were on screen, reasons computed against an answer that never s
 override, and a forbidden-word gate that could not read the bundle in the real checkout. Final
 state: **87 frontend tests, 977 backend tests**, lint and build clean, the parity oracle and the
 API contract byte-identical to `main`.
+
+## Merged `main` into `frontend` (~04:35)
+
+`main` moved during this run. It had already taken this lane's **first** commit (`9faa8e1`) —
+the one the audits went on to find six defects in — and another lane built a Gemini chat panel
+on top of it (`c28bf0e`, `9219453`). The eight fix commits were not there.
+
+Merged `main` into `frontend`, which is the direction `CLAUDE.md` prescribes and touches no
+other checkout. **No conflicts.** The overlap was two files: `App.tsx`, where that lane added a
+`ChatPanel` import and element in regions this lane did not touch, and `index.css`, where it
+appended its own block.
+
+Verified on the merged tree:
+
+| Check | Result |
+|---|---|
+| `npm run lint` | clean |
+| `npm run build` | clean, 624.92 kB JS / 10.96 kB CSS |
+| `npm test` | **87 passed** |
+| `.venv/bin/pytest backend/ -q -m "not perf"` | **1011 passed** (977 + the chat lane's 34) |
+| Screen | 11 checkboxes none ticked, chat panel renders, gym deadline "Act by Sep 19", fallback chip present, no forbidden words |
+| Demo beat | 3 → 7 changes, focus held on the toggled row |
+
+**Not merged into `main`, deliberately.** `CLAUDE.md` says to check with the other sessions before
+fast-forwarding `main`, because it rewrites files under them, and another lane is live in that
+checkout right now. `frontend` is a fast-forward away whenever Nathan wants it.
