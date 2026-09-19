@@ -35,9 +35,12 @@ inclusive both ends, `opening_balance_cents` = available balance at the start of
 
 Consequence: the plan is the smallest set at every tier. If any set holds the cushion,
 the smallest such set wins (tier 1); otherwise the smallest set that clears zero (tier
-2); otherwise the plan with the fewest fee-days and shallowest dip (tier 3). On the three
-shipped fixtures this coincides with the frontend stand-in's older order; `tight`
-genuinely needs 8 of 11 changes.
+2); otherwise the plan with the fewest fee-days and shallowest dip (tier 3). On the three shipped
+fixtures this coincides with the stand-in's older order, so the difference is
+visible only across a sweep: over openings from $30 to $300 the two orders pick
+different plans in 76 of 271 cases, and this one never picks more changes —
+fewer in 72 of them, and the same number in the other 4, where only the
+tiebreak differs.
 
 ## Constraints
 
@@ -56,8 +59,12 @@ genuinely needs 8 of 11 changes.
   across stages; `num_workers=1`, `random_seed=0`. Only `x` is read back; every term is
   recomputed by simulation and asserted equal. Any stage `FEASIBLE` →
   `meta.status="FEASIBLE"`, `certificate.minimal_proven=false`, wording drops "fewest".
-- **Brute force** fallback (no `ortools`, or a stage returns UNKNOWN/INFEASIBLE): exact
-  over ≤ 18 free candidates; refuses above (HTTP 503, structured message).
+- **Brute force** fallback: exact over ≤ 18 free candidates; refuses above (HTTP 503).
+  Taken whenever OR-Tools cannot be loaded for any reason, or any of the seven numeric
+  stages returns UNKNOWN or INFEASIBLE, or the budget runs out during them. The single
+  exception is the id tiebreak: by then all seven numeric terms are proven, so losing it
+  costs the ordering among tied plans, not the plan, and the response says
+  `minimal_proven: false` rather than starting again.
 - The TypeScript stand-in `frontend/src/solver/mockSolver.ts` implements the same
   objective and is run through Node as an independent oracle (`backend/tests/oracle/`).
 

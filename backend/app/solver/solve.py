@@ -8,6 +8,7 @@ request fails loudly. There is deliberately no third path that guesses.
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass
 
@@ -22,6 +23,8 @@ from .errors import EngineUnavailable
 from .objective import numeric_terms
 from .simulate import simulate
 from .tiers import tier_of
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -95,9 +98,19 @@ def _run_engine(req, days, elig, previous_plan, settings):
     if settings.force_engine != "brute-force":
         try:
             solve_cpsat = load_cpsat()
-        except ImportError:
+        except Exception as exc:
+            # Deliberately broad. A missing package raises ImportError, but a
+            # wheel whose native library will not load raises OSError from the
+            # dynamic linker, and a partially-built one can raise AttributeError.
+            # All three mean the same thing here — CP-SAT is not available — and
+            # falling back costs nothing, because the fallback is exact too.
             if settings.force_engine == "cp-sat":
-                raise EngineUnavailable("OR-Tools is not installed") from None
+                log.warning("constraint solver could not be loaded: %s", exc)
+                raise EngineUnavailable("the constraint solver is unavailable") from None
+            # Otherwise this is invisible: the answer is still exact, so nothing
+            # downstream complains, and on a box where the install is broken the
+            # only symptom is that everything got slower.
+            log.warning("constraint solver unavailable, using exhaustive search: %s", exc)
         else:
             try:
                 ids, status, proven, stages = solve_cpsat(

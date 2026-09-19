@@ -185,8 +185,136 @@ with an empty plan it always says "No changes needed. The schedule already clear
 tier 3 the schedule does not clear, so this service states the gap instead. A separate
 test fails if no instance exercises that branch.
 
-**Claude critique verdict:** _pending_
-**Codex audit grade:** _pending_
+### Audit round 1 (adversarial Claude critique, ~02:20)
+
+Verdict **Fail**, on Test coverage alone; every other dimension Acceptable or better, and
+freeze integrity Excellent. The critique ran 2,400 fuzz instances, 26 hand-built cases and
+36 mutants. Findings and what was done:
+
+| # | Finding | Resolution |
+|---|---|---|
+| F1 | **A schema-valid request returned HTTP 500.** Input bounds (±10^11) were applied to *derived* response figures; a large opening balance plus one charge leaves that range, and `build_response` raised past the error handler. | Fixed: `DERIVED_CENTS_ABS` for balances, totals and shortfalls. Repro added in round 2 — see F1-bis. |
+| F2 | Two adjacent objective levels had no counterfactual: swapping days-below-zero with worst-shortfall, or pain with hysteresis, left all tests green. | Fixed: `DAYS_BEAT_DEPTH` and `PAIN_BEATS_MEMORY` planted instances. Both swaps now fail 2 tests. |
+| F3 | A CP-SAT deferral crediting the recharge day survived the suite. | Fixed: `DEFER_LANDS_IN_HORIZON`. The mutant now fails 4 tests. |
+| F4 | The model/ledger cross-check — the only guard against F3's class — had no test at all. | Fixed: a lying engine fixture. Disabling the check now fails 1 test. |
+| F5 | The exhaustive-search timing bound was 30 s against the spec's 5 s. | Fixed: tightened to 5 s. Measured 2.8–3.0 s. |
+| F6 | `types.ts` parity skipped the three inline object literals, so `meta.excluded_locked_in`, `shortfall.total_cents` and `external_cash_needed.by_date` were unchecked. | Fixed: inline literals parsed and compared. |
+| F7 | Two Codex resolutions were only partly implemented. | Planted-vs-oracle parity added. The promised subprocess test for a missing OR-Tools is **deliberately not added**: the `load_cpsat` seam covers the substance and a subprocess test would be slower and flakier. |
+| F8 | The certificate's first-wins tie rule was untested. | Fixed: `EQUAL_MARGINALS` unit test. The `>=` mutant now fails. |
+| F9 | Determinism tests excluded all of `meta`, not just `wall_ms`. | Fixed: `stable_part()` compares everything but the timing. |
+| F10 | `docs/features/solver.md` claimed the `tight` account needs 8 of 11 changes; the fixture was retuned and needs 3. | Fixed, with the sweep result that actually supports D1 in its place. **The same now-stale figure appears in D1's own note above (line ~35), which is frozen: read it as superseded.** The `tight` preset became $180 against a $100 cushion in `0c6e0c5` and solves in 3 changes at tier 2. D1's real support is the sweep: across openings from $30 to $300 the two orders differ on 76 of 271, and D1 never picks more — fewer in 72, the same in 4 where only the tiebreak differs. |
+| F11 | The contract documented no 503, and its limits read as if they bound derived figures. | Fixed in `docs/api-contract.md`. |
+| F12 | Two unreachable branches in `assemble.py`. | Removed. |
+
+**Tests after the round: 810** (was 788). All five previously-surviving mutants confirmed
+killed by re-running each against the full suite.
+
+### Audit round 2 (re-check, ~02:35)
+
+Eleven of twelve fixes verified real and mutation-killed. The critique re-ran all six
+adjacent objective swaps, twelve further mutants, 4,000 fresh differential instances, the
+tiebreak against full enumeration of every tied optimum, and hand-checked the four new
+planted fixtures' arithmetic independently. Two things came back:
+
+| # | Finding | Resolution |
+|---|---|---|
+| F1-bis | **The F1 fix had no test, and this document claimed it did.** Reverting the fix left all 810 green, while the row above said "Repro added to `test_api.py`" — false. Worse, the bound's headroom is derived from `MAX_T`/`MAX_SCHED`/`MAX_N`/`CENTS_ABS` and nothing tied them together, so raising any cap would silently restore the 500. | Fixed: the two-value repro and the every-cap-at-maximum case in `test_api.py`, plus an invariant in `test_validation.py` that recomputes the worst case from the caps. Reverting the fix now fails 3 tests. |
+| F13 | **A broken OR-Tools install returned 500, not a fallback.** The seam caught only `ImportError`, but a wheel whose native library will not load raises `OSError` from the dynamic linker, and a partial build can raise `AttributeError`. Both bypassed the fallback entirely. | Fixed: the seam catches any failure, because all of them mean the same thing and the fallback is exact anyway. Narrowing it back fails 1 test. |
+
+Also confirmed, and left alone: swapping objective terms 2 and 3 is **provably untestable** —
+`worst_shortfall > 0` implies `min_balance < 0 <= buffer` implies `buffer_missed = 1`, so the
+two orderings induce an identical total order (0/691 divergences on probe). And the
+subprocess test for a missing OR-Tools stays omitted: the seam is faithful to the real
+failure, and it would not have caught F13 either.
+
+One overstatement corrected: the sweep supporting D1 gives 76/271 differing plans (28%), D1
+picking fewer changes in 72 and more in none — in the remaining 4 the counts are equal and
+only the tiebreak differs. "Picks fewer wherever they differ" should read "never more".
+
+**Tests after round 2: 814.**
+
+### Audit round 3 (re-check, ~02:40) — **Acceptable**
+
+Both round-2 findings confirmed closed by mutation: reverting the derived bound fails 3
+tests, narrowing the fallback fails 1, and growing `MAX_SCHED` or `MAX_T` past the derived
+ceiling fails 2. The worst-case formula was independently checked and found correct and
+conservative — a chosen change's contribution to any day is in `{0, +freed}` and never
+negative, because validation forces a recharge to follow its effective date inside the
+horizon. 2,800 fresh differential instances, 22 edge cases, all 17 planted cases and the
+tiebreak-against-full-enumeration check all came back clean.
+
+Two residuals were raised as non-blocking and both were closed anyway: the large-value
+test passed no candidates, so one of the six widened fields was never constructed by it
+(now it is), and this row's wording was still overstated. The fallback also now logs why
+it fell back, which it previously did not — on a box with a broken install the only
+symptom was that everything got slower.
+
+Scorecard: Plan adherence **Excellent**, Scope discipline **Excellent**, Test coverage
+Acceptable, Review compliance Acceptable, Freeze integrity **Excellent**, Regression check
+**Excellent**, Documentation Acceptable. **Overall: Acceptable.**
+
+**Tests after round 3: 814.**
+
+### Codex audit (~02:45) — **Fail**, three real findings the critique missed
+
+Independent of the Claude rounds, and it earned its place: all three are defects, not
+bookkeeping. Every one is now fixed and mutation-guarded.
+
+| Finding | Why it mattered | Resolution |
+|---|---|---|
+| **Omitting `recharge_date` bypassed its validator.** A pydantic field validator does not run on a default, so a deferral *missing* the key — as opposed to sending an explicit null — was accepted. | The deferral silently became permanent savings: the money was freed and never came back, and the plan looked better than it was. Confirmed: HTTP 200 on the shipped fixture with the key deleted. | `Field(default=None, validate_default=True)`. Tests for omitted, explicit-null, and the still-legal case of omitting it on a non-deferral. |
+| **A failed numeric stage returned an unproven plan instead of falling back.** R1 requires exhaustive search for ≤ 18 free candidates, or a 503. Only the first stage did that; stages 2–7 returned the incumbent as FEASIBLE. | At these sizes the other engine answers *exactly*, so the service was shipping a plan it could not stand behind when a proven one was available. `docs/features/solver.md` described the correct behaviour, so the doc was right and the code was wrong. | Any numeric stage failure now raises and falls back. The tiebreak stage remains the one exception, for a different reason. Tests at stages 2, 4 and 7, plus the no-fallback refusal. |
+| **Empty-plan wording was not proof-aware.** An unfinished search that selected nothing still said "There are no changes available to close any of it" and "Nothing here can be changed in time". | Both are claims about every plan that could have been built, and on the `clears` account both are simply false — three changes clear it. | Both branches now check `minimal_proven`; `OPTIMALITY_CLAIMS` gained the three phrases so the unproven-response test covers them. |
+
+Also fixed: the README quoted a test count that had moved twice.
+
+Not actionable: Codex skipped Freeze integrity looking for P1/P2/P3 hashes this spec does not
+use (the Claude rounds checked it directly and found it Excellent), and its one test error was
+its sandbox refusing a temporary directory, not a failure.
+
+**Tests after the Codex round: 822.**
+
+**Claude critique verdict:** Acceptable (round 3), nothing blocking.
+### Codex re-audit (~02:55) — two further findings, both fixed
+
+| Finding | Resolution |
+|---|---|
+| **AC13 applied to the plan but not to the error body.** A refused request returned `503 {"detail": "stage days_below_zero returned INFEASIBLE"}` — the solver's own status name, containing the one word this product never shows anyone. | Stage and status now go to the log; the response says "the constraint solver could not finish this one". Same for the loader's message on a broken install. New API test asserts the 503 body carries none of the solver's vocabulary. |
+| **AC14 says "fixtures, planted and random"; the invariants covered only fixtures and random.** The hand-built cases — where every rule is pinned — were checked by parity and by targeted assertions, but not by the implementation-free properties. | All planted cases added to the parametrisation. 977 tests. |
+
+**Tests after the re-audit: 977** (the invariant properties now run over every planted case).
+
+### Codex final pass (~03:05) — **Acceptable**
+
+Scorecard: Plan adherence Acceptable, Scope discipline **Excellent**, Test coverage
+Acceptable, Review compliance **Excellent**, Freeze integrity **Excellent**, Regression
+check Acceptable, Documentation Acceptable. **Overall: Acceptable — no blocking
+implementation defect identified.**
+
+One doc nit, fixed: R6 says "one Node invocation per test session", while the harness
+actually batches and memoises — one process per set of unseen requests. The docstring now
+says what it does.
+
+Two verifications its sandbox could not perform, both run here in a writable environment:
+the static-site test passes (its fixture needs a temporary directory), and
+`npm run build` in `frontend/` completes clean.
+
+**Codex audit grade:** Fail on the first two passes, five defects between them; all fixed
+and mutation-guarded. **Final pass: Acceptable.**
+
+---
+
+## Final state
+
+**977 gate tests + 6 perf.** `.venv/bin/pytest backend/ -q -m "not perf"`.
+
+Three review passes found seventeen issues between them. Two were defects that would have
+reached a judge: a schema-valid request returning 500, and a deferral with its recharge
+date omitted becoming permanent savings. Three more would have shown up only when
+something else went wrong: a broken solver install crashing instead of falling back, a
+failed stage returning an unproven plan when an exact one was available, and a refusal
+naming the one word the product never shows anyone. The rest were tests that did not bite
+and records that overstated what had been done.
 
 ## Refinements from deep exploration (Sat ~01:50, before plan approval)
 

@@ -84,7 +84,7 @@ def test_exhaustive_search_stays_within_its_limit():
 
     ms = median_ms(raw, Settings(force_engine="brute-force"), runs=1)
     print(f"\n18 changes, exhaustive: {ms:.0f} ms")
-    assert ms < 30_000
+    assert ms < 5_000, "the run spec's bound; measured around 3 s"
 
 
 def test_a_batch_of_random_accounts():

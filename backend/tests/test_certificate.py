@@ -115,3 +115,26 @@ def test_dropping_a_change_is_worse_than_the_plan_for_every_load_bearing_row():
             assert plan_item.strictly_needed == (
                 item.marginal_cents > 0 or item.marginal_days > 0
             ), name
+
+
+def test_equally_costly_changes_resolve_to_the_first_in_plan_order():
+    """When two changes cost exactly the same to drop, which one the sentence
+    talks about must come from the plan's order, not from whichever the solver
+    happened to visit first."""
+    from app.schemas import SolveRequest as Req
+    from app.solver.assemble import plan_sort_key
+    from app.solver.certificate import build
+    from app.solver.dates import day_range
+    from app.solver.eligibility import split
+    from app.solver.simulate import simulate
+
+    req = Req.model_validate(planted.EQUAL_MARGINALS)
+    days = day_range(req.as_of, req.horizon_end)
+    chosen = sorted(split(req).free, key=plan_sort_key)
+    cert = build(req, chosen, days, simulate(req, chosen, days))
+
+    marginals = [i.marginal_cents for i in cert.per_item]
+    assert marginals[0] == marginals[1], "the fixture no longer produces a tie"
+    assert cert.worst_item is not None
+    assert cert.worst_item.candidate_id == cert.per_item[0].candidate_id
+    assert cert.worst_item.candidate_id == "c_a"

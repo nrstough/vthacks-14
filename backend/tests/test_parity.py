@@ -155,3 +155,20 @@ def test_refuses_rather_than_guesses_when_no_engine_can_answer(monkeypatch):
 
     with pytest.raises(EngineUnavailable):
         _solve(big)
+
+
+@requires_node
+def test_the_planted_cases_match_the_reference_too(oracle):
+    """The hand-built instances are where this service's rules are pinned, so
+    they are also where a disagreement would matter most."""
+    from tests.fixtures import planted
+
+    cases = {
+        name: value
+        for name, value in vars(planted).items()
+        if name.isupper() and isinstance(value, dict) and "as_of" in value
+    }
+    assert len(cases) >= 13, "planted fixtures went missing"
+    reqs = [cases[n] for n in sorted(cases)]
+    for raw, theirs in zip(reqs, oracle(reqs)):
+        assert_agrees(raw, _solve(raw), theirs)

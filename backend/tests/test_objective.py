@@ -181,3 +181,49 @@ def test_both_engines_agree_on_every_planted_case(case):
         d["meta"].pop("solver")
         d["meta"].pop("wall_ms")
     assert a == b
+
+
+def test_fewer_overdraft_days_beats_a_shallower_dip(engine):
+    """Fee-triggering days rank above how deep the dip goes.
+
+    Three shallow days under is three fees; one deeper day is one. The two
+    changes here are mutually exclusive and each wins on one of those measures,
+    so the answer says which term outranks the other.
+    """
+    res = run(planted.DAYS_BEAT_DEPTH, engine)
+    assert ids(res) == planted.DAYS_BEAT_DEPTH_PLAN
+    assert res.tier == 3
+    # c_early leaves one day under at $48; c_deep would leave three at $4.
+    assert res.shortfall.worst_cents == 4_800
+    assert sum(1 for b in res.balances if b.with_plan_cents < 0) == 1
+
+    forced_other = {**planted.DAYS_BEAT_DEPTH, "locks": {"in": ["c_deep"], "out": []}}
+    alternative = run(forced_other, engine)
+    assert alternative.shortfall.worst_cents == 400
+    assert sum(1 for b in alternative.balances if b.with_plan_cents < 0) == 3
+
+
+def test_a_gentler_change_beats_repeating_the_last_answer(engine):
+    """Disruption outranks churn.
+
+    Otherwise the tool would keep recommending something painful purely because
+    it recommended it last time, and steadiness would have become stubbornness.
+    """
+    res = run(planted.PAIN_BEATS_MEMORY, engine)
+    assert ids(res) == planted.PAIN_BEATS_MEMORY_PLAN
+    # Counterfactual: with the disruption scores level, memory does decide.
+    level = {
+        **planted.PAIN_BEATS_MEMORY,
+        "candidates": [{**c, "pain": 3} for c in planted.PAIN_BEATS_MEMORY["candidates"]],
+    }
+    assert ids(run(level, engine)) == ["c_a"], "now the previously shown plan holds"
+
+
+def test_money_put_off_until_later_in_the_horizon_does_come_back(engine):
+    """The mirror of the past-the-horizon case: here the recharge day is inside
+    the window, and the money has to leave again on it."""
+    res = run(planted.DEFER_LANDS_IN_HORIZON, engine)
+    assert ids(res) == ["c_a"]
+    assert [b.with_plan_cents for b in res.balances] == planted.DEFER_LANDS_IN_HORIZON_BALANCES
+    assert res.tier == 3, "deferring inside the horizon only moves the problem"
+    assert res.shortfall.worst_cents == 5_000

@@ -19,6 +19,7 @@ modelling slip rather than shipping it.
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import date
 
@@ -31,7 +32,15 @@ from .errors import EngineUnavailable
 from .objective import TERMS
 from .simulate import simulate
 
+log = logging.getLogger(__name__)
+
 _SOLVED = (cp_model.OPTIMAL, cp_model.FEASIBLE)
+
+# What the caller is told when a stage does not finish. The solver's own status
+# names are diagnostics, and one of them is the word this product never puts in
+# front of anyone, so they go to the log and this goes in the response.
+_STAGE_FAILED = "the constraint solver could not finish this one"
+
 
 
 def solve_cpsat(
@@ -138,21 +147,19 @@ def solve_cpsat(
     for i, expr in enumerate(terms):
         allowance = budget((len(terms) - i) + len(free))
         if allowance is None:
-            if incumbent is None:
-                raise EngineUnavailable("ran out of time before the first stage finished")
-            return sorted(incumbent | set(forced_ids)), "FEASIBLE", False, tuple(values)
+            log.warning("out of budget at stage %s", TERMS[i])
+            raise EngineUnavailable(_STAGE_FAILED)
 
         solver.parameters.max_time_in_seconds = allowance
         model.minimize(expr)
         status = solver.solve(model)
         if status not in _SOLVED:
-            # Nothing usable came back. Never read values off a failed solve:
-            # they are stale or arbitrary, not merely imprecise.
-            if incumbent is None:
-                raise EngineUnavailable(
-                    f"stage {TERMS[i]} returned {solver.status_name(status)}"
-                )
-            return sorted(incumbent | set(forced_ids)), "FEASIBLE", False, tuple(values)
+            # Hand the request back rather than answering it unproven. Exhaustive
+            # search can still answer it exactly at these sizes, and an exact
+            # answer beats a plan we cannot stand behind. Never read values off a
+            # failed solve either: they are stale or arbitrary, not imprecise.
+            log.warning("stage %s returned %s", TERMS[i], solver.status_name(status))
+            raise EngineUnavailable(_STAGE_FAILED)
 
         proven = proven and status == cp_model.OPTIMAL
         value = solver.value(expr)

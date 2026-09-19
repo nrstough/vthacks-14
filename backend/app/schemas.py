@@ -23,6 +23,13 @@ MAX_N = 60
 MAX_SCHED = 2000
 MAX_FREE = 18
 CENTS_ABS = 10**11
+# Balances and running totals are sums over the whole horizon, so they leave the
+# per-field input range from perfectly legal input: an opening balance at the cap
+# plus a single charge already exceeds it. Bounding derived figures by the input
+# bound turned a valid request into a 500. The ceiling below is the worst case
+# that input limits can produce (opening + every scheduled row + every change,
+# summed across a year) with room to spare, and is still far inside int64.
+DERIVED_CENTS_ABS = 10**17
 
 ID_RE = r"^[A-Za-z0-9_.:-]{1,64}$"
 _ISO_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
@@ -32,6 +39,8 @@ Action = Literal["skip", "defer", "downgrade", "cancel"]
 
 Cents = Annotated[StrictInt, Field(ge=-CENTS_ABS, le=CENTS_ABS)]
 NonNegCents = Annotated[StrictInt, Field(ge=0, le=CENTS_ABS)]
+DerivedCents = Annotated[StrictInt, Field(ge=-DERIVED_CENTS_ABS, le=DERIVED_CENTS_ABS)]
+NonNegDerivedCents = Annotated[StrictInt, Field(ge=0, le=DERIVED_CENTS_ABS)]
 Id = Annotated[StrictStr, Field(pattern=ID_RE)]
 
 
@@ -79,7 +88,10 @@ class Candidate(Strict):
     target_txn_id: Id
     freed_cents: NonNegCents
     effective_date: StrictStr
-    recharge_date: StrictStr | None = None
+    # validate_default, because a field validator does not run on a default:
+    # omitting the key entirely would otherwise skip the check that an
+    # explicit null fails, and the deferral would silently become permanent.
+    recharge_date: StrictStr | None = Field(default=None, validate_default=True)
     lead_time_days: Annotated[StrictInt, Field(ge=0, le=MAX_T)]
     pain: Annotated[StrictInt, Field(ge=1, le=5)]
 
@@ -203,7 +215,7 @@ class PlanItem(Strict):
 
 class CertificateItem(Strict):
     candidate_id: Id
-    worst_shortfall_cents: NonNegCents  # absolute worst dip with this change removed
+    worst_shortfall_cents: NonNegDerivedCents  # absolute worst dip with this change removed
     worst_date: StrictStr | None
     marginal_cents: StrictInt  # how much DEEPER the dip gets without this change
     marginal_days: StrictInt  # how many more days below zero without it
@@ -217,20 +229,20 @@ class Certificate(Strict):
 
 
 class Shortfall(Strict):
-    worst_cents: NonNegCents
+    worst_cents: NonNegDerivedCents
     worst_date: StrictStr | None
-    total_cents: NonNegCents
+    total_cents: NonNegDerivedCents  # every day underwater added up
 
 
 class ExternalCash(Strict):
-    amount_cents: NonNegCents
+    amount_cents: NonNegDerivedCents
     by_date: StrictStr
 
 
 class BalanceRow(Strict):
     date: StrictStr
-    baseline_cents: Cents
-    with_plan_cents: Cents
+    baseline_cents: DerivedCents
+    with_plan_cents: DerivedCents
     is_payday: bool
     changes_here: list[Id]
 

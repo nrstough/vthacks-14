@@ -229,3 +229,69 @@ LEAD_TIME_BOUNDARY = req(
         cand("c_late", "t_2", 10_000, "03", lead=3),
     ],
 )
+
+
+# --- pinning the objective order, one adjacent pair at a time ---------------
+
+# Two ways to change one $50 charge, so at most one may be taken.
+#   do nothing:  -2.00 | -2.00 | -52.00      three days under, worst 52.00
+#   c_early:      2.00 |  2.00 | -48.00      ONE day under,    worst 48.00
+#   c_deep:      -2.00 | -2.00 |  -4.00      three days under, worst  4.00
+# Fee-triggering days rank above the depth of the dip, so c_early wins: three
+# overdraft fees hurt more than one deeper one. Swap those two terms and c_deep
+# wins instead, which is how this pins the order.
+DAYS_BEAT_DEPTH = req(
+    days_end="03",
+    opening=200,
+    buffer=0,
+    scheduled=[txn("t_1", "01", -400), txn("t_2", "03", -5_000)],
+    candidates=[
+        cand("c_deep", "t_2", 4_800, "03"),
+        cand("c_early", "t_2", 400, "01"),
+    ],
+)
+DAYS_BEAT_DEPTH_PLAN = ["c_early"]
+
+
+# Both changes free the same money on the same day and leave the account in an
+# identical state; only disruption and churn separate them. The user was last
+# shown c_a, which hurts most. Disruption ranks above churn, so the answer moves
+# to c_b — the tool should not keep recommending something painful purely
+# because it recommended it last time.
+PAIN_BEATS_MEMORY = req(
+    days_end="03",
+    opening=5_000,
+    buffer=0,
+    scheduled=[txn("t_1", "02", -5_000), txn("t_2", "02", -5_000)],
+    candidates=[
+        cand("c_a", "t_1", 5_000, "01", pain=5),
+        cand("c_b", "t_2", 5_000, "01", pain=1),
+    ],
+    previous=["c_a"],
+)
+PAIN_BEATS_MEMORY_PLAN = ["c_b"]
+
+
+# A deferral that pays itself back INSIDE the horizon, on a day that matters.
+#   with c_a:  50.00 | 0.00 | -50.00 | -50.00
+# The money is gone again from the recharge day onward. Crediting that day by
+# mistake would report the account clear when it is fifty dollars under.
+DEFER_LANDS_IN_HORIZON = req(
+    days_end="04",
+    opening=0,
+    buffer=0,
+    scheduled=[txn("t_1", "02", -5_000)],
+    candidates=[cand("c_a", "t_1", 5_000, "01", recharge="03")],
+)
+DEFER_LANDS_IN_HORIZON_BALANCES = [5_000, 0, -5_000, -5_000]
+
+
+# Two changes whose removal costs exactly the same. The sentence names one of
+# them, and which one must not depend on solver internals.
+EQUAL_MARGINALS = req(
+    days_end="03",
+    opening=0,
+    buffer=0,
+    scheduled=[txn("t_1", "02", -4_000), txn("t_2", "02", -4_000)],
+    candidates=[cand("c_a", "t_1", 4_000, "01"), cand("c_b", "t_2", 4_000, "01")],
+)

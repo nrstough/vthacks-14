@@ -145,3 +145,118 @@ def test_the_previous_plan_travels_with_the_request(client):
     assert [p["candidate_id"] for p in first["plan"]] == ["c_a"]
     again = client.post("/api/solve", json=planted.IDENTICAL_PAIR_REMEMBERED).json()
     assert [p["candidate_id"] for p in again["plan"]] == ["c_b"]
+
+
+def test_a_large_but_legal_account_is_answered_not_crashed(client):
+    """The regression for a 500 on a perfectly valid request.
+
+    Balances and running totals are sums across the horizon, so they leave the
+    range any single input field is allowed to occupy. Bounding the server's own
+    output by the input bound made it reject its own answer, past the error
+    handler, as a 500 — on two values that break no rule.
+    """
+    cap = 10**11
+    raw = {
+        "as_of": "2026-03-01",
+        "horizon_end": "2026-03-02",
+        "opening_balance_cents": -cap,
+        "buffer_cents": 0,
+        "scheduled": [
+            {"id": "t_1", "date": "2026-03-01", "description": "X",
+             "amount_cents": -1, "kind": "bill", "recurring": False},
+            # A second charge at the cap, with a change that covers it, so the
+            # plan is non-empty and the certificate rows are built too. Without
+            # a candidate here, per_item stays empty and one of the widened
+            # fields is never constructed by the test at all.
+            {"id": "t_2", "date": "2026-03-02", "description": "Y",
+             "amount_cents": -cap, "kind": "bill", "recurring": False},
+        ],
+        "candidates": [
+            {"id": "c_a", "label": "Y", "detail": "Y", "action": "skip",
+             "target_txn_id": "t_2", "freed_cents": cap,
+             "effective_date": "2026-03-02", "recharge_date": None,
+             "lead_time_days": 0, "pain": 1},
+        ],
+        "locks": {"in": [], "out": []},
+        "previous_plan": [],
+    }
+    r = client.post("/api/solve", json=raw)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["tier"] == 3
+    assert body["balances"][0]["baseline_cents"] == -cap - 1
+    # The certificate row is larger than any single input field is allowed to be.
+    assert [p["candidate_id"] for p in body["plan"]] == ["c_a"]
+    assert body["certificate"]["per_item"][0]["worst_shortfall_cents"] == 2 * cap + 1
+
+
+def test_the_worst_case_the_input_limits_allow_is_answered(client):
+    """The other end of the same argument: every cap at its maximum at once."""
+    from app.schemas import CENTS_ABS, MAX_SCHED
+
+    scheduled = [
+        {"id": f"t_{i:04d}", "date": "2026-03-01", "description": "X",
+         "amount_cents": -CENTS_ABS, "kind": "bill", "recurring": False}
+        for i in range(MAX_SCHED)
+    ]
+    raw = {"as_of": "2026-03-01", "horizon_end": "2027-02-28",
+           "opening_balance_cents": -CENTS_ABS, "buffer_cents": 0,
+           "scheduled": scheduled, "candidates": [],
+           "locks": {"in": [], "out": []}, "previous_plan": []}
+    r = client.post("/api/solve", json=raw)
+    assert r.status_code == 200, r.text[:400]
+    assert r.json()["tier"] == 3
+
+
+def test_a_broken_solver_install_falls_back_rather_than_crashing(client, monkeypatch):
+    """A wheel whose native library will not load is a real failure mode, and it
+    does not raise ImportError."""
+    import app.solver.solve as solve_module
+
+    for failure in (
+        ImportError("No module named 'ortools'"),
+        OSError("dlopen(libortools.dylib): image not found"),
+        AttributeError("module 'ortools.sat' has no attribute 'python'"),
+    ):
+        monkeypatch.setattr(
+            solve_module, "load_cpsat", lambda exc=failure: (_ for _ in ()).throw(exc)
+        )
+        r = client.post("/api/solve", json=SCENARIOS["clears"])
+        assert r.status_code == 200, f"{failure!r} -> {r.status_code}"
+        assert r.json()["meta"]["solver"] == "brute-force"
+
+
+def test_a_refusal_never_leaks_the_solver_s_vocabulary(client, monkeypatch):
+    """The banned words apply to the error body as much as to the plan.
+
+    The constraint solver's own status names are diagnostics, and one of them is
+    the single word this product never shows anyone. They belong in the log.
+    """
+    from ortools.sat.python import cp_model
+
+    monkeypatch.setattr(
+        cp_model.CpSolver, "solve", lambda self, m, *a, **k: cp_model.INFEASIBLE
+    )
+
+    raw = copy.deepcopy(SCENARIOS["clears"])
+    # More changes than exhaustive search will take on, so there is no fallback
+    # and the refusal is the actual response.
+    from app.schemas import MAX_FREE
+
+    for i in range(MAX_FREE + 1):
+        raw["scheduled"].append({
+            "id": f"t_x{i:02d}", "date": "2026-09-23", "description": "X",
+            "amount_cents": -1000, "kind": "discretionary", "recurring": False,
+        })
+        raw["candidates"].append({
+            "id": f"c_x{i:02d}", "label": "X", "detail": "X", "action": "skip",
+            "target_txn_id": f"t_x{i:02d}", "freed_cents": 1000,
+            "effective_date": "2026-09-23", "recharge_date": None,
+            "lead_time_days": 0, "pain": 1,
+        })
+
+    r = client.post("/api/solve", json=raw)
+    assert r.status_code == 503
+    detail = r.json()["detail"].lower()
+    for word in ("infeasib", "guarantee", "unknown", "model_invalid"):
+        assert word not in detail, f"{word!r} reached the user: {detail!r}"

@@ -23,6 +23,7 @@ from app.schemas import (
 from .certificate import CertificateResult
 from .dates import to_iso
 from .eligibility import Eligibility
+from .objective import load_bearing
 from .simulate import Trace
 from .tiers import external_cash
 from .wording import certificate_sentence, plan_reason, verdict_and_qualifier
@@ -64,12 +65,8 @@ def build_response(
             date=c.effective_date,
             freed_cents=c.freed_cents,
             pain=c.pain,
-            strictly_needed=_strictly_needed(by_id.get(c.id)),
-            reason=(
-                plan_reason(by_id[c.id], plan_clears_zero)
-                if c.id in by_id
-                else "Holds the cushion; not strictly needed to clear zero."
-            ),
+            strictly_needed=load_bearing(by_id[c.id]),
+            reason=plan_reason(by_id[c.id], plan_clears_zero),
         )
         for c in plan_order
     ]
@@ -109,7 +106,7 @@ def build_response(
         certificate=Certificate(
             irredundant=cert.irredundant,
             minimal_proven=minimal_proven,
-            sentence=certificate_sentence(tier, plan_order, cert, best),
+            sentence=certificate_sentence(tier, plan_order, cert, best, minimal_proven),
             per_item=cert.per_item,
         ),
         shortfall=Shortfall(
@@ -127,9 +124,3 @@ def build_response(
             excluded_locked_in=elig.excluded_locked_in,
         ),
     )
-
-
-def _strictly_needed(item) -> bool:
-    from .objective import load_bearing
-
-    return bool(item) and load_bearing(item)

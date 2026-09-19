@@ -1,8 +1,10 @@
 """Shared fixtures.
 
-The oracle runner is session-scoped and batched: every parity test contributes
-its requests to one Node invocation, because process startup would otherwise
-cost more than all the solving put together.
+The oracle runner batches and memoises. Each parity test hands over its whole
+list at once and gets one Node process for the requests not already seen, rather
+than one per request — process startup would otherwise cost more than all the
+solving put together. It is not a single process for the entire session: tests
+that ask for overlapping sets pay only for what is new.
 """
 
 from __future__ import annotations

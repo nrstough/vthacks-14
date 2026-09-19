@@ -24,6 +24,9 @@ BANNED = ("infeasib", "guarantee")
 OPTIMALITY_CLAIMS = (
     "No combination of these changes",
     "This is the best partial plan",
+    "There are no changes available",
+    "Nothing on this account can be changed",
+    "Nothing here can be changed in time",
     "fewest",
     "smallest",
 )
@@ -46,10 +49,15 @@ def certificate_sentence(
     plan_order: list[Candidate],
     cert: CertificateResult,
     best: Trace,
+    minimal_proven: bool = True,
 ) -> str:
     plan_clears_zero = best.worst_shortfall == 0
 
     if not plan_order:
+        if tier == 3 and not minimal_proven:
+            # An empty plan from an unfinished search says nothing about what is
+            # possible; only that nothing was settled on.
+            return "The search did not finish, so no changes were selected."
         if tier == 3:
             # Departure from the reference solver, which says "the schedule
             # already clears" for every empty plan. At tier 3 it does not clear,
@@ -154,10 +162,17 @@ def verdict_and_qualifier(
     need = f"You need {money(best.worst_shortfall)} more by {by_date}."
 
     if n == 0:
-        verdict = f"{need} There are no changes available to close any of it."
         deepest = (
             short_date(to_iso(best.worst_shortfall_date)) if best.worst_shortfall_date else by_date
         )
+        if not minimal_proven:
+            # "Nothing can be done" is a claim about every possible plan, which
+            # an unfinished search has not earned.
+            return (
+                f"{need} The search did not finish, so no plan was settled on.",
+                f"The dip is {money(best.worst_shortfall)} at its deepest, on {deepest}.",
+            )
+        verdict = f"{need} There are no changes available to close any of it."
         qualifier = (
             "Nothing on this account can be changed in time. The dip is "
             f"{money(best.worst_shortfall)} at its deepest, on {deepest}."
