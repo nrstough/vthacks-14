@@ -1,0 +1,50 @@
+{
+  "version": "forecast-v1",
+  "frozen_before_training": true,
+  "context_days": 56,
+  "horizon_days": 14,
+  "origin_stride_days": 15,
+  "origins": "January 1 + multiples of 15 days, retain only targets ending in the specified calendar year; all seven start weekdays required",
+  "ibm": {
+    "target": "card_spending",
+    "currency": "USD",
+    "synthetic": true,
+    "group_key": "User, pooling all Cards",
+    "split_hash": "sha256('forecast-v1:' + str(User)), full digest as integer divided by 2**256",
+    "split_fractions": [0.7, 0.15, 0.15],
+    "years": {"train": [2016], "validation": [2017], "test": [2018]},
+    "eligible": "At least one qualifying transaction on or before context start; missing transaction dates after that are assumed observed zeros, an unverified completeness assumption",
+    "amount_policy": "Keep positive successful card charges; count and exclude nonpositive/refund rows and rows with nonempty Errors?; retain exact duplicate rows (no unique event identifier). Fraud annotation is never a feature or exclusion."
+  },
+  "moneydata": {
+    "target": "total_posted_outflow",
+    "currency": "SOURCE_NATIVE",
+    "currency_note": "Pre-training amendment: author sheet does not explicitly establish currency. UK context suggests GBP but is not treated as verified. Use native units and block currency-dependent integration.",
+    "synthetic": false,
+    "group_key": "single-person case study, temporal splits only",
+    "years": {"train": [2016, 2017, 2018, 2019], "validation": [2020], "test": [2021]},
+    "eligible": "56 days within published observation span; absent posted dates assumed observed zeros",
+    "amount_policy": "Gross positive Debit Amount; no bill exclusion and no offsetting credits; retain exact duplicates; source archives weekend transactions on Monday"
+  },
+  "features": "56 scaled daily lags; 14 future weekday historical means; 14 future weekday sine; 14 cosine; log1p(history-only scale). scale=max(last28mean,1 major currency unit). Total99. Train-only feature standardization, sd floor0.1.",
+  "baselines": ["recent_28day_mean", "weekday_8week_mean", "ridge"],
+  "ridge_alphas": [0.1, 1.0, 10.0, 100.0],
+  "ridge_objective": "normalized daily squared error; intercept unpenalized; clip negative predictions to zero",
+  "neural": {
+    "architecture": [99, 64, 32, 14],
+    "activations": ["relu", "relu", "softplus"],
+    "seeds": [11, 23, 47],
+    "max_epochs": 60,
+    "patience": 10,
+    "batch_size": 256,
+    "learning_rate": 0.001,
+    "gradient_norm_clip": 5.0,
+    "loss": "mean squared error of history-scale-normalized daily amounts",
+    "selection": "lowest validation 14-day-total MAE across epoch checkpoints and seeds"
+  },
+  "selection_metric": "14day_total_mae",
+  "metrics": ["daily_mae", "7day_total_mae", "14day_total_mae", "14day_bias_pred_minus_actual", "14day_mean_underprediction"],
+  "bootstrap": {"replicates": 2000, "seed": 92471, "ibm_unit": "customer", "moneydata_unit": "circular blocks of 4 consecutive forecast origins (~60 days), one individual only"},
+  "promotion": {"minimum_relative_14day_mae_gain": 0.05, "paired_improvement_ci_lower_must_exceed": 0, "maximum_underprediction_ratio": 1.05, "requires_representative_real_multicustomer_data": true},
+  "final_holdout": "Evaluate after validation selection; no further tuning on final results. Disclose any bug-fix rerun. No real-world promotion from these fallbacks."
+}
