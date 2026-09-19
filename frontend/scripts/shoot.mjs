@@ -1,0 +1,26 @@
+// Headless-Chrome screenshots over CDP. Usage: node shoot.mjs <base-url> <out-prefix>
+// Captures: plan default, tier 3 ($60.00), wallet — at 1440x900 and 390x844.
+// Lives in the repo so the next lane does not have to rediscover the recipe;
+// the handoff docs say how to run it.
+import { writeFileSync } from 'node:fs'
+const [,, base = 'http://localhost:5175', prefix = 'shot'] = process.argv
+const list = await (await fetch('http://127.0.0.1:9222/json')).json()
+const page = list.find(t => t.type === 'page') ?? (await (await fetch('http://127.0.0.1:9222/json/new?about:blank', {method:'PUT'})).json())
+const ws = new WebSocket(page.webSocketDebuggerUrl)
+await new Promise(r => ws.onopen = r)
+let id = 0; const pending = new Map()
+ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id) } }
+const send = (method, params = {}) => new Promise(res => { const i = ++id; pending.set(i, res); ws.send(JSON.stringify({ id: i, method, params })) })
+const sleep = ms => new Promise(r => setTimeout(r, ms))
+const evalJs = async expr => (await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true })).result?.result?.value
+const clickText = t => evalJs(`(() => { const b = [...document.querySelectorAll('button')].find(x => x.textContent.trim() === ${JSON.stringify(t)}); if (!b) return 'missing'; b.click(); return 'ok' })()`)
+const shot = async name => { await sleep(700); const r = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true }); writeFileSync(`${prefix}-${name}.png`, Buffer.from(r.result.data, 'base64')); console.log('wrote', `${prefix}-${name}.png`) }
+await send('Page.enable'); await send('Runtime.enable')
+for (const [w, h, tag] of [[1440, 900, 'desktop'], [390, 844, 'mobile']]) {
+  await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: tag === 'mobile' })
+  await send('Page.navigate', { url: base }); await sleep(1800)
+  await shot(`${tag}-plan`)
+  console.log('tier3 click:', await clickText('$60.00')); await sleep(900); await shot(`${tag}-tier3`)
+  console.log('wallet click:', await clickText('Demo wallet')); await sleep(900); await shot(`${tag}-wallet`)
+}
+ws.close(); process.exit(0)
