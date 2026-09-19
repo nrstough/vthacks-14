@@ -338,3 +338,41 @@ making. Recorded here because overriding an audit finding should be visible.
 **2002 passed, 1 skipped, 8 deselected**. Perf 8 passed, 300 accounts agreeing in
 ~126 s, under the ~137 s baseline. Golden hash byte-identical to `70bac4d`. All
 canaries matched.
+
+## Deploy — dated note (2026-09-19, evening)
+
+The one audit finding left unfinished when this spec was frozen: `deploy.sh`'s
+public checks existed and had never passed. They pass now. Nothing above this
+line is rewritten.
+
+Nathan opened the firewall (`ufw allow 80/tcp && ufw allow 443/tcp`), which was
+the whole blocker — the previous deploy had completed cleanly onto a box
+reachable from nowhere but itself.
+
+`./deploy.sh root@64.177.48.139` from this worktree, no `DOMAIN` set, so Caddy
+listens on `:80` and the site is plain HTTP on the bare IP. Every check in the
+script passed on the first run:
+
+| Check | Result |
+|---|---|
+| internal `/health` over ssh | `{"ok":true}` |
+| public `GET /` contains `<div id="root">` | pass |
+| the JS asset the page references loads | pass |
+| public `/api/accounts/sample` says `source: "modelled"` | pass |
+| public `/api/solve` returns tier 3 for `deploy/smoke-gap.json` | pass |
+
+Verified again independently, outside the script: `GET /` 200, the sample
+endpoint answering with a real generated account, and the gap scenario
+returning tier 3 through the public origin.
+
+**Serving: http://64.177.48.139**
+
+Still to do, and not this note's to decide:
+
+- **A domain.** Caddy needs one for HTTPS, and it is its own MLH track. Without
+  it the site is plain HTTP on an IP, which is fine for a smoke test and not
+  fine for a judge. `safetospend.us` was the chosen name.
+- **`/api/accounts/nessie` is not on the box.** It answers 405 there, correctly:
+  the route lives on `nessie-demo`, which is not merged. The box is serving
+  `data-deploy`.
+- **The box bills at roughly $1.85/day.** Destroy it after judging.
