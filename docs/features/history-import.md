@@ -46,8 +46,9 @@ a real consented export.
 6. **Generate candidates from detected rows only**, so the solver can never
    propose cancelling spending that has not happened.
 7. **Return** a schedule in the frozen contract's shapes plus provenance:
-   streams (with cadence, next date, source rows), assumed-row ids, weeks
-   used, imputed zero days, stale flag, unscheduled inflows, truncation.
+   streams (with cadence, anchor, and the ids they projected), assumed-row
+   ids, weeks used, days the export does not mention, `stale_days` as a
+   number rather than a flag, unscheduled inflows, truncation.
 
 ## Assumptions the screen states
 

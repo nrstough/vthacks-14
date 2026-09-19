@@ -139,12 +139,16 @@ export function panelModel(account: ImportAccountResponse): PanelModel {
   const p = account.provenance
   const assumedDaily = account.scheduled.filter((t) => t.id.startsWith(ASSUMED_PREFIX))
   const total = assumedDaily.reduce((sum, t) => sum + Math.abs(t.amount_cents), 0)
-  // Integer division with an explicit half-up on the remainder: the rule is
-  // that no float touches money, and "display only" is how that rule erodes.
+  // Over every day of the horizon, not only the days that carry a row. A
+  // quiet weekday emits no row, so dividing by the rows says "$70.00 a day"
+  // for a fortnight in which the plan actually assumes $10 a day.
+  const horizonDays =
+    Math.round(
+      (Date.parse(`${account.horizon_end}T00:00:00Z`) - Date.parse(`${account.as_of}T00:00:00Z`)) / 86400000,
+    ) + 1
   const perDay =
-    assumedDaily.length > 0
-      ? Math.floor(total / assumedDaily.length) +
-        (2 * (total % assumedDaily.length) >= assumedDaily.length ? 1 : 0)
+    horizonDays > 0
+      ? Math.floor(total / horizonDays) + (2 * (total % horizonDays) >= horizonDays ? 1 : 0)
       : 0
 
   return {
@@ -152,11 +156,18 @@ export function panelModel(account: ImportAccountResponse): PanelModel {
     assumedLine:
       p.assumed_method === null
         ? 'Less than eight weeks of history, so everyday spending was not estimated and the plan covers the recurring charges only.'
-        : assumedDaily.length === 0
-          ? 'No everyday spending found outside the recurring charges in your last eight weeks, so the plan covers those only.'
-          : `Everyday spending: about ${money(perDay)} a day, the median of the same weekday over your last ${p.weeks_used_for_assumed} weeks. An assumption, not a charge.`,
+        : assumedDaily.length === 0 && p.truncated_assumed_rows > 0
+          ? 'Everyday spending was estimated but left out: the window was already full of recurring charges.'
+          : assumedDaily.length === 0
+            ? 'No everyday spending found outside the recurring charges in your last eight weeks, so the plan covers those only.'
+            : `Everyday spending: about ${money(perDay)} a day across the window, the median of the same weekday over your last ${p.weeks_used_for_assumed} weeks. An assumption, not a charge.`,
+    // "no transactions in the export", not "nothing spent": the export is
+    // assumed complete for its range, and that assumption is the reason a
+    // quiet day counts as a zero. Stating it as observed fact would hide it.
     historyLine: `${p.rows_used} transactions, ${shortDate(p.history_start)} to ${shortDate(p.history_end)}${
-      p.imputed_zero_days > 0 ? `, ${p.imputed_zero_days} days with nothing spent` : ''
+      p.imputed_zero_days > 0
+        ? `, ${p.imputed_zero_days} days with none in the file, counted as no spending`
+        : ''
     }.`,
     paydayLine: p.next_payday ? `Next pay expected ${shortDate(p.next_payday)}, ${p.pay_cadence ? CADENCE_WORD[p.pay_cadence] : ''}.`.replace(' .', '.') : null,
     staleLine:

@@ -43,6 +43,19 @@ const WalletView = lazy(() => import('./wallet/WalletView.tsx'))
 
 const FIXTURE = SCENARIOS[0].request
 
+// What each parser rejection means, in words. The codes never carry the
+// cell, so neither does this.
+const REJECT_TEXT: Record<string, string> = {
+  no_date: 'no date',
+  bad_date: 'the date could not be read',
+  no_amount: 'no amount',
+  bad_amount: 'the amount could not be read',
+  too_many_decimals: 'more than two decimal places',
+  zero_amount: 'an amount of zero',
+  no_description: 'no description',
+  not_posted: 'not yet posted',
+}
+
 // The balance the person types. Same string arithmetic as the CSV parser, for
 // the same reason: no float ever touches money here.
 function parseBalance(raw: string): number | null {
@@ -65,6 +78,7 @@ export default function App() {
   const [importBalance, setImportBalance] = useState('')
   const [pendingFile, setPendingFile] = useState<string | null>(null)
   const [importNote, setImportNote] = useState<string | null>(null)
+  const [rejected, setRejected] = useState<string[]>([])
   const seqRef = useRef(0)
   const loadCtl = useRef<AbortController | null>(null)
   const [opening, setOpening] = useState(FIXTURE.opening_balance_cents)
@@ -288,6 +302,7 @@ export default function App() {
     if (parsed.error !== null) {
       importedRows.current = []
       setPendingFile(null)
+      setRejected([])
       setImportNote(parsed.error)
       return
     }
@@ -299,6 +314,9 @@ export default function App() {
     setPendingFile(
       `${parsed.rows.length} transactions read` + (skipped.length ? `, ${skipped.join(', ')} skipped` : ''),
     )
+    // Per row, by line number and reason — never the cell itself. A count
+    // alone leaves someone unable to find the row their bank wrote oddly.
+    setRejected(parsed.rejected.map((r) => `line ${r.line}: ${REJECT_TEXT[r.reason]}`))
     setImportNote(null)
   }
 
@@ -463,6 +481,19 @@ export default function App() {
             <p className="ctl-note" role="status">
               {importNote}
             </p>
+          )}
+          {rejected.length > 0 && (
+            <details className="ctl-note import-rejects">
+              <summary>
+                {rejected.length} {rejected.length === 1 ? 'row was' : 'rows were'} skipped
+              </summary>
+              <ul>
+                {rejected.slice(0, 20).map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+                {rejected.length > 20 && <li>and {rejected.length - 20} more</li>}
+              </ul>
+            </details>
           )}
           {loadError && (
             <p className="ctl-note" role="status">

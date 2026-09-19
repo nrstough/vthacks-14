@@ -2,27 +2,25 @@
 
 | Dimension | Grade | Notes |
 |-----------|-------|-------|
-| Plan adherence | Fail | Projection, parsing, and provenance defects remain. |
-| Scope discipline | Excellent | Changes stay within the import feature and supporting infrastructure. |
-| Test coverage | Fail | Passing tests miss reproduced defects; A10 screenshot evidence is absent. |
-| Review compliance | Excellent | Referenced Codex findings have corresponding fixes and tests. |
-| Freeze integrity | Acceptable | Skipped: no P1/P2/P3 hashes supplied. |
-| Regression check | Acceptable | 2261 backend tests passed; four environmental setup errors. Frontend: 295 passed, lint clean. |
-| Documentation | Fail | Documented lapse and balance-cutoff rules contradict implementation. |
+| Plan adherence | Fail | Per-row error reporting and provenance accuracy remain incomplete. |
+| Scope discipline | Excellent | Changes stay within the import feature; deviations are explained. |
+| Test coverage | Fail | A10 screenshot evidence missing; panel edge cases untested. |
+| Review compliance | Acceptable | Recorded critical findings addressed. |
+| Freeze integrity | Acceptable | Skipped: no P1/P2/P3 hashes present. |
+| Regression check | Acceptable | No observed test failures; four environmental setup errors. |
+| Documentation | Acceptable | Declared docs updated; minor wording drift. |
 | **Overall** | **Fail** | |
 
 ### Commentary
 
-1. **Plan adherence — causes Fail.** [Weekly projection](/Users/nathanstough/Desktop/vthacks-history-import/backend/app/history/project.py:38) clips nominal dates before weekend shifting. Reproduced: a Sunday bill projected through Friday October 2 omits the October 4 occurrence that should move into October 2. Saturday income with `as_of=2026-09-20` similarly omits Monday September 21. Generate dates beyond both window boundaries, shift them, then clip. Add weekly and biweekly boundary tests.
+1. **Plan adherence — causes Fail.** [history.ts:144](/Users/nathanstough/Desktop/vthacks-history-import/frontend/src/lib/history.ts:144) divides assumed spending by the number of nonzero rows, excluding quiet days. Reproduced: two $70 rows across 14 days display **“$70.00 a day”**, although the schedule averages $10/day. Include zero-spend days in the denominator and test sparse spending.
 
-2. **Plan adherence — contributes to Fail.** [CSV status filtering](/Users/nathanstough/Desktop/vthacks-history-import/frontend/src/lib/importCsv.ts:175) accepts blank statuses when a `STATUS` column exists, contrary to D11/A1. Ten blank-status rows produced ten usable transactions and zero exclusions. Require `Posted` whenever that column is present; test blank and missing cells.
+2. **Plan adherence — contributes to Fail.** [history.ts:155](/Users/nathanstough/Desktop/vthacks-history-import/frontend/src/lib/history.ts:155) reports “No everyday spending found” when all assumed rows were truncated. Reproduced alongside “14 assumed days were dropped.” Distinguish absent spending from omitted estimates. Also explicitly disclose D2’s assumption: the current “days with nothing spent” presents missing transactions as an observed fact.
 
-3. **Plan adherence — contributes to Fail.** [Payday provenance](/Users/nathanstough/Desktop/vthacks-history-import/backend/app/history/__init__.py:155) selects cadence from the income stream with most occurrences, independently of the next payday. A two-employer reproduction returned September 18 with `weekly`, although that payment belonged to the biweekly employer. Derive date and cadence from the same projected occurrence.
+3. **Plan adherence — contributes to Fail.** [App.tsx:284](/Users/nathanstough/Desktop/vthacks-history-import/frontend/src/App.tsx:284) discards the parser’s row numbers and rejection reasons, showing only an “unreadable” count. A1 requires errors reported per row. Preserve and display line numbers and reasons without raw transaction content.
 
-4. **Plan adherence — contributes to Fail.** Provenance conflates zero residual spending with insufficient history. A reproduced 71-day history containing eleven recurring bills returned `assumed_method: null`, triggering [“Not enough history”](/Users/nathanstough/Desktop/vthacks-history-import/frontend/src/lib/history.ts:153). It also reported all 71 days as “nothing spent” because [the zero-day count](/Users/nathanstough/Desktop/vthacks-history-import/backend/app/history/residual.py:50) is computed after removing bills. Distinguish insufficient history, zero medians, and truncation; count quiet days from the original history or explicitly label residual-only days.
+4. **Test coverage — causes Fail.** [A10](/Users/nathanstough/Desktop/vthacks-history-import/docs/specs/2026-09-19_history-import.md:149) requires browser verification with a screenshot; the results explicitly record that none was retained. Retain screenshot evidence and add panel tests covering findings 1–2.
 
-5. **Test coverage — causes Fail.** Existing tests pass despite findings 1–4. A10 also explicitly requires a browser screenshot; the run spec records that none was retained. Add regression cases for these reproductions and retain the required browser evidence.
+5. **Regression check — limited to Acceptable; no demonstrated regression.** On `history-import`, Python 3.14.7: `PYTHONDONTWRITEBYTECODE=1 .venv/bin/pytest backend/ -q --capture=sys -p no:cacheprovider` produced **2,267 passed, 10 deselected, four setup errors**, all caused by unavailable writable temporary directories. Node 22.17.1: `npm run lint && npm test` passed lint and **297 tests**. A fresh build could not run in the read-only sandbox; bundle checks used existing output. Existing canary and generator tests were unchanged.
 
-6. **Documentation — causes Fail.** D3 specifies lapse after two intervals, but [income detection](/Users/nathanstough/Desktop/vthacks-history-import/backend/app/history/detect.py:43) uses three; this deviation is not recorded in the run spec’s deviation list. Additionally, [the API contract](/Users/nathanstough/Desktop/vthacks-history-import/docs/api-contract.md:442) describes posted-today suppression by **payee**, while implementation correctly suppresses by **stream**. These rules affect whether income or bills enter the schedule. Reconcile the documented rules and explicitly record the intended lapse policy.
-
-7. **Regression check — Acceptable due to verification limits, not demonstrated regressions.** Audited `25212e1`, branch `history-import`, in the supplied worktree. Python 3.14.7: `PYTHONDONTWRITEBYTECODE=1 .venv/bin/pytest backend/ -q --capture=sys -p no:cacheprovider` yielded **2261 passed, 10 deselected, four setup errors**, all caused by unavailable writable temporary directories. Node 22.17.1: `npm run lint && npm test` yielded clean lint and **295 passed**. A fresh production build was not performed under read-only permissions; frontend bundle tests used the existing build.
+6. **Documentation — Acceptable, cosmetic downgrade only.** [history-import.md:49](/Users/nathanstough/Desktop/vthacks-history-import/docs/features/history-import.md:49) still describes a “stale flag” and stream “next date”; the response provides `stale_days` and `projected_ids`. Align that overview with the accurate API contract.

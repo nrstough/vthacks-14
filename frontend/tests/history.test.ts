@@ -176,12 +176,45 @@ test('no note when the plan assumed nothing', () => {
   assert.equal(qualifierNote(null), undefined)
 })
 
+test('the per-day figure spreads across the window, not across the rows', () => {
+  // Two $70 rows in a fortnight is $10 a day, not $70 a day. Dividing by the
+  // rows that exist ignores every quiet day the plan also covers.
+  const sparse = account({
+    as_of: '2026-09-21',
+    horizon_end: '2026-10-04',
+    scheduled: [
+      txn('f_20260922', '2026-09-22', -7000, 'discretionary'),
+      txn('f_20260929', '2026-09-29', -7000, 'discretionary'),
+    ],
+    provenance: { ...account().provenance, assumed_ids: ['f_20260922', 'f_20260929'] },
+  })
+  assert.match(panelModel(sparse).assumedLine ?? '', /\$10\.00 a day/)
+})
+
+test('truncated estimates are not reported as no spending', () => {
+  const cut = account({
+    scheduled: [txn('t_s_001_01', '2026-10-01', -120000)],
+    provenance: { ...account().provenance, assumed_ids: [], truncated_assumed_rows: 14 },
+  })
+  const line = panelModel(cut).assumedLine ?? ''
+  assert.match(line, /estimated but left out/)
+  assert.equal(/No everyday spending found/.test(line), false)
+})
+
+test('quiet days are described as absent from the file, not as observed', () => {
+  // The export is ASSUMED complete for its range; stating a quiet day as
+  // "nothing spent" presents that assumption as a fact.
+  const line = panelModel(account()).historyLine
+  assert.match(line, /days with none in the file/)
+  assert.equal(/days with nothing spent/.test(line), false)
+})
+
 test('the panel says the method, the window and the payday', () => {
   const model = panelModel(account())
   assert.match(model.assumedLine ?? '', /median of the same weekday/)
   assert.match(model.assumedLine ?? '', /An assumption, not a charge/)
   assert.match(model.historyLine, /300 transactions/)
-  assert.match(model.historyLine, /12 days with nothing spent/)
+  assert.match(model.historyLine, /12 days with none in the file/)
   assert.match(model.paydayLine ?? '', /Next pay expected/)
   assert.match(model.inflowLine ?? '', /may not come again/)
 })
