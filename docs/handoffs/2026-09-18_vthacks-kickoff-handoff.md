@@ -10,8 +10,8 @@ The product: given a bank transaction history, return the **smallest dated set o
 **Decisions locked tonight**
 - React (Vite + TS + Recharts) frontend, FastAPI backend serving the built frontend as static files, one process, one port.
 - Capital One **Nessie** sandbox is the primary data source (seed a customer with synthetic deposits/purchases/bills, read back). Nessie is live over HTTPS only; plain HTTP times out. Docs at nessieisreal.com are a JS app, so confirm bill field names once a key exists.
-- Stateless: no database, no accounts. Nessie key in `.env` server-side only. TigerData, Vultr, GoDaddy domain tracks are not in play (MLH tracks were not announced).
-- Sponsor slots (max 3): Capital One Best Use of Nessie (build for it), Peraton Best Mission Critical AI (no build), third slot empty. VTHacks' own categories (First-Time, UI/UX, overall, etc.) are automatic; optimize hardest for Best First-Time Hack, then UI/UX. GoDaddy ANS only as a Saturday-afternoon stretch (cancellation agent) if the core is deployed and polished early. Side Kick track dropped.
+- Stateless: no database, no accounts. Nessie key in `.env` server-side only. TigerData cut (3h, no product need).
+- Sponsor slots (max 3): Capital One Best Use of Nessie (build for it), Peraton Best Mission Critical AI (no build), third slot open. MLH tracks ARE in play (Gemini, ElevenLabs, Solana, TigerData, Presage, Vultr, MongoDB, Best Domain Name); unknown whether they count toward the cap. Cheap fits: Best Domain Name (register one, needed for HTTPS anyway), Vultr (host there, ~0.5h), Gemini API (~1h, LLM at the edges only). If MLH counts toward the cap: Capital One + Vultr + Domain Name, drop Peraton. If separate: keep Peraton, tick Domain, Vultr, Gemini if built. VTHacks' own categories (First-Time, UI/UX, overall, etc.) are automatic; optimize hardest for Best First-Time Hack, then UI/UX. GoDaddy ANS only as a Saturday-afternoon stretch (cancellation agent) if the core is deployed and polished early. Side Kick track dropped.
 - Security stance for judges: stateless by design, sandbox data only, HTTPS, key server-side; production would add Plaid, encryption at rest, per-user auth.
 
 **Still open (ask Nathan first thing)**
@@ -40,7 +40,7 @@ cd frontend && export npm_config_cache="/Users/nathanstough/Desktop/VT Hacks/.np
 4. Nessie seed script + client (HTTPS): create customer/account, push deposits, purchases, bills; read back into the solver's input. "Connect account" is the demo's first click; also keep a one-click sample account (judges will not upload files).
 5. Recurring detection (regex normalize, rapidfuzz WRatio ≥ 88, 1% amount banding, cadence snap, ≥3 occurrences) with a manual override toggle. Timebox 1 hour; hard-code fixture streams if it fails.
 6. Frontend: three bands (verdict sentence ~40 px; before/after balance chart, red fill only below zero, paydays as ticks, a step on the with-plan line at each change date; prescription list with lock toggles that re-solve). Tabular-nums, 8 px scale, one font, one accent.
-7. Deploy early to any HTTPS host (no prize depends on the host). Redeploy after every major block. **Hard gate Sat 18:30: working deployed demo or freeze features.** Code freeze Sun 01:30. Submission by 08:00.
+7. Deploy early: Vultr VM + Caddy HTTPS on the registered domain (both are cheap MLH tracks). Redeploy after every major block. **Hard gate Sat 18:30: working deployed demo or freeze features.** Code freeze Sun 01:30. Submission by 08:00.
 
 ## IMPORTANT — tests & at-risk artifacts (make sure these survive)
 - Test: **none exist yet.** First tests to write: solver fixtures (greedy-fails, tier-2, tier-3), off-by-one cases (inclusive prefix, day-0 double count, horizon end on payday eve, lead time, 28/30/31 month-end). Run with `.venv/bin/pytest backend/`.
