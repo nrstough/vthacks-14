@@ -57,9 +57,7 @@ Hard rule: never commit a key or a bank export. `.gitignore` covers `.env`, `Che
 
 ## Open decisions (as of this update)
 
-1. Do MLH tracks count toward the three sponsor slots?
-   - Yes → Capital One, DigitalOcean, Domain Name; drop Peraton.
-   - No → Capital One + Peraton in sponsor slots; also enter Domain Name, DigitalOcean, Gemini, Gen AI.
+1. Confirm the three-track wording in Discord. Working assumption (yes, MLH counts): enter Capital One, DigitalOcean, Domain Name; drop Peraton. If sponsors-only: Capital One + Peraton, plus Domain Name, DigitalOcean, Gemini, Gen AI.
 2. Optimizer (recommended; estimator is its built-in fallback) or estimator only.
 3. Nessie API key (Nathan creates it at nessieisreal.com).
 4. DigitalOcean account + $200 credits (Nathan creates it, links GitHub).
