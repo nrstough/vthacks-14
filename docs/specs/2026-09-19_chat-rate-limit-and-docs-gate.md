@@ -404,7 +404,7 @@ list and one a contradiction this change introduced:
 | `CLAUDE.md` | The layout listed three endpoints, omitting the one the rate-limit rule this change added is *about* | All five endpoints, with the limited one marked |
 | `README.md` | Same omission; and the key location named only `.env` | Endpoint added; the key's location on the box named |
 | `docs/features/chat.md` | The explainer's own configuration section was the last key-location claim that never mentioned the box | The root-owned file outside the repository named |
-| `docs/demo-script.md` | "977 backend tests plus 87 frontend", and, spoken to judges, "Eight hundred and ten tests. Solves in under three milliseconds." | 1,332 and 216. **The timing claim was false**: the three demo accounts measure 3-8 ms depending on the machine, so the spoken line says under ten and the checklist gives a range with the command to re-measure. This predates the change and is outside its scope, but a measured-false promise to a judge is exactly what the wording rules exist to prevent |
+| `docs/demo-script.md` | "977 backend tests plus 87 frontend", and, spoken to judges, "Eight hundred and ten tests. Solves in under three milliseconds." | 1,333 and 216. **The timing claim was false**: the three demo accounts measure 3-8 ms depending on the machine, so the spoken line says under ten and the checklist gives a range with the command to re-measure. This predates the change and is outside its scope, but a measured-false promise to a judge is exactly what the wording rules exist to prevent |
 | This spec | Its reconciliation table did not mention the handoff, the source of most of the above | Listed here |
 
 **A second critique pass found five more defects, all fixed before this
