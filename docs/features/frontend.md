@@ -24,7 +24,9 @@ reason on screen is either returned by the solver or derived from dates and ids 
 - The built-in fallback: `src/solver/mockSolver.ts`, used when the API is unreachable, disclosed
   by the footer chip "Running on the built-in solver". The chip is a product commitment, not
   styling. The same file is the oracle the Python solver is tested against; UI work never edits
-  it. If the UI needs different solver output, change the request, not the oracle.
+  it. If the UI needs different solver output, change the request, not the oracle. The one
+  exception on record is solver-owned *wording*, which has to move in both implementations at
+  once or `test_parity` fails: see "Reasons on plan rows".
 - The fixtures: `src/fixtures/scenarios.ts`, three presets whose on-screen values are canaries
   (see below).
 - Loaded accounts: `POST /api/accounts/sample` (modelled) and `POST /api/accounts/nessie`
@@ -57,15 +59,29 @@ Two buttons beside the presets load a whole account, not just a pair of balances
 
 ## The override model
 
-The user tells the app one thing about a change: whether they can do it. So every row, chosen
-or not, carries one identical control: a checkbox, "Can't do this", unchecked by default.
-Unchecked means the user has said nothing. Checked means the id goes into `locks.out` and the
-solver may not use it. `locks.in` is always empty; pinning is not on the screen.
+The user tells the app one thing about a change: whether they can do it. There is **one
+ruled-out set** underneath, and every row, chosen or not, carries one checkbox over it. The
+two sections read that one set in opposite directions, and say so in words:
 
-Which section a row sits in is the outcome. The checkbox is the input. They share no control.
-Presets clear all overrides; so does the "Clear n overrides" button.
+| Section | The checkbox reads | Ticked means | On load |
+|---|---|---|---|
+| Plan rows | "Can't do this" | ruled out — the id goes into `locks.out` | unticked |
+| Left-out rows | "Can do this" | **not** ruled out — the solver may still use it | ticked |
 
-`src/lib/overrides.ts` owns the set and its translation to `locks`.
+So a left-out row starts ticked, and unticking it is how the user rules it out. Nothing is
+inverted silently: **the words carry the meaning, never the tick alone.** A tick that meant
+"chosen" in one list and "rejected" in the other is the bug the single control replaced, and
+a single label over two opposite states would bring it back.
+
+`src/lib/overrides.ts` owns the set and its translation to `locks`. `src/lib/cant.ts` owns the
+reading: `controlFor(section, ruledOut, id, label)` returns `{ id, checked, text, ariaLabel }`
+and `PrescriptionList.tsx` renders whatever it returns, so the two readings exist in exactly
+one place. The DOM ids are still `cant-<candidate id>` (`domId` in `src/lib/focus.ts`), because
+focus restoration prefix-tests them; the id did not change when the label did.
+
+`locks.in` is always empty; pinning is not on the screen. Which section a row sits in is the
+outcome. The checkbox is the input. They share no control. Presets clear all overrides; so
+does the "Clear n overrides" button.
 
 ## Reasons on left-out rows
 
@@ -89,9 +105,26 @@ set. Precedence, first match wins:
 No reason ever claims a change "lands after the dip" or similar: that would be the frontend
 doing the solver's job.
 
-A row whose "Can't do this" state differs from the set the displayed answer was solved with
-shows "Re-solving…" instead of any reason, in the plan list and the left-out list alike. The
+A row whose checkbox state differs from the set the displayed answer was solved with shows
+"Re-solving…" instead of any reason, in the plan list and the left-out list alike. The
 alternative is describing a change against a solve that never saw the user's current answer.
+
+## Reasons on plan rows
+
+Plan-row reasons are **the solver's**, returned in `plan[].reason` and rendered verbatim; the
+frontend does not compose them. A row the certificate shows as load-bearing says so. A row with
+zero marginals — in the plan, but only holding the cushion — has two forms, chosen on whether
+the plan clears zero:
+
+- clears zero: `Here for the cushion, not to clear zero.`
+- does not clear zero (tier 3): `Removing it would not widen the gap.`
+
+The split exists because "not to clear zero" misreads at tier 3, where nothing clears zero; the
+gap sentence claims only what zero marginals prove. Both strings are defined twice, identically,
+because `test_parity` compares `plan[].reason` field for field: `backend/app/solver/wording.py`
+and, exported for tests, `CUSHION_ONLY_REASON` / `CUSHION_ONLY_REASON_GAP` in
+`frontend/src/solver/mockSolver.ts`. Neither reads "not needed" — that sentence belongs to the
+left-out list (item 4 above), and a plan row wearing it is how a chosen change reads as padding.
 
 ## Narration
 
@@ -154,7 +187,7 @@ that layer puts a `tabIndex=0` surface inside the hidden subtree. Verified: 11 c
 tab order, zero tabbable elements inside `.chart-wrap`.
 
 Each row's checkbox carries an accessible name including the change it belongs to, since eleven
-rows otherwise read identically. Ticking one moves its row between sections, which unmounts the
+rows otherwise read identically. Changing one moves its row between sections, which unmounts the
 input; focus is restored to the same checkbox afterwards, but only when it was lost to the
 document body, so a user who has tabbed on is not yanked back.
 
@@ -162,7 +195,7 @@ The verdict section is an `aria-live="polite"` region so a re-solve is announced
 
 ## Focus
 
-Ticking a checkbox moves its row between the plan and the left-out list, which unmounts the
+Changing a checkbox moves its row between the plan and the left-out list, which unmounts the
 input. `src/lib/focus.ts` holds the rules, apart from React so they can be tested without a DOM:
 
 - Remember the row the user is standing on, from the toggle itself and from `onFocus`. A row
@@ -180,12 +213,53 @@ Verified by hand in the browser, six sequences: toggled row moves; user moves to
 row; activation with no prior focus; a later unrelated re-solve; the left-out section collapsed;
 tick then undo inside the debounce.
 
-## Design system
+## Visual language
 
-`src/index.css`: tokens for background, panel, line, ink at three weights; one accent
-(`#2c5ae8`); negative and warn with washes; an 8px spacing scale; 10px radius; system sans;
-tabular numerals on money. No dark mode. Two `max-width: 720px` blocks and a reduced-motion
-block. Keep one accent and one font.
+The reference is **Mise**, a restaurant dashboard Hrushi built as a separate project. Its
+source was never pushed anywhere we can reach; we have screenshots and the `tailwind.config.ts`
+he committed. What we took from it: a gradient shell fading to near-white, white cards with
+large radii and a soft glass shadow, a pill nav with one dark active pill, the header-card
+pattern (status line, verdict, three stat tiles with a mono uppercase label, a big figure and a
+coloured sub-line), and bold-left/mono-right row cards. What we cut: every invented figure,
+the extra pages, the alerts bell, the copilot bubble, the dot-matrix digits.
+
+**Faces**, all self-hosted as latin-subset woff2 under `frontend/public/fonts/`, one variable
+file per family, `font-display: swap`, nothing fetched at runtime:
+
+| Token | Family | Used for |
+|---|---|---|
+| `--display` | Libre Baskerville | the wordmark, `h1`/`h2`/`h3`, the verdict, panel headings |
+| `--sans` | Inter | body copy, and `.num`, so prose carrying a figure stays in the text face |
+| `--mono` | JetBrains Mono | eyebrows, labels, chips, chart ticks and every standalone figure |
+
+`.num` deliberately stays on `--sans`: it sits on the qualifier, the proof paragraph and the
+reason lines, which are sentences, not figures. Tabular numerals everywhere money appears, so a
+digit does not change width under a slider.
+
+**Colour.** The gradient runs Capital One navy (`--navy` `#071a33`) through `--navy-2`
+(`#0b2545`) into the product blue (`--accent` `#2563eb`) and out to nothing, so the page
+resolves into `--panel` rather than stopping at an edge. Every white on the gradient is one of
+`--on-navy`, `--on-navy-soft`, `--on-navy-wash`, `--on-navy-line`; no rule outside `:root`
+carries its own literal. The warm ramp is for anything going wrong, green for anything
+improved. `--ink-3` is `#646b78`, darkened from `#6b7280`, which measured 4.49:1 as a
+`.stat-sub` on the warm `--canvas` — a rounding error short of AA.
+
+**`tailwind.config.ts` mirrors `index.css` by hand** and is kept in step by hand. There are no
+`@tailwind` directives in the stylesheet and no Tailwind runtime in the bundle; the config is
+the written-down design system, not a build step. Tests pin both.
+
+**The status line** is the mono `.eyebrow-note` with a green dot above the verdict, carrying the
+account's provenance (`provenanceLine(account, base)`). It is a sibling **above** the verdict,
+outside its `aria-live` region, because provenance does not change on a re-solve and
+re-announcing it on every slider move would be noise. It never carries an optimality word.
+
+**The solver disclosure chip** stays in `TopNav`, on both tabs, with its text unchanged. It is
+the one thing on the page that is never restyled away.
+
+No dark mode. A reduced-motion block covers `.hero`, `.panel` and `.rx-row`; the responsive
+rules the earlier lane fixed (`.controls` declared once, `.main > * { flex: none }`,
+`minmax(0, 1fr)` tracks, the 640px release of the row cells) are pinned by regex in
+`frontend/tests/styles.test.ts` so a retune cannot quietly undo them.
 
 ## Canaries
 

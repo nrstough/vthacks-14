@@ -12,7 +12,8 @@ API** track, which asks only that the app be built with the Gemini API.
 already be in the context the server renders from the solve. Gemini is never
 asked to add, estimate, or forecast. If a question needs a number the solver
 has not produced, the model is instructed to say so and point at the controls
-that would produce it (the sliders, "Can't do this").
+that would produce it (the sliders, and the row checkboxes — "Can't do this" on a plan row,
+"Can do this" on a left-out one).
 
 This is why the endpoint takes the whole solve, request and response, with
 every question. The server is stateless, so the client is the only place the
