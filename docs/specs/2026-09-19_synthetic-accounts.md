@@ -293,3 +293,48 @@ Fixes committed as `587da10`.
 real and non-vacuous; the `nessie` marker double-guard; `test_requirements.py`;
 and `deploy.sh`'s preflights plus the public-origin checks. No secrets, no TODOs,
 no debug code in `backend/app/`.
+
+---
+
+## Scope revision — accepted by Nathan, 2026-09-19
+
+The Codex audit returned **Fail** on two dimensions after four rounds, and named
+the remedy itself: *"Complete the workflow and disclosure, or obtain an explicit
+scope revision."* Nathan reviewed both and accepted them, in those words: "if
+those are the only two fails its fine."
+
+**Struck from this change, deliberately, not forgotten:**
+
+1. **The Nessie seed-and-read-back workflow**, `not_round_tripped`, the D8
+   fallback-disclosure flag, and any HTTP route for the adapter. What ships is the
+   transport, the write-then-read credential check, the decimal money path, key
+   redaction and row normalisation — all tested, and exercised against the live
+   sandbox. `docs/features/nessie.md` leads with what is *not* built.
+2. **D-F** (the truncation/eviction 422) and **D-G** (the dead perf guard at
+   `test_candidates_roundtrip.py:208-209`). Both are real, both are documented
+   above, neither is fixed.
+
+**Still open, and not a scope decision — just unfinished:**
+
+3. **The public deployment checks have never passed.** `deploy.sh` performs them
+   (public HTML, a referenced JS asset, and a known scenario solving to the right
+   tier through the public origin), but the box sits behind `ufw` with only ssh
+   allowed, so they have never run green. The audit is right that implementation
+   is not evidence. One command unblocks it:
+
+       ssh root@64.177.48.139 'ufw allow 80/tcp && ufw allow 443/tcp'
+
+   Modifying firewall rules is the user's to run, not this session's.
+
+**One audit finding overridden, on purpose.** Codex treats a descriptor that is
+literally a banned word as a bypass of the chat scrubber. Those are restored
+verbatim instead, because the codebase already has a settled position:
+`test_candidates_policy.py:357` *requires* `GUARANTEED AUTO PROTECTION` in
+`detail`, and `:378-380` exempts descriptors as "the user's own statement line".
+A merchant name the user supplied is their data, not a claim this product is
+making. Recorded here because overriding an audit finding should be visible.
+
+**Everything else the audit raised across four rounds was fixed.** Final gate:
+**2002 passed, 1 skipped, 8 deselected**. Perf 8 passed, 300 accounts agreeing in
+~126 s, under the ~137 s baseline. Golden hash byte-identical to `70bac4d`. All
+canaries matched.
