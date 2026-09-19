@@ -91,6 +91,9 @@
   /* The shadow under the lit nav pill. Navy, not neutral black: the pill sits
      on the gradient, and black over the blue reads as dirt on the screen. */
   --on-navy-shadow: rgba(7, 26, 51, 0.25);
+  /* Neutral ink shadows for things that float on white. */
+  --ink-shadow: rgba(18, 20, 26, 0.1);
+  --ink-shadow-soft: rgba(18, 20, 26, 0.08);
 
   /* brand.burnt / brand.peach. Red on this page is always the warm one. */
   --neg: #c63205;
@@ -154,9 +157,11 @@
 /* One display face, one text face. The serif is structural: it marks the
    things a judge's eye should land on first — the wordmark, every panel
    heading and the verdict. Everything a person has to READ, and every figure
-   they have to trust, stays in the text or the mono face. 700 because Libre
-   Baskerville ships 400 and 700 and nothing between; the tighter tracking the
-   old grotesque needed is eased off, a serif does not want it. */
+   they have to trust, stays in the text or the mono face. The Libre
+   Baskerville file is one continuous 400–700 axis: the wordmark and the
+   verdict sit at 700, and the panel headings step down to 600 below, where
+   700 at 20px reads heavy. The tighter tracking the old grotesque needed is
+   eased off, a serif does not want it. */
 .panel-head h2,
 .verdict h1,
 h1, h2, h3 {
@@ -705,7 +710,7 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-weight: 600;
-  box-shadow: 0 1px 2px rgba(18, 20, 26, 0.08);
+  box-shadow: 0 1px 2px var(--ink-shadow-soft);
 }
 
 /* ---------- band 1: verdict ---------- */
@@ -738,7 +743,7 @@ body {
   font-size: 40px;
   line-height: 1.14;
   letter-spacing: -0.025em;
-  font-weight: 600;
+  font-weight: 700;
   margin: 0 0 var(--s2);
   max-width: 22ch;
 }
@@ -814,7 +819,7 @@ body {
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   padding: 10px 12px;
-  box-shadow: 0 4px 14px rgba(18, 20, 26, 0.1);
+  box-shadow: 0 4px 14px var(--ink-shadow);
   font-size: 13px;
   min-width: 190px;
 }
