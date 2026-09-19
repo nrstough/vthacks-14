@@ -95,7 +95,30 @@ def _candidate_line(c: Candidate) -> str:
     )
 
 
-def render_context(req: SolveRequest, res: SolveResponse, source: str = "server") -> str:
+# What the account IS, as opposed to which solver ran. Without this the model
+# has no way to know, and "is this my real account?" is one question away from
+# an answer that calls generated data a bank's record of someone.
+ACCOUNT_SOURCE = {
+    "preset": "Account: the built-in sample account.",
+    "modelled": (
+        "Account: generated demo data, reproducible from its seed. Not a bank's records "
+        "and not anyone's account. Say so plainly if the user asks where it came from."
+    ),
+    "nessie": (
+        "Account: generated demo data seeded into Capital One's Nessie sandbox and read "
+        "back over their API. Not a bank's records and not anyone's account. Say so "
+        "plainly if the user asks where it came from. Amounts are whole dollars because "
+        "the sandbox stores whole dollars."
+    ),
+}
+
+
+def render_context(
+    req: SolveRequest,
+    res: SolveResponse,
+    source: str = "server",
+    account_source: str = "preset",
+) -> str:
     lines: list[str] = []
     add = lines.append
 
@@ -103,6 +126,7 @@ def render_context(req: SolveRequest, res: SolveResponse, source: str = "server"
     add(f"Horizon: {req.as_of} to {req.horizon_end}, inclusive.")
     add(f"Starting balance: {dollars(req.opening_balance_cents)}. Cushion the user wants to keep: {dollars(req.buffer_cents)}.")
     add(f"Numbers computed by: the {'server (CP-SAT)' if source == 'server' else 'built-in local solver, because the server was unreachable'}.")
+    add(ACCOUNT_SOURCE.get(account_source, ACCOUNT_SOURCE["preset"]))
     add("")
 
     add("Result")
@@ -178,5 +202,10 @@ def render_context(req: SolveRequest, res: SolveResponse, source: str = "server"
     return "\n".join(lines)
 
 
-def system_instruction(req: SolveRequest, res: SolveResponse, source: str = "server") -> str:
-    return BRIEF + "\n" + render_context(req, res, source)
+def system_instruction(
+    req: SolveRequest,
+    res: SolveResponse,
+    source: str = "server",
+    account_source: str = "preset",
+) -> str:
+    return BRIEF + "\n" + render_context(req, res, source, account_source)

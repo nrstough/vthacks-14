@@ -145,7 +145,9 @@ def chat(req: ChatRequest, config: GeminiConfig | None = None, source: str = "se
         cand.detail = mask_descriptors(cand.detail, refs)
     for item in masked.response.plan:
         item.detail = mask_descriptors(item.detail, refs)
-    instruction = system_instruction(masked.request, masked.response, source)
+    instruction = system_instruction(
+        masked.request, masked.response, source, req.account_source
+    )
     # The history too, not just the instruction. A user who types a merchant's
     # name into the chat puts it back in front of the model, which echoes it, and
     # the scrubber corrupts it again — the original bug, reached by a different

@@ -1,5 +1,10 @@
 // Mirrors docs/api-contract.md. Keep the two in step.
 
+// Where the account on screen came from, which is a different question from
+// which solver produced the numbers. A union, not an enum: the project compiles
+// with erasableSyntaxOnly and Node's type stripping needs the same.
+export type AccountSource = 'preset' | 'modelled' | 'nessie'
+
 export type TxnKind = 'income' | 'bill' | 'discretionary'
 export type Action = 'skip' | 'defer' | 'downgrade' | 'cancel'
 

@@ -3,7 +3,7 @@
 // Stateless on both sides: every call carries the whole conversation and the
 // solve it is about. The server keeps nothing, so a reload starts fresh.
 
-import type { SolveRequest, SolveResponse } from '../types'
+import type { AccountSource, SolveRequest, SolveResponse } from '../types'
 
 export interface ChatTurn {
   role: 'user' | 'assistant'
@@ -46,13 +46,16 @@ export async function askViaApi(
   response: SolveResponse,
   source: 'local' | 'server',
   signal: AbortSignal,
+  // Appended last, with a default: a positional caller that predates account
+  // loading keeps compiling and keeps meaning what it meant.
+  accountSource: AccountSource = 'preset',
 ): Promise<{ reply: string; model: string }> {
   let r: Response
   try {
     r = await fetch(`/api/chat?source=${source}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages, request, response }),
+      body: JSON.stringify({ messages, request, response, account_source: accountSource }),
       signal,
     })
   } catch (e) {

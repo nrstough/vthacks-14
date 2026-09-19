@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { askViaApi, chatStatus } from '../lib/chat'
 import type { ChatTurn } from '../lib/chat'
-import type { SolveRequest, SolveResponse } from '../types'
+import type { AccountSource, SolveRequest, SolveResponse } from '../types'
 
 // Questions a first-time viewer, or a judge, actually asks. Each one is
 // answerable from the context the server renders, so none tempts the model
@@ -21,10 +21,12 @@ export default function ChatPanel({
   req,
   res,
   source,
+  accountSource = 'preset',
 }: {
   req: SolveRequest
   res: SolveResponse
   source: 'local' | 'server'
+  accountSource?: AccountSource
 }) {
   const [messages, setMessages] = useState<ChatTurn[]>([])
   const [draft, setDraft] = useState('')
@@ -68,7 +70,7 @@ export default function ChatPanel({
     try {
       // The solve on screen at the moment of asking is what the answer is
       // about, which is why req and res go with every question.
-      const { reply } = await askViaApi(next, req, res, source, ctl.signal)
+      const { reply } = await askViaApi(next, req, res, source, ctl.signal, accountSource)
       if (ctl.signal.aborted) return
       setMessages([...next, { role: 'assistant', text: reply }])
     } catch (e) {

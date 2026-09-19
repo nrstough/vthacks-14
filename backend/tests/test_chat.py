@@ -532,3 +532,64 @@ def test_a_short_descriptor_only_matches_as_a_whole_word():
     refs = descriptor_refs(["a"])
     assert mask_descriptors("a plan and a rate", refs).count("⸤M0⸥") == 2
     assert "plan" in mask_descriptors("a plan and a rate", refs)
+
+
+# --------------------------------------------------------------------------
+# where the account came from
+# --------------------------------------------------------------------------
+#
+# These go through the route rather than calling system_instruction directly.
+# The whole point of the field is that it reaches the model; a test that builds
+# the instruction itself would keep passing if chat() forgot to pass it on.
+
+
+def _instruction(fake) -> str:
+    return fake.calls[0]["body"]["systemInstruction"]["parts"][0]["text"]
+
+
+def test_a_preset_account_is_named_as_the_built_in_sample(client, solved, fake):
+    r = client.post("/api/chat", json=body(solved))
+    assert r.status_code == 200, r.text
+    text = _instruction(fake)
+    assert "the built-in sample account" in text
+    assert "demo data" not in text
+
+
+def test_an_omitted_account_source_behaves_as_a_preset(client, solved, fake):
+    payload = body(solved)
+    assert "account_source" not in payload
+    client.post("/api/chat", json=payload)
+    assert "the built-in sample account" in _instruction(fake)
+
+
+def test_a_modelled_account_is_declared_as_generated_data(client, solved, fake):
+    client.post("/api/chat", json={**body(solved), "account_source": "modelled"})
+    text = _instruction(fake)
+    assert "generated demo data" in text
+    assert "not anyone's account" in text
+
+
+def test_a_sandbox_account_is_declared_as_sandbox_data(client, solved, fake):
+    """The one question this field exists for is "is this my real account?"."""
+    client.post("/api/chat", json={**body(solved), "account_source": "nessie"})
+    text = _instruction(fake)
+    assert "Nessie sandbox" in text
+    assert "not anyone's account" in text
+    assert "whole dollars" in text
+
+
+def test_an_unknown_account_source_is_refused_at_the_edge(client, solved):
+    r = client.post("/api/chat", json={**body(solved), "account_source": "my bank"})
+    assert r.status_code == 422
+
+
+def test_no_account_source_line_breaks_the_wording_rules():
+    """CLAUDE.md: never "guaranteed", never "infeasible", and sandbox data is
+    never called real bank data."""
+    from app.chat.prompt import ACCOUNT_SOURCE
+
+    for line in ACCOUNT_SOURCE.values():
+        lowered = line.lower()
+        assert "guarantee" not in lowered
+        assert "infeasib" not in lowered
+        assert "real bank" not in lowered
