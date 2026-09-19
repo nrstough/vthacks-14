@@ -350,6 +350,8 @@ body {
 
 .tag-out { color: var(--ink-3); border-color: var(--line-strong); background: var(--bg); }
 
+.rx-row.is-pending { opacity: 0.72; }
+
 .rx-row.is-out { background: var(--panel); }
 .rx-row.is-out .rx-label { color: var(--ink-3); text-decoration: line-through; }
 

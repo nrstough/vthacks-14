@@ -9,8 +9,12 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const DIST = new URL('../dist/assets/', import.meta.url).pathname
+// fileURLToPath, not .pathname: the canonical checkout is "…/Desktop/VT Hacks",
+// and a URL's pathname percent-encodes that space into %20, which scandir then
+// cannot find. This suite passing depended on running from a path without one.
+const DIST = fileURLToPath(new URL('../dist/assets/', import.meta.url))
 
 function bundles(): string[] {
   // Deliberately not skipped when dist/ is missing: a check that silently

@@ -43,18 +43,28 @@ Presets clear all overrides; so does the "Clear n overrides" button.
 ## Reasons on left-out rows
 
 `src/lib/reasons.ts`. Derived only from the response, the request's dates and the override
-set. Precedence:
+set. Precedence, first match wins:
 
 1. Ruled out by the user: "You ruled this out, so the solver never saw it."
 2. Too late to act: `effective_date − as_of < lead_time_days`, the same rule the solver applies.
-3. Tier 1 or 2, minimality proven: "Not needed. The plan already clears without it."
-4. Tier 1 or 2, unproven: "Not used in the plan shown. Whether it is needed was not proven; the
-   solver ran out of time."
-5. Tier 3, proven: "Adding it would not shrink the gap or lift another day above zero."
-6. Tier 3, unproven: softened as in 4.
+3. Another change to the same `target_txn_id` is already in the plan: "Another change to the
+   same transaction is already in the plan. Only one is allowed." At most one change per
+   transaction, so this one was never a free choice and calling it unneeded would be wrong.
+4. Tier 1 or 2, minimality proven: "Not needed. The plan already clears zero without it."
+5. Tier 3, proven: "Adding it would not leave you fewer days below zero." This is exactly what
+   optimality of the first objective term establishes and no more. It must not say the change
+   would not shrink the gap: a deferral can shrink the deepest dip while adding a day below
+   zero, so that claim would be false.
+6. Unproven, any tier: "Not used in the plan shown. Whether it is needed / would help was not
+   proven; the solver ran out of time." An unproven solve never claims the plan clears without
+   a change.
 
 No reason ever claims a change "lands after the dip" or similar: that would be the frontend
 doing the solver's job.
+
+A row whose "Can't do this" state differs from the set the displayed answer was solved with
+shows "Re-solving…" instead of any reason, in the plan list and the left-out list alike. The
+alternative is describing a change against a solve that never saw the user's current answer.
 
 ## Narration
 
@@ -71,6 +81,20 @@ appears only when `certificate.minimal_proven` is true.
 - The fallback chip is never removed and never reworded to hide the fallback.
 - A test greps the built bundle for the forbidden words.
 
+## Accessibility
+
+The chart is `role="img"` labelled and described by the narration paragraph above it; its whole
+subtree is `aria-hidden`, and Recharts' `accessibilityLayer` is switched off with it, because
+that layer puts a `tabIndex=0` surface inside the hidden subtree. Verified: 11 checkboxes in the
+tab order, zero tabbable elements inside `.chart-wrap`.
+
+Each row's checkbox carries an accessible name including the change it belongs to, since eleven
+rows otherwise read identically. Ticking one moves its row between sections, which unmounts the
+input; focus is restored to the same checkbox afterwards, but only when it was lost to the
+document body, so a user who has tabbed on is not yanked back.
+
+The verdict section is an `aria-live="polite"` region so a re-solve is announced.
+
 ## Design system
 
 `src/index.css`: tokens for background, panel, line, ink at three weights; one accent
@@ -86,19 +110,37 @@ block. Keep one accent and one font.
 | $180.00 / $100 cushion | 2 | same 3 | Sep 24 at $6.74 |
 | $60.00 / $25 cushion | 3 | 9, "$27.62 more by Sep 24" | gap grows by up to $80.00 |
 
-Demo beat: on the $200 preset, ruling out the card minimum gives 7 changes; only the gas
-deferral is strictly needed, the rest hold the cushion.
+Demo beat: on the $200 preset, ruling out the card minimum gives 7 changes. **Three** of them
+are load-bearing — the DoorDash order, the gym and the gas deferral — and the rows say which.
+The certificate sentence for this case reads "Remove Put off the gas fill to the 26th … The
+rest hold the cushion", which is false while three are load-bearing. That sentence is the
+solver's, is rendered verbatim per the contract, and is identical in
+`backend/app/solver/wording.py` and `frontend/src/solver/mockSolver.ts`. Logged for the backend
+lane; `docs/demo-script.md` carries a fallback answer if a judge reads the box closely.
 
 ## Tests
 
 `frontend/tests/*.test.ts`, run by `npm test` (Node's built-in runner under
 `--experimental-strip-types`, no DOM). Rendering is checked in the browser pane against the
-canaries. Full check: `npm run lint && npm test && npm run build`, plus the backend gate
-`.venv/bin/pytest backend/ -q -m "not perf"`, because the parity tests run this frontend's oracle.
+canaries. Full check, **in this order**:
+
+```bash
+cd frontend && npm run lint && npm run build && npm test
+```
+
+Build before test, always. `tests/bundle.test.ts` greps the built bundle for the forbidden
+words and the fallback chip, and it fails rather than skips when `dist/` is missing, so running
+it first either errors or, worse, passes against stale output that no longer ships.
+
+Then the backend gate, because the parity tests run this frontend's oracle:
+
+```bash
+.venv/bin/pytest backend/ -q -m "not perf"
+```
 
 ## Known gaps
 
 - No DOM test runner (none installable from the hotel); component rendering is verified by hand.
-- Bundle is 616 kB / 182 kB gzip, almost all Recharts. Only worth acting on if the deployed demo
+- Bundle is 619 kB / 184 kB gzip, almost all Recharts. Only worth acting on if the deployed demo
   feels slow.
 - No dark mode.

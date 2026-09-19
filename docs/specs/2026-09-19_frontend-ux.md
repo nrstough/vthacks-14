@@ -210,3 +210,65 @@ outside this lane, and `mockSolver.ts` is the parity oracle, so nothing was chan
 here for the backend lane. `tests/fixtures.test.ts` deliberately asserts only that the sentence
 is non-empty, so this run does not pin the defect in place. The demo script now carries a
 one-line fallback answer if a judge reads the box closely on Sunday.
+
+## Audit round 1 (adversarial Claude critique, ~03:50) — **Fail**, twelve findings
+
+Test coverage and Documentation both graded Fail. All findings addressed; the substantive ones
+are below with what was verified before and after.
+
+1. **`tests/bundle.test.ts` could not read the bundle in the real checkout (Fail driver).**
+   `new URL(...).pathname` percent-encodes a space, and the canonical checkout is
+   `/Users/nathanstough/Desktop/VT Hacks`. The suite passed here only because this worktree's
+   path has no space; merged to `main` it would have errored 3/3 and the AC7 forbidden-word
+   gate would never have run. Fixed with `fileURLToPath`, and **reproduced both ways**: copied
+   under `/tmp/space test dir/` it failed with `ENOENT … VT%20Hacks …` before the fix and
+   passes 3/3 after.
+2. **`docs/features/frontend.md` documented the tier-3 wording Codex finding 2 removed** ("would
+   not shrink the gap or lift another day above zero"). The doc was written before the review
+   resolutions and never updated. It now states the shipped wording and why the stronger claim
+   is false.
+3. **The same doc gave the check order finding 6 exists to forbid** (`lint && test && build`).
+   Corrected to lint → build → test, with the reason spelled out.
+4. **The same doc repeated "only the gas deferral is strictly needed"**, which this change's own
+   `fixtures.test.ts:47` disproves: three of the seven are load-bearing. Corrected, and the doc
+   now carries the certificate-sentence defect and its fallback.
+5. **The documented reason precedence omitted `same_txn` entirely** — the reason added to
+   resolve finding 2. A developer extending the module against the doc could have shadowed it,
+   making blocked candidates read "Not needed". Precedence corrected to the six shipped steps.
+6. **`pendingIds` was exported, unit-tested, and never called** (AC13 cited it as evidence).
+   `PrescriptionList.tsx` now uses it, so the cited test covers the shipped path.
+7. **Focus restoration stole focus.** The effect fired on every response, so a user who tabbed
+   on during the debounce was yanked back. Now it restores only when focus was lost to the
+   document body. Verified in the browser: focus stays put → restored to `cant-c_card_min`;
+   focus moved to `cant-c_gym` first → stays on `cant-c_gym`.
+8. **Plan rows had no pending state** — the mirror of finding 5. Ticking a chosen row left it in
+   the plan section still showing the solver's reason for picking a change the user had just
+   said they cannot do. Plan rows now show "Re-solving…" too. Verified: 60 ms after ticking, the
+   row has `is-pending` and reads "Re-solving…"; after the response, no pending rows remain.
+9. **D2's precedence sentence in this spec is garbled** — it prints "tier/proof" twice, putting
+   the tier branch ahead of `same_txn`. The plan and the code both order it ruled_out >
+   too_late > same_txn > tier, and the code is correct. Recorded here rather than editing D2,
+   because the spec is frozen after commit.
+10. Stale strings in the feature doc (an old reason quote, the pre-change bundle figure):
+    corrected.
+11. **The aria-live chatter risk the plan flagged was never measured.** Now measured: a
+    13-step slider drag produced **one** live-region change, because the request is debounced
+    and applied once. No fallback needed.
+12. **`.sr-only` appears in this spec's "What will change" but was never added.** Struck: the
+    narration is visible text, so the class had no use. No other listed file was left unwritten.
+
+Not accepted as defects: the browser-only evidence for AC5, AC10 and the on-screen halves of
+AC2/AC9 is reported honestly in Deviations and is inherent to having no DOM test runner
+installable on this connection; the critique records the same limitation rather than disputing
+it.
+
+### Re-run after the fixes
+
+| Command | Result |
+|---|---|
+| `npm run lint` | clean |
+| `npm run build` | clean, 619.45 kB / 183.67 kB gzip, pre-existing Recharts warning only |
+| `npm test` | **59 passed, 0 failed** |
+| `.venv/bin/pytest backend/ -q -m "not perf"` | **977 passed** |
+| `tests/bundle.test.ts` under a path containing a space | **3 passed** (failed 3/3 before the fix) |
+| oracle / types / contract / backend diff vs `main` | empty |

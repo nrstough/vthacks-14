@@ -89,6 +89,10 @@ export default function App() {
     const id = refocus.current
     if (!id) return
     refocus.current = null
+    // Only restore focus that was LOST when the row unmounted, which leaves it
+    // on the body. If the user has tabbed on to another control in the
+    // meantime, pulling it back would throw away their navigation.
+    if (document.activeElement && document.activeElement !== document.body) return
     document.getElementById(`cant-${id}`)?.focus()
   }, [res])
 
