@@ -99,13 +99,12 @@ an id that no longer exists is a 422 on the whole solve, not a missing row.
 is customers, accounts, deposits and bills; purchases have no documented create
 or list path, and a transaction history is exactly what this product consumes.
 
-**Status: the adapter is verified but not yet wired to a route.** What exists and
-is tested is the transport, the credential check, the decimal money conversion,
-key redaction and `to_scheduled` normalisation. What does **not** exist yet is the
-seed-and-read-back workflow (account creation, deposits, bills, a normalised
-fetch) and the `not_round_tripped` report. Nothing in `app/main.py` calls this
-package. Any claim that a round trip preserves income and bills is a claim about
-code that has not been written — do not repeat it until it has.
+**Status: wired.** `POST /api/accounts/nessie` seeds an account into the sandbox
+and reads it back; `app/nessie/roundtrip.py` holds the workflow. The paragraph
+above is superseded on one point: spending round-trips as a **withdrawal**, not
+a purchase, so all three row kinds survive. The whole story, including the
+whole-dollar truncation and the frozen balance, is in
+`docs/features/nessie.md`.
 
 Live tests are marked `nessie` and excluded by a collection hook in
 `conftest.py`, not just by `addopts` — a `-m` on the command line replaces the
@@ -119,14 +118,16 @@ candidates whenever `as_of` changes, and prune `locks` to the returned ids on
 every candidates response. A lock naming a vanished id is a 422 on the whole
 solve.
 
-## Not in this change
+## Not in the original change, delivered since
 
-- **The Nessie fallback-disclosure flag.** D8 said this change would ship it as
-  an API field. It does not — no route serves Nessie data, so there is nothing to
-  disclose about yet. It belongs with the seed-and-read-back work.
-- **The on-screen rendering of `source: "modelled"`.** That field does ship and is
-  required on every sample-account response; displaying it belongs to the
-  frontend lane.
+Both of these were listed here as gaps when the generator shipped. The Nessie
+round trip closed them:
+
+- **Provenance beyond `source`.** `POST /api/accounts/nessie` reports
+  `not_round_tripped`, `written` and `returned`, so what the sandbox changed is
+  named rather than implied.
+- **The on-screen rendering.** The tagline states which account is on screen and
+  what the round trip cost. See `docs/features/frontend.md`, "Account sources".
 
 `source` is the only provenance field this change actually delivers. Said plainly
 here because the run spec's first draft claimed both, and a spec that overstates

@@ -89,6 +89,27 @@ when the install has to work from `wheels/` on venue wifi.
    transactions, and the end-of-day balance for every day, do-nothing and
    with-plan.
 
+## Where the account came from
+
+`ChatRequest.account_source` is `preset`, `modelled` or `nessie`, defaulted to
+`preset` so every existing client is unchanged. It is a different question from
+`source`, which says which *solver* produced the numbers.
+
+The context gains one line naming it, and for a modelled or sandbox account it
+says plainly that this is generated demo data, not a bank's records and not
+anyone's account. Without it, "is this my real account?" was one question away
+from an answer that called generated data someone's bank record — the one
+wording rule in `CLAUDE.md` with nothing enforcing it.
+
+It is a request field rather than a query parameter on purpose: the security
+lane edits the `/api/chat` decorator on its own branch, and a second edit there
+would be a conflict for no benefit.
+
+The tests post to the route and assert on the instruction the fake Gemini
+received. A test that called `system_instruction` directly would keep passing if
+`chat()` forgot to pass the field on; this one was verified to fail when the
+wiring is removed.
+
 ## Belt and braces
 
 The reply is scrubbed before it returns: `infeasible` → "not fully coverable",

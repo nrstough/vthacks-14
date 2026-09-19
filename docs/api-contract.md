@@ -160,7 +160,6 @@ zero (tier 2); otherwise fewest fee-days, then shallowest dip (tier 3).
   answer. A 503 is never an approximate answer — the service refuses rather than guessing,
   because a guess would be indistinguishable from a proof in this shape.
 
-
 ## `POST /api/candidates`
 
 Turns a transaction history into the changes the solver may choose from. Additive: the
@@ -272,6 +271,78 @@ as a solvable dip: roughly 7% of seeds reach tier 3 with an empty plan, which is
 a wanted outcome — naming a shortfall that no combination of changes closes is
 half of what this product is for. Amounts are integer
 cents, heavy-tailed rather than uniform; pay lands on business days.
+
+## `POST /api/accounts/nessie`
+
+Additive, and a sibling of the endpoint above rather than a variant of it. Seeds
+a modelled account into Capital One's Nessie sandbox, reads it back, and returns
+what the sandbox actually holds.
+
+Request body is the same shape as `/api/accounts/sample`:
+
+```jsonc
+{
+  "seed": 12345,          // optional
+  "as_of": "2026-09-19",  // optional
+  "horizon_days": 30      // optional; 14..45, default 30
+}
+```
+
+```jsonc
+{
+  "seed": 12345,
+  "as_of": "2026-09-19",
+  "horizon_end": "2026-10-18",
+  "opening_balance_cents": 49800,
+  "buffer_cents": 2500,
+  "scheduled": [ /* ScheduledTxn, as /api/solve takes them */ ],
+  "source": "nessie",
+  "nessie": {
+    "customer_id": "68cd...",   // null in read-only mode if the sandbox omits it
+    "account_id": "68ce...",
+    "mode": "seeded"            // or "read_only"
+  },
+  "written": 23,                // rows sent to the sandbox; 0 in read-only mode
+  "returned": 23,               // rows in `scheduled`
+  "not_round_tripped": [        // every row the sandbox did not return unchanged
+    { "id": "n_68cf...", "reason": "amount changed by the sandbox" }
+  ]
+}
+```
+
+**`source` is required and is always the literal `"nessie"`.** Data generated
+here and seeded into someone else's sandbox is still generated data; nothing
+downstream may present it as a bank's record of anyone.
+
+**Amounts are whole dollars.** The sandbox truncates on write, so the server
+rounds before seeding (half away from zero) and what comes back is what was
+written. `/api/accounts/sample` is the cent-precise path.
+
+**`opening_balance_cents` is not read back from the sandbox.** Writes never move
+Nessie's `balance`, so reading it would report an input as though it were a
+result.
+
+`not_round_tripped` reasons, one per row, in this precedence: `no usable date`,
+`outside the window`, `written but not returned`, `amount changed by the
+sandbox`. The first two are dropped from `scheduled`; the last keeps the
+sandbox's value, because that is what the sandbox holds.
+
+**Errors.** `503` when no key is configured, when the sandbox returns nothing,
+or when what it returns normalises to no usable rows — never an empty account,
+because a wrong key answers `200 []` exactly as a real but empty account does.
+`502` when the sandbox fails mid-seed or answers something malformed; the
+message says how many rows were already written, because creates here are
+permanent.
+
+Setting `NESSIE_ACCOUNT_ID` on the server makes this endpoint read that account
+instead of seeding: no writes, `mode: "read_only"`, `written: 0`. See
+`docs/features/nessie.md`.
+
+**Three rules the server cannot enforce**, for any client rendering these
+accounts: clear every lock when the account changes (the ids do not carry
+over); pin `limit` to 18 on the candidates call that follows; and treat a 5xx
+with no `detail` as unreachable rather than as a refusal, because a dead backend
+behind the dev proxy answers with an empty 500.
 
 Responses: `200` with the body above, or `422` when `horizon_days` is out of
 range, `as_of` is not an ISO date, or an unknown field is sent.

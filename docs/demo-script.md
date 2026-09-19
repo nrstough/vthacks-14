@@ -148,8 +148,23 @@ Stop there. Do not trail off into a feature list.
 
 Insert at 1:10, and cut fifteen seconds from the build section to pay for it.
 
-> "This isn't a file I uploaded. It's pulling a real account from Capital One's
-> sandbox over their API."
+**[Click "Capital One sandbox".]**
+
+> "This isn't a file I uploaded. That account was just written into Capital
+> One's Nessie sandbox over their API and read back out.
+>
+> Whole dollars, because that's what the sandbox stores — it truncates cents on
+> write. So the line tells you how many rows came back and what changed. The
+> solver never trusts the sandbox's arithmetic; the cents live here."
+
+Two things to have ready if a judge pushes:
+
+- **"Why not read the balance from the bank?"** Their sandbox freezes it at
+  account creation — deposits and withdrawals don't move it. So the integer-cent
+  ledger here is the system of record and their API is a history source. That is
+  a real constraint, found by writing to it, and it is worth saying out loud.
+- **"What if the sandbox is down?"** The button says so and the built-in
+  accounts keep working. Same posture as the offline solver.
 
 If it is not live on Sunday, say nothing about it at all. Do not apologise for
 missing features; judges only know what you tell them.
@@ -195,6 +210,16 @@ doesn't have.
 An input, not a learned thing. Right now I set it per category. A real version
 asks you once, and it only ever breaks ties between plans that are already the
 same size.
+
+**"Why is this mission-critical AI?"** (the Peraton question)
+Mission-critical isn't about the size of the system, it's about what failure
+costs the person depending on it. A thirty-five dollar fee on a five dollar
+shortfall is a mission failure for someone with no slack. So the parts that must
+not be wrong are exact and provable: a constraint solver decides feasibility,
+and the answer is re-verified against a zero balance after the plan is chosen.
+The language model is at the edges — it explains the plan and never decides it,
+and it is told plainly that this is generated demo data. Nothing it writes can
+change a number.
 
 **"Who is this for?"**
 Someone a bad week away from a thirty-five dollar fee on a five dollar

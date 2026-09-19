@@ -6,7 +6,8 @@ Exact solver (OR-Tools CP-SAT), stateless server, no accounts, no database.
 
 ## Layout
 
-- `backend/app/` — FastAPI app (`/health`, `POST /api/solve`, `POST /api/candidates`), the
+- `backend/app/` — FastAPI app (`/health`, `POST /api/solve`, `POST /api/candidates`,
+  `POST /api/chat`, `POST /api/accounts/sample`, `POST /api/accounts/nessie`), the
   solver package (`backend/app/solver/`) and the candidate generator
   (`backend/app/candidates/`), Python 3.14
 - `backend/tests/` — pytest suite; `tests/oracle/` runs the TypeScript stand-in solver
@@ -15,6 +16,9 @@ Exact solver (OR-Tools CP-SAT), stateless server, no accounts, no database.
   brute-force stand-in kept as an independent oracle
 - `docs/api-contract.md` — the frozen request and response shapes both sides build against
 - `docs/features/chat.md` — the Gemini explainer, `POST /api/chat`; needs `GEMINI_API_KEY` in `.env` (see `.env.example`)
+- `docs/features/nessie.md` — Capital One's sandbox as a data source, `POST /api/accounts/nessie`;
+  needs `NESSIE_API_KEY`. Set `NESSIE_ACCOUNT_ID` to read an already-seeded account instead of
+  creating one on every call
 - `docs/specs/` — one frozen run spec per change · `docs/features/` — living feature docs
   · `docs/reports/` — plan files · `docs/consults/` — external research (VeriLM memo)
 - `wheels/` — offline Python wheels (not committed; for hotel-wifi installs)

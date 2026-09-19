@@ -31,7 +31,7 @@ Last updated: Sat Sept 19, 2026, after the product expansion discussion. (First 
 | Track | Ask | Fit | Decision |
 |---|---|---|---|
 | Capital One: Best Use of Nessie | "How will you reimagine banking?" Use the Nessie mock-bank API. $250 gift card per member. | Strong | **Enter. Build for it (~2h):** seed a Nessie customer with synthetic deposits/purchases/bills and read it back as the app's primary data source. |
-| Peraton: Best Mission Critical AI Solution | Mission-critical AI. | Thin but honest ("an overdraft is mission-critical to the person it hits") | **Consider entering if the finished work meets the challenge.** MLH entries do not consume this VT slot; no unrelated build. |
+| Peraton: Best Mission Critical AI Solution | Mission-critical AI. | Honest: an overdraft is mission-critical to the person it hits, and the architecture matches the ask | **Enter. No build** — see "Why Peraton" below. |
 | GoDaddy: Best Use of ANS | Agents that discover, verify, and talk to other agents using ANS for domain-anchored identity. Workshops Fri 9:30 PM, Sat 4:30 PM. | Weak | **Skip for now.** Only plausible hook is a cancellation agent that negotiates with a merchant agent; 3–4h in an unknown SDK. Revisit Saturday afternoon only if the core is deployed and polished early. |
 | Deloitte / Databricks | AI agent on Databricks to improve the VT student experience (career navigator, campus life hub, smart campus). Judged partly on team dynamics. | None | Skip. |
 | Impiricus | New way to engage healthcare professionals; SMS off limits. Cash prizes $3,000 / $2,000 / $1,000. | None | Skip. Would require abandoning the project. |
@@ -74,7 +74,7 @@ Last updated: Sat Sept 19, 2026, after the product expansion discussion. (First 
 | Best Domain Name (GoDaddy Registry) | Digital gift card | ~15 min | Enter |
 | Best Use of Vultr | Portable screens | ~1h | Enter, host here |
 | Best Use of Gemini API | Google Swag Kits | Part of proposed purchase flow | Enter if integrated; unlimited MLH allowance |
-| Peraton: Best Mission Critical AI | Not shown on slide | No unrelated build | Consider if challenge fit is substantiated |
+| Peraton: Best Mission Critical AI | Not shown on slide | None | Enter; the fit is the architecture, not a feature |
 
 ### Stretch only (Saturday afternoon, if ahead)
 
@@ -95,6 +95,68 @@ Last updated: Sat Sept 19, 2026, after the product expansion discussion. (First 
 | Presage | Fitbit Inspire + credits | Camera vital-sign sensing |
 | MongoDB Atlas | M5Stack IoT kit | Database the product doesn't need |
 | Backboard | — | Not a track at this event |
+
+## Why Peraton
+
+Written out because it needs to survive being asked, not just ticked.
+
+Mission-critical is not about the size of the system. It is about what failure
+costs the person relying on it, and a thirty-five dollar fee on a five dollar
+shortfall is a mission failure for someone with no slack. Overdraft fees are
+regressive; they land hardest on people with the least room to absorb them.
+
+The architecture is the argument. The parts that must not be wrong are exact and
+provable: an integer-cent CP-SAT model decides feasibility, minimality is proven
+rather than asserted, and the plan is re-verified against a zero balance after
+it is chosen, so the solver does not mark its own homework. Two independent
+implementations are checked against each other on generated accounts. When no
+plan clears, the product names the outside amount needed and the date, instead
+of saying "infeasible" or showing a red number.
+
+The language model sits at the edges, where a mistake is recoverable. It
+explains a plan it cannot change, it never sees a merchant descriptor, and it is
+told explicitly that the account is generated demo data. No number it writes can
+reach the decision.
+
+That is the claim: AI where it is safe, and proof where it is not.
+
+## Devpost text, ready to paste
+
+Assembled here so submission morning is copy-paste rather than composition.
+
+```
+Every banking app warns you that you are about to overdraft. None of them tell
+you what to do about it. Overdraft Guard takes a transaction history and returns
+the smallest set of dated spending changes that keeps the balance above zero
+until payday — and proves nothing smaller works.
+
+Underneath is an exact constraint solver (OR-Tools CP-SAT): integer cents, one
+covering constraint per day, and a lexicographic objective so fewest changes
+genuinely wins. Minimality is only claimed when proven; when no plan clears, it
+names the outside cash needed and the date it is needed by, rather than calling
+anything infeasible. Two independent implementations — the CP-SAT model and a
+brute-force reference — are checked against each other on 300 generated
+accounts, with zero disagreements.
+
+Accounts can be generated locally or seeded into Capital One's Nessie sandbox
+and read back over their API; the page always says which, and never presents
+generated data as anyone's bank records. A Gemini explainer answers questions
+about the plan in plain English but never decides feasibility. Stateless: no
+account, no database, nothing stored.
+
+AI tools used: Claude Code (Anthropic) and Codex (OpenAI) were used
+substantially throughout — planning, implementation, code review and
+documentation — under human direction and review.
+```
+
+Peraton one-liner, if the form wants a per-track note:
+
+```
+An overdraft fee is a mission failure for the person it lands on. The decisions
+that must not be wrong are made by an exact solver and re-verified after the
+fact; the language model only explains them. Proof where it matters, AI where it
+is safe.
+```
 
 With the clarified cap: prioritize Capital One among VT tracks; assess Peraton on fit. Vultr, Domain Name, and Gemini are separate MLH entries and do not consume those slots. Gemini API use must actually be implemented; training our own network alone does not qualify. [Gemini reward source](https://vthacks-14.devpost.com/).
 

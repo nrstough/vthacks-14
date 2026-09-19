@@ -48,13 +48,13 @@ class NessieUnavailable(Exception):
     """No key, or the key provably does not work.
 
     Intended to become a 503, with the caller falling back to the local generator
-    and disclosing it on screen. No route raises or maps it yet.
+    and disclosing it on screen. `app/main.py` maps it to 503.
     """
 
 
 class NessieUpstreamError(Exception):
-    """Nessie was called and did not answer usefully. Intended to become a 502;
-    no route maps it yet."""
+    """Nessie was called and did not answer usefully. `app/main.py` maps it to
+    502."""
 
 
 def status(config: NessieConfig | None = None) -> dict[str, Any]:

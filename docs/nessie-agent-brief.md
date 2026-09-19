@@ -1,5 +1,22 @@
 # Nessie API: technical brief for another agent
 
+> **Corrections, 2026-09-19, measured against the live sandbox.** This brief was
+> written from the documentation and is right about most of it. Four things it
+> gets wrong or leaves open, settled by running them:
+>
+> 1. **Creation returns `{"code": 201, "objectCreated": {"_id": ...}}`**, not a
+>    bare string. Caution 6 is resolved; no follow-up list call is needed.
+> 2. **Spending is a withdrawal.** The missing purchase-create path is not proof
+>    that discretionary charges cannot be stored: Capital One's own SDKs use
+>    `/accounts/{id}/withdrawals`, which needs no merchant.
+> 3. **Every amount is truncated to whole dollars on write.** `17.99` reads back
+>    `17`. Truncation, not rounding.
+> 4. **Writes never move `balance`.** It stays at its creation value.
+>
+> Also: creates are permanent (`DELETE` answers 403), and a wrong key answers
+> `200 []` rather than 401 or 403. The working record is
+> `docs/features/nessie.md`; trust it and the code over this page.
+
 Source: https://nessieisreal.com/docs, explored through the live browser on September 18, 2026 (US Eastern). Related pages inspected: https://nessieisreal.com/getting-started, https://nessieisreal.com/sdk, and https://nessieisreal.com/examples.
 
 ## Context and scope

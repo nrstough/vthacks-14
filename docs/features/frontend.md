@@ -27,6 +27,33 @@ reason on screen is either returned by the solver or derived from dates and ids 
   it. If the UI needs different solver output, change the request, not the oracle.
 - The fixtures: `src/fixtures/scenarios.ts`, three presets whose on-screen values are canaries
   (see below).
+- Loaded accounts: `POST /api/accounts/sample` (modelled) and `POST /api/accounts/nessie`
+  (seeded into Capital One's sandbox and read back), each followed by
+  `POST /api/candidates`. See "Account sources".
+
+## Account sources
+
+Two buttons beside the presets load a whole account, not just a pair of balances:
+`as_of`, `horizon_end`, `scheduled`, both balances, and a fresh candidate set.
+
+- **Provenance is stated, never implied.** The tagline says which account is on screen —
+  `Modelled account, seed 12345, Sep 19 to Oct 18.` or `Capital One sandbox, 23 of 23 rows
+  read back, …` — with a clause per `not_round_tripped` reason, counted separately. An
+  account whose `source` the client does not recognise is refused rather than shown.
+  Sandbox data is never called real bank data.
+- **Loading clears every override** and the previous plan. Carrying them would name
+  candidate ids the new account has never heard of, which is a 422 on the whole solve.
+- **The base, the balances and the on-screen answer change in one batch**, so the old
+  account's rows are never clickable under the new account's sliders.
+- **`limit` is pinned to 18** on the candidates call. The built-in solver is exhaustive and
+  refuses above 20, and it runs inside the solve effect's `.catch`, where a throw is an
+  unhandled rejection and a silently stale screen. The fallback is wrapped too.
+- **The lifecycle is a reducer**, `src/lib/accountState.ts`: stale results are dropped by
+  sequence number, and a preset chosen mid-load clears the pending flag. Without that last
+  case both buttons stay disabled until a reload.
+- **A loaded balance is put on the slider grid** by moving the floor, not the balance.
+- **The explainer remounts** when the account changes, so a conversation never spans two
+  accounts.
 
 ## The override model
 
