@@ -35,6 +35,7 @@ from tests.fixtures.scenarios import SCHEDULED
         ("GOLD'S GYM", ("GOLD", "S", "GYM")),
         ("DOORDASH*CHIPOTLE", ("DOORDASH", "CHIPOTLE")),
         ("  spaced   out  ", ("SPACED", "OUT")),
+        ("CAFÉ MÉLANGE", ("CAFE", "MELANGE")),
         ("", ()),
         ("   ", ()),
         ("☕☕☕", ()),
@@ -51,7 +52,7 @@ def test_the_same_merchant_spelled_four_ways_lands_in_one_category():
     assert {classify(s).category for s in spellings} == {"groceries"}
 
 
-@pytest.mark.parametrize("text", ["", "   ", "Café ☕", "☕", "—", "​"])
+@pytest.mark.parametrize("text", ["", "   ", "\u2615", "\u2014", "\u200b", "\u0416\u0416", "1234 5678"])
 def test_a_description_with_nothing_to_match_is_unknown_not_an_error(text):
     assert classify(text).category == UNKNOWN_CATEGORY
 
@@ -126,6 +127,18 @@ def test_the_longest_phrase_wins_at_equal_priority():
     assert classify("APPLE MUSIC 4412").display == "Apple Music"
     assert classify("UBER EATS").display == "Uber Eats"
     assert classify("UBER TRIP").display == "Uber"
+
+
+def test_an_accented_name_classifies_the_same_in_either_unicode_form():
+    # Composed and decomposed forms are different bytes and look identical on a
+    # statement. Before NFKD normalisation the composed form lost its accented
+    # letter to the regex and fell through to unknown.
+    import unicodedata
+
+    for text in ("CAFÉ MÉLANGE", "Café Mélange"):
+        nfc, nfd = unicodedata.normalize("NFC", text), unicodedata.normalize("NFD", text)
+        assert nfc != nfd
+        assert classify(nfc).category == classify(nfd).category == "coffee"
 
 
 def test_every_phrase_in_the_table_reaches_its_own_category():

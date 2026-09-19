@@ -38,7 +38,7 @@ scheduled rows
   → policy                   category → up to two alternatives (policy.py)
   → emit                     id, label, detail, freed, dates (generator.py)
   → rank + cap               (alt index, pain, -freed, id); limit, default 18
-  → dedupe labels            date → amount → transaction id
+  → dedupe labels            date → amount → ordinal
   → order                    (effective_date, id), the plan's own rule
 ```
 
@@ -164,8 +164,8 @@ changes with it in the same commit.
 | id | action | freed | effective | recharge | lead | pain | why |
 |---|---|---|---|---|---|---|---|
 | — | — | — | — | — | — | — | `t_spotify` (Sep 20): streaming needs 2 days' lead, only 1 available → not emitted |
-| `t_kroger_1.downgrade` | downgrade | 2246 | Sep 21 | — | 0 | 3 | 6418 × 35 // 100 |
 | `t_kroger_1.defer` | defer | 6418 | Sep 21 | Sep 25 | 0 | 4 | next payday after Sep 21 |
+| `t_kroger_1.downgrade` | downgrade | 2246 | Sep 21 | — | 0 | 3 | 6418 × 35 // 100 |
 | `t_dd_chipotle.skip` | skip | 3180 | Sep 22 | — | 0 | 2 | |
 | `t_gym.cancel` | cancel | 3499 | Sep 22 | — | 3 | 1 | 3 days available, 3 needed |
 | `t_shell.defer` | defer | 4120 | Sep 23 | Sep 25 | 0 | 3 | |
@@ -174,8 +174,8 @@ changes with it in the same commit.
 | `t_starbucks.skip` | skip | 745 | Sep 24 | — | 0 | 1 | |
 | — | — | — | — | — | — | — | `t_verizon`: protected (phone) |
 | `t_amzn.skip` | skip | 5230 | Sep 27 | — | 1 | 2 | |
-| `t_kroger_2.downgrade` | downgrade | 2486 | Sep 28 | — | 0 | 3 | 7105 × 35 // 100 |
 | `t_kroger_2.defer` | defer | 7105 | Sep 28 | Oct 2 | 0 | 4 | next payday after Sep 28 |
+| `t_kroger_2.downgrade` | downgrade | 2486 | Sep 28 | — | 0 | 3 | 7105 × 35 // 100 |
 | `t_netflix.cancel` | cancel | 2299 | Sep 29 | — | 2 | 1 | |
 | `t_shell_2.defer` | defer | 3860 | Sep 30 | Oct 2 | 0 | 3 | |
 | `t_shell_2.downgrade` | downgrade | 1930 | Sep 30 | — | 0 | 3 | |

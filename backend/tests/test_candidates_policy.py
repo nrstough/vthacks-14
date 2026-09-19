@@ -20,6 +20,7 @@ import pytest
 from app.candidates import generate
 from app.candidates.generator import _candidate_id
 from app.candidates.lexicon import PROTECTED
+from app.candidates.policy import POLICY, UNKNOWN_DISCRETIONARY
 from app.schemas import (
     CENTS_ABS,
     ID_RE,
@@ -372,6 +373,16 @@ def test_no_label_says_anything_this_product_never_says():
             assert "$-" not in c.label
             assert c.label.strip() == c.label and c.label
             assert not c.label.endswith(".")
+            # The description is the user's own statement line and is exempt;
+            # everything this module wrote around it is not.
+            written = c.detail.replace(
+                next(t["description"] for t in win["scheduled"] if t["id"] == c.target_txn_id), ""
+            ).lower()
+            for word in (*BANNED, *JUDGMENTAL):
+                assert word not in written
+            assert "None" not in c.detail and "$-" not in c.detail
+            assert money(abs(next(t["amount_cents"] for t in win["scheduled"]
+                                  if t["id"] == c.target_txn_id))) in c.detail
 
 
 def test_a_brandless_merchant_gets_a_label_that_does_not_invent_one():
@@ -536,6 +547,70 @@ def _many(n, description="KROGER #382"):
         day = start + timedelta(days=i % 12)
         scheduled.append(row(f"t_{i:04d}", day.isoformat(), description, -6_418))
     return scheduled
+
+
+def test_the_policy_table_is_exactly_what_the_run_spec_froze():
+    # D9, asserted directly rather than through the demo: only eight of these
+    # thirteen categories appear on the demo account, so the other five could be
+    # changed freely without failing anything.
+    expected = {
+        "streaming": (("cancel", 100, 2, 1, False),),
+        "gym": (("cancel", 100, 3, 1, False),),
+        "software": (("cancel", 100, 1, 2, False),),
+        "food_delivery": (("skip", 100, 0, 2, False),),
+        "coffee": (("skip", 100, 0, 1, False),),
+        "restaurant": (("skip", 100, 0, 2, False),),
+        "groceries": (("downgrade", 35, 0, 3, False), ("defer", 100, 0, 4, True)),
+        "fuel": (("defer", 100, 0, 3, True), ("downgrade", 50, 0, 3, False)),
+        "shopping": (("skip", 100, 1, 2, False),),
+        "rideshare": (("skip", 100, 0, 3, False),),
+        "entertainment": (("skip", 100, 0, 2, False),),
+        "personal_care": (("skip", 100, 1, 2, False),),
+    }
+    actual = {
+        category: tuple((a.action, a.pct, a.lead_time_days, a.pain, a.needs_payday) for a in alts)
+        for category, alts in POLICY.items()
+    }
+    assert actual == expected
+    assert tuple((a.action, a.pct, a.lead_time_days, a.pain, a.needs_payday)
+                 for a in UNKNOWN_DISCRETIONARY) == (("skip", 100, 0, 3, False),)
+
+
+def test_a_rows_second_choice_never_crowds_out_another_rows_first():
+    # The alternative index leads the rank key precisely so this cannot happen.
+    # A fuel row worth $900 has two alternatives that both dwarf three $10
+    # grocery rows; without the index term it would take two of the three slots.
+    scheduled = [
+        payday("t_pay", "2026-10-02"),
+        row("t_fuel", "2026-09-21", "SHELL OIL 57442891", -90_000),
+        row("t_kro0", "2026-09-22", "KROGER #382", -1_000),
+        row("t_kro1", "2026-09-23", "KROGER #382", -1_000),
+    ]
+    res = gen(scheduled, limit=3)
+    assert len({c.target_txn_id for c in res.candidates}) == 3
+
+
+def test_at_equal_rank_the_change_that_frees_more_is_kept():
+    scheduled = [
+        row("t_small", "2026-09-22", "DOORDASH*CHIPOTLE", -1_000),
+        row("t_big", "2026-09-23", "DOORDASH*CHIPOTLE", -9_000),
+    ]
+    res = gen(scheduled, limit=1)
+    assert [c.target_txn_id for c in res.candidates] == ["t_big"]
+
+
+def test_the_output_is_dated_order_even_when_no_label_was_deduped():
+    # Deduplication re-sorts as a side effect, so an account whose labels are
+    # already unique is the only thing that can catch a missing final sort.
+    scheduled = [
+        row("t_gym", "2026-09-25", "PLANET FIT CLUB FEES", -3_499, kind="bill"),
+        row("t_amzn", "2026-09-28", "AMZN MKTP US*2K41Z", -5_230),
+        row("t_sbux", "2026-10-01", "STARBUCKS #0714", -745),
+    ]
+    res = gen(scheduled)
+    assert len({c.label for c in res.candidates}) == 3
+    assert [c.effective_date for c in res.candidates] == ["2026-09-25", "2026-09-28", "2026-10-01"]
+    assert ids(res) == ["t_gym.cancel", "t_amzn.skip", "t_sbux.skip"]
 
 
 def test_the_cap_spreads_across_transactions_rather_than_stacking_on_a_few():

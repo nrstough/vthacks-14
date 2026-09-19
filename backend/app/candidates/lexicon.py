@@ -22,14 +22,24 @@ screen, so the same account could render different words in two processes.
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 
 _NON_ALNUM = re.compile(r"[^A-Z0-9]+")
 
 
 def normalise(text: str) -> tuple[str, ...]:
-    """Uppercase, split on anything that is not a letter or digit."""
-    return tuple(_NON_ALNUM.sub(" ", text.upper()).split())
+    """Uppercase, split on anything that is not a letter or digit.
+
+    Accents are decomposed and their marks discarded rather than left to the
+    regex, so an accented merchant name classifies the same whichever Unicode
+    form the caller sends and does not break in half. Left composed, `CAFÉ`
+    loses its É and becomes CAF; decomposed but not stripped, `MÉLANGE` splits
+    into ME and LANGE. Both spellings now reduce to CAFE MELANGE.
+    """
+    decomposed = unicodedata.normalize("NFKD", text)
+    folded = "".join(c for c in decomposed if not unicodedata.combining(c))
+    return tuple(_NON_ALNUM.sub(" ", folded.upper()).split())
 
 
 # Categories that never yield a candidate. Rent, the card payment and the power

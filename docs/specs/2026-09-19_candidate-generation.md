@@ -301,7 +301,7 @@ run 15–40 minutes inside the gate. Also: the dedupe suffix quoted the transact
 is caller text that reaches `certificate.sentence`; `from tests.test_invariants import …`
 would have double-collected; the moving-`as_of` test passed vacuously on the demo.
 
-**Codex plan review (`gpt-6-astra`).** 5 critical, 2 suggestions, all applied: the lexicon
+**Codex plan review (`gpt-6-astra`).** 5 critical and 2 suggestions, all applied: the lexicon
 invariant contradicted the brand-less entries step 3 requires; the truncation assertions
 were wrong in two constructible cases (both now explicit tests); the every-cap round-trip
 would have 422'd on an opening balance of ~10^14; `_normalise` bypasses the one deliberate
