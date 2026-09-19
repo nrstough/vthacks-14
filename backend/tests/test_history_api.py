@@ -516,3 +516,63 @@ def test_a_transfer_app_paying_twice_a_day_is_never_income(client):
     assert out["provenance"]["unscheduled_inflow_count"] == 24
     assert out["provenance"]["next_payday"] is None
     assert not [t for t in out["scheduled"] if t["kind"] == "income"]
+
+
+def _semimonthly_rows(months, description="BLUE RIDGE CAFE", amount=61000):
+    """The 15th and the last day of each month, income shifted off weekends."""
+    import calendar
+
+    out = []
+    for year, month in months:
+        for day in (15, calendar.monthrange(year, month)[1]):
+            when = datetime.date(year, month, day)
+            while when.weekday() >= 5:
+                when += datetime.timedelta(days=1)
+            out.append(H.row(when, description, amount))
+    return out
+
+
+def test_month_end_income_lands_on_the_month_end_not_a_day_early(client):
+    # A numeric mode loses month-end: the 30th recurs more often than the
+    # 31st across a year, and projecting the 30th into a 31-day month pays
+    # the person a day EARLY. Early is the direction that invents cash.
+    months = [(2025, 10), (2025, 11), (2025, 12), (2026, 1), (2026, 2), (2026, 3), (2026, 4), (2026, 5), (2026, 6)]
+    rows = _semimonthly_rows(months)
+    rows += H.everyday_spending(datetime.date(2026, 4, 1), datetime.date(2026, 6, 30))
+    out = imported(client, rows=rows, as_of="2026-07-01", horizon_days=45)
+    income = [s for s in out["streams"] if s["kind"] == "income"]
+    assert len(income) == 1 and income[0]["cadence"] == "semimonthly"
+    ids = set(income[0]["projected_ids"])
+    dates = sorted(t["date"] for t in out["scheduled"] if t["id"] in ids)
+    # 2026-08-15 is a Saturday, so August's mid-month pay moves FORWARD to
+    # the 17th, past the end of a 45-day window.
+    assert dates == ["2026-07-15", "2026-07-31"], dates
+
+
+def test_month_end_income_clamps_into_a_short_month(client):
+    # February has no 30th or 31st. The anchor must clamp, and the 15th must
+    # not move with it.
+    months = [(2025, 8), (2025, 9), (2025, 10), (2025, 11), (2025, 12), (2026, 1)]
+    rows = _semimonthly_rows(months)
+    rows += H.everyday_spending(datetime.date(2025, 11, 1), datetime.date(2026, 1, 31))
+    out = imported(client, rows=rows, as_of="2026-02-01", horizon_days=28)
+    income = [s for s in out["streams"] if s["kind"] == "income"]
+    assert len(income) == 1
+    ids = set(income[0]["projected_ids"])
+    dates = sorted(t["date"] for t in out["scheduled"] if t["id"] in ids)
+    # 02-02 is JANUARY's month end: the 31st was a Saturday and income moves
+    # forward. 02-16 is February's 15th, a Sunday, likewise. February's own
+    # month end is a Saturday and lands 03-02, past the window.
+    assert dates == ["2026-02-02", "2026-02-16"], dates
+
+
+def test_a_bill_on_the_twenty_eighth_is_not_dragged_to_the_month_end(client):
+    # Only February makes the 28th a month end, so the month-end rule must
+    # not fire on this stream.
+    rows = H.monthly_bill(datetime.date(2025, 11, 28), 10, 28, -4200, "ZZQ7K4 HOLDINGS", weekend_shift=False)
+    rows += H.everyday_spending(datetime.date(2026, 6, 1), datetime.date(2026, 8, 31))
+    out = imported(client, rows=rows, as_of="2026-09-01", horizon_days=40)
+    bill = next(s for s in out["streams"] if s["amount_cents"] == -4200)
+    ids = set(bill["projected_ids"])
+    dates = sorted(t["date"] for t in out["scheduled"] if t["id"] in ids)
+    assert dates and all(d.endswith("-28") for d in dates), dates

@@ -2,23 +2,21 @@
 
 | Dimension | Grade | Notes |
 |-----------|-------|-------|
-| Plan adherence | **Fail** | Same-day peer transfers can bypass D8 and become projected income. |
-| Scope discipline | Excellent | Changes remain within import functionality and supporting integration. |
-| Test coverage | **Fail** | A3’s lapsed-within-window test does not exercise a lapsed stream; A10 screenshot evidence is missing. |
-| Review compliance | Acceptable | Referenced Codex findings have corresponding implementation changes. |
+| Plan adherence | Fail | Semimonthly month-end pay can be projected early, violating A3/D4. |
+| Scope discipline | Excellent | Changes remain within the import workflow and its verification. |
+| Test coverage | Fail | Semimonthly tests miss incorrect dates; required browser screenshot is absent. |
+| Review compliance | Acceptable | Referenced Codex findings have corresponding implementation changes and tests. |
 | Freeze integrity | Acceptable | Skipped: no P1/P2/P3 hashes present. |
-| Regression check | Acceptable | 2,271 backend passes; four environmental setup errors. Frontend: 304 passes, lint and type checks clean. |
-| Documentation | Acceptable | Declared documentation updated; one low-impact stale comment. |
-| **Overall** | **Fail** | Detection defect and acceptance-test gaps remain. |
+| Regression check | Acceptable | 2,272 backend tests passed; four environmental setup errors. Frontend: 304 passed. |
+| Documentation | Excellent | Declared documentation covers the changed behavior and limitations. |
+| **Overall** | **Fail** | |
 
 ### Commentary
 
-1. **Plan adherence — causes Fail.** In [detect.py:268](/Users/nathanstough/Desktop/vthacks-history-import/backend/app/history/detect.py:268), amount-based splitting runs before the same-day guard. Reproduced with twelve Tuesdays containing two `VENMO CASHOUT` inflows each, $50 and $150: import returns two active weekly income streams, zero unscheduled inflows, and **$800 projected income** over the next 30 days. D8 explicitly excludes multiple same-day inflows. Apply that income guard before splitting, preserving the separate-subscription behavior for outflows, and add an endpoint regression test.
+1. **Plan adherence — causes Fail.** [detect.py:235](/Users/nathanstough/Desktop/vthacks-history-import/backend/app/history/detect.py:235) chooses a numeric day-of-month mode instead of preserving a month-end anchor. Reproduced through the import endpoint with equal income payments on April 15/30, May 15, June 1/15/30, 2026—the 15th/month-end pattern with weekend income shifted forward. With `as_of=2026-07-01`, it projects July 15 and **July 30**, rather than July 31. This makes income available a day early. Preserve month-end semantics when fitting anchors, then apply the weekend shift during projection.
 
-2. **Test coverage — causes Fail.** [test_history_detect.py:299](/Users/nathanstough/Desktop/vthacks-history-import/backend/tests/test_history_detect.py:299) claims to test a lapsed bill inside the baseline window, but its monthly bill was last seen only 40 days earlier. The configured lapse threshold is 60 days, so the stream remains active; the test never asserts otherwise. Use a weekly or biweekly bill that actually lapses within 56 days, and assert inactivity, no projection, and removal from the residual.
+2. **Test coverage — causes Fail.** The [detection test](/Users/nathanstough/Desktop/vthacks-history-import/backend/tests/test_history_detect.py:76) accepts any second anchor ≥28; the [projection test](/Users/nathanstough/Desktop/vthacks-history-import/backend/tests/test_history_project.py:135) checks count and spacing, not exact dates. Add endpoint regressions pinning dates for short semimonthly histories across different month lengths and weekend shifts.
 
-3. **Test coverage — contributes to Fail.** A10 requires browser verification with a screenshot. The run spec explicitly records that no image was retained. Its DOM assertions provide partial evidence, but do not fulfill that requirement. Retain screenshot evidence from a repeat browser pass.
+3. **Test coverage — additional acceptance gap.** A10 requires browser verification with a screenshot, but the [results](/Users/nathanstough/Desktop/vthacks-history-import/docs/specs/2026-09-19_history-import.md:194) explicitly report none retained. DOM assertions do not verify layout. Retain a screenshot of the imported plan and provenance panel.
 
-4. **Regression check — limits grade to Acceptable; no demonstrated regression.** On `history-import`, Python 3.14.7 ran `PYTHONDONTWRITEBYTECODE=1 .venv/bin/pytest backend/ -q --capture=sys -p no:cacheprovider`: **2,271 passed, 10 deselected, four setup errors**, all from unavailable writable temporary directories. Node 22.17.1 ran `npm run lint && npm test`: **304 passed**, lint clean. Both TypeScript projects passed no-emit checks. A fresh production build could not be verified in this read-only environment; frontend bundle tests used existing build output.
-
-5. **Documentation — Acceptable nit only.** [App.tsx:73](/Users/nathanstough/Desktop/vthacks-history-import/frontend/src/App.tsx:73) still says retained raw rows support panel labels. Labels now come from the server, as the documented deviation explains. Update the comment; this does not affect user behavior or justify Documentation Fail.
+4. **Regression check — limits grade to Acceptable; no demonstrated test regression.** Audited HEAD `ec54b18` on `history-import` in the supplied worktree. Python 3.14.7: `.venv/bin/pytest backend/ -q -p no:cacheprovider --capture=sys` produced **2,272 passed, 10 deselected, four setup errors**, all from unavailable writable temporary directories. Node 22.17.1: `npm run lint && npm test` passed all **304 tests**; both TypeScript projects passed no-emit checks. A fresh production build was not run because the filesystem is read-only; bundle tests used the existing build.

@@ -24,7 +24,7 @@ from app.schemas import CENTS_ABS
 from .errors import ImportRefused
 from .labels import stream_label
 from .money import coefficient_of_variation, trimmed_mean_cents
-from .workdays import weekday_name
+from .workdays import days_in_month, weekday_name
 from .payee import payee_key
 
 MIN_OCCURRENCES = 3
@@ -68,6 +68,14 @@ SEMIMONTHLY_MIN_SEPARATION = 10
 SEMIMONTHLY_MAX_SEPARATION = 20
 SEMIMONTHLY_MONTH_COVERAGE = 0.6
 ANCHOR_WINDOW = 8
+# A stream is anchored to the END of the month, rather than to a number,
+# when this share of its recent occurrences fell on their own month's last
+# day. Below the threshold a bill that happens to fall on the 28th is not
+# dragged to the 31st; at or above it, a month-end stream keeps its meaning
+# in months of different lengths. `EOM_SENTINEL` is clamped per month by
+# `on_day_of_month`.
+EOM_SHARE = 0.4
+EOM_SENTINEL = 31
 
 
 @dataclass(frozen=True)
@@ -142,6 +150,22 @@ def _cluster_days_of_month(days: list[int]) -> list[list[int]]:
     if len(clusters) > 1 and _circular_distance(clusters[-1][-1], clusters[0][0]) <= DOM_ADJACENT:
         clusters[0] = clusters.pop() + clusters[0]
     return clusters
+
+
+def _anchor_for(dates: list[datetime.date], cluster: list[int]) -> int:
+    """The day of the month this cluster means, month-end included.
+
+    A numeric mode loses month-end: a stream paid on the last day of every
+    month has days 30, 31 and 28 in its history, the mode picks whichever
+    recurred most, and a 30 projected into a 31-day month pays the person a
+    day EARLY. Early is the direction that invents cash.
+    """
+    members = [d for d in dates if d.day in set(cluster)]
+    if members:
+        last_day = sum(1 for d in members if d.day == days_in_month(d.year, d.month))
+        if last_day / len(members) >= EOM_SHARE:
+            return EOM_SENTINEL
+    return _mode_day_of_month([d.day for d in members] or list(cluster))
 
 
 def _mode_day_of_month(days: list[int]) -> int:
@@ -233,15 +257,27 @@ def _fit_semimonthly(dates: list[datetime.date]) -> tuple[int, int] | None:
     # on the 16th and 17th has three distinct days, all tied at one apiece,
     # and the tie-break then anchors it to the 17th.
     recent = dates[-2 * ANCHOR_WINDOW :]
-    anchor_a = _mode_day_of_month([d.day for d in recent if d.day in set(first)] or list(first))
-    anchor_b = _mode_day_of_month([d.day for d in recent if d.day in set(second)] or list(second))
+    anchor_a = _anchor_for(recent, first)
+    anchor_b = _anchor_for(recent, second)
     separation = _circular_distance(anchor_a, anchor_b)
     if not (SEMIMONTHLY_MIN_SEPARATION <= separation <= SEMIMONTHLY_MAX_SEPARATION):
         return None
-    months = {(d.year, d.month) for d in dates}
+    # Count each occurrence against the month its PAY PERIOD belongs to. A
+    # month-end payment shifted forward off a weekend lands on the 1st or
+    # 2nd, and counting it under the new month leaves the old month looking
+    # like it was paid once — which fails the coverage test and drops a
+    # perfectly regular 15th-and-month-end payroll down to "every 14 days".
+    wraps = max(max(first), max(second)) >= 28 and min(min(first), min(second)) <= 3
+
+    def pay_month(day: datetime.date) -> tuple[int, int]:
+        if wraps and day.day <= 3:
+            return (day.year - 1, 12) if day.month == 1 else (day.year, day.month - 1)
+        return (day.year, day.month)
+
+    months = {pay_month(d) for d in dates}
     both = 0
     for year, month in months:
-        in_month = [d.day for d in dates if (d.year, d.month) == (year, month)]
+        in_month = [d.day for d in dates if pay_month(d) == (year, month)]
         if any(d in first for d in in_month) and any(d in second for d in in_month):
             both += 1
     if both / len(months) < SEMIMONTHLY_MONTH_COVERAGE:
@@ -318,7 +354,7 @@ def detect_streams(rows: list[Row], history_end: datetime.date) -> tuple[list[St
                 anchor_doms = doms or ()
                 anchor = f"the {_ordinal(anchor_doms[0])} and {_ordinal(anchor_doms[1])}"
             else:
-                anchor_doms = (_mode_day_of_month([d.day for d in recent_dates]),)
+                anchor_doms = (_anchor_for(recent_dates, sorted({d.day for d in recent_dates})),)
                 anchor = f"the {_ordinal(anchor_doms[0])}"
 
             amount = trimmed_mean_cents(recent_amounts)
