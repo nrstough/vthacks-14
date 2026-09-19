@@ -12,9 +12,9 @@ import os
 from datetime import date
 from pathlib import Path
 
-from typing import Literal
+from typing import Literal, Mapping
 
-from fastapi import FastAPI, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -25,6 +25,7 @@ from app.chat import ChatUnavailable, ChatUpstreamError, chat, status as chat_st
 from app.chat.schemas import ChatRequest, ChatResponse, ChatStatus
 from app.nessie import NessieUnavailable, NessieUpstreamError
 from app.nessie.roundtrip import account_from_nessie
+from app.ratelimit import RateLimiter, client_key
 from app.schemas import (
     CandidatesRequest,
     CandidatesResponse,
@@ -78,9 +79,57 @@ def _default_dist() -> Path:
 
 DEFAULT_DIST = _default_dist()
 
+# Whether to serve the interactive API console and the schema. On by default,
+# so development is unchanged; the systemd unit turns it off on the box.
+#
+# Read when the app is built, which is before `load_dotenv_once` has ever run,
+# so this CANNOT be set from the repository's `.env` — it has to be a real
+# environment variable. That is why it is absent from `.env.example`.
+DOCS_ENV = "OVERDRAFT_GUARD_DOCS"
+_FALSEY = {"", "0", "false", "no", "off"}
 
-def create_app(dist_dir: Path | None = DEFAULT_DIST) -> FastAPI:
-    app = FastAPI(title="Overdraft Guard", docs_url="/api/docs", openapi_url="/api/openapi.json")
+
+def docs_enabled(env: Mapping[str, str]) -> bool:
+    """An explicit set of spellings, never `bool(raw)` — `bool("0")` is True."""
+    raw = env.get(DOCS_ENV)
+    return True if raw is None else raw.strip().lower() not in _FALSEY
+
+
+def create_app(
+    dist_dir: Path | None = DEFAULT_DIST,
+    *,
+    chat_limiter: RateLimiter | None = None,
+    docs: bool | None = None,
+) -> FastAPI:
+    docs = docs_enabled(os.environ) if docs is None else docs
+    # Per application instance, never a module global: two apps in one process
+    # hold independent budgets, so nothing leaks between them.
+    limiter = chat_limiter if chat_limiter is not None else RateLimiter()
+
+    app = FastAPI(
+        title="Overdraft Guard",
+        docs_url="/api/docs" if docs else None,
+        openapi_url="/api/openapi.json" if docs else None,
+        # /redoc is the third console, and the app never set it: before this
+        # change it answered 200. FastAPI only mounts it when openapi_url is
+        # set, so gating the schema already closes it — this states the intent
+        # rather than resting on that nesting staying true.
+        redoc_url="/redoc" if docs else None,
+    )
+
+    def _chat_rate_limit(request: Request) -> None:
+        """The explainer is the only endpoint that costs anything upstream."""
+        decision = limiter.check(client_key(request))
+        if decision.allowed:
+            return
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                "The explainer is resting: too many questions too quickly. "
+                f"Try again in {decision.retry_after_s} seconds."
+            ),
+            headers={"Retry-After": str(decision.retry_after_s)},
+        )
 
     # Vite's dev server proxies /api here; in production the two are same-origin
     # because this process serves the built files below.
@@ -138,7 +187,10 @@ def create_app(dist_dir: Path | None = DEFAULT_DIST) -> FastAPI:
     def api_chat_status() -> ChatStatus:
         return chat_status()
 
-    @app.post("/api/chat", response_model=ChatResponse)
+    # The rate limit hangs off this route alone, as a dependency rather than
+    # middleware: a middleware would need a path test, and a prefix test on
+    # "/api/chat" silently also catches "/api/chat/status".
+    @app.post("/api/chat", response_model=ChatResponse, dependencies=[Depends(_chat_rate_limit)])
     def api_chat(
         req: ChatRequest, source: Literal["server", "local"] = Query(default="server")
     ) -> ChatResponse:

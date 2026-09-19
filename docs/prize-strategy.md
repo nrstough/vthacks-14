@@ -163,8 +163,22 @@ With the clarified cap: prioritize Capital One among VT tracks; assess Peraton o
 ## Security stance for judges
 
 Stateless by design: parse, detect, solve, render, forget. Sandbox (Nessie) data only, HTTPS in
-transit, API key server-side in `.env`, no personal financial history persisted by the proposed request flow. The isolated forecast experiment does persist synthetic data and model checkpoints locally. Production would add Plaid for bank
-access, encryption at rest, and per-user auth. Hours went to the solver, not login pages.
+transit with HSTS, a CSP whose `connect-src 'self'` means a script that got onto the page still
+could not post a transaction list off the box, and no personal financial history persisted by the
+proposed request flow. The API key is server-side, never in the bundle: in `.env` locally, and on
+the box a root-owned `0600` file outside the repository and outside the deploy's file list. The
+service runs on loopback behind Caddy under `NoNewPrivileges` and `ProtectSystem=strict`, and
+the box serves no interactive API console (it stays on in local development).
+
+The explainer is rate limited to twenty questions a minute per address, because it is the one
+endpoint that spends the key; the limit holds a count per address, no content and no identity, and
+it dies with the process. The wallet tab keeps its ledger in the browser: that is client state, it
+never reaches the server, and it dies with the tab.
+
+The isolated forecast experiment does persist synthetic data and model checkpoints locally.
+Production would add Plaid for bank access, encryption at rest, and per-user auth — every one of
+those arrives with the first row stored on a server, and nothing here stores one. Hours went to the
+solver, not login pages.
 
 Hard rule: never commit a key or a bank export. `.gitignore` covers `.env`, `Checking.csv`, `data/private/`.
 

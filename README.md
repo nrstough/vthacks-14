@@ -7,7 +7,8 @@ Exact solver (OR-Tools CP-SAT), stateless server, no accounts, no database.
 ## Layout
 
 - `backend/app/` — FastAPI app (`/health`, `POST /api/solve`, `POST /api/candidates`,
-  `POST /api/chat`, `POST /api/accounts/sample`, `POST /api/accounts/nessie`), the
+  `POST /api/chat`, `GET /api/chat/status`, `POST /api/accounts/sample`,
+  `POST /api/accounts/nessie`), the
   solver package (`backend/app/solver/`) and the candidate generator
   (`backend/app/candidates/`), Python 3.14
 - `backend/tests/` — pytest suite; `tests/oracle/` runs the TypeScript stand-in solver
@@ -15,7 +16,7 @@ Exact solver (OR-Tools CP-SAT), stateless server, no accounts, no database.
 - `frontend/` — Vite + React + TypeScript + Recharts; `src/solver/mockSolver.ts` is the
   brute-force stand-in kept as an independent oracle
 - `docs/api-contract.md` — the frozen request and response shapes both sides build against
-- `docs/features/chat.md` — the Gemini explainer, `POST /api/chat`; needs `GEMINI_API_KEY` in `.env` (see `.env.example`)
+- `docs/features/chat.md` — the Gemini explainer, `POST /api/chat`; needs `GEMINI_API_KEY` in `.env` locally (see `.env.example`), or `/etc/overdraft-guard.env` on the box
 - `docs/features/nessie.md` — Capital One's sandbox as a data source, `POST /api/accounts/nessie`;
   needs `NESSIE_API_KEY`. Set `NESSIE_ACCOUNT_ID` to read an already-seeded account instead of
   creating one on every call
@@ -45,6 +46,11 @@ box installs from PyPI and needs working network.
 .venv/bin/uvicorn --app-dir backend app.main:app --reload --port 8000   # API (+ frontend/dist if built)
 cd frontend && npm run dev                                     # Vite dev server on 5173
 ```
+
+`/api/docs`, `/api/openapi.json` and `/redoc` are served locally and turned off on the box with
+`OVERDRAFT_GUARD_DOCS=0`. It must be a real environment variable — the app reads it when it is
+built, before anything loads `.env` — so it is set in `deploy/overdraft-guard.service`, not in
+`.env.example`.
 
 ## Test
 

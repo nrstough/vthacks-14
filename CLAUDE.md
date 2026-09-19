@@ -63,7 +63,8 @@ nobody checked.
 ## Layout
 
 - `backend/` — FastAPI app, the solver, and the candidate generator that feeds it.
-  `POST /api/solve`, `POST /api/candidates`, `GET /health`.
+  `POST /api/solve`, `POST /api/candidates`, `POST /api/chat` (rate limited),
+  `GET /api/chat/status`, `GET /health`.
 - `frontend/` — Vite, React, TypeScript, Recharts. Also holds
   `src/solver/mockSolver.ts`, an exact reference implementation used both as
   the offline fallback and as the oracle the Python solver is tested against.
@@ -110,3 +111,10 @@ cd frontend && npm run lint && npm run build
   cash than a charge is worth and understates what the user needs.
 - **Minimality is claimed only when proven.** If a solve is not proven
   optimal, the wording softens and the tier badge drops the word "proven".
+
+- **`POST /api/chat` is rate limited and the other routes are not.** It is the
+  one endpoint that spends the Gemini key. `test_chat.py` opts out of the limit
+  because that module posts about twenty times; the limit is covered against a
+  default-configured app in `test_ratelimit.py`, so do not "tidy" the opt-out
+  away. The systemd unit states uvicorn's proxy flags on purpose: without them
+  every request shares one bucket and the limit becomes a cap on the room.
