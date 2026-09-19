@@ -27,12 +27,16 @@ user and for a judge at the table.
   scrub on the reply.
 - **D6. Default model `gemini-3.8-flash`,** env-overridable. Free tier is
   enough for a demo day of questions.
+- **D7. Retry, then fall back.** Added after the first live call hit "high
+  demand". One retry per model on a transient status, then the next free-tier
+  Flash model. Unit-tested with a scripted transport; the live run after the
+  change answered two questions on the primary model.
 
 ## Scope
 
 - `backend/app/chat/` — schemas, prompt, Gemini client, the endpoint logic.
 - `backend/app/main.py` — two routes, two exception handlers.
-- `backend/tests/test_chat.py` — transport replaced; 25 tests.
+- `backend/tests/test_chat.py` — transport replaced; 34 tests.
 - `frontend/src/components/ChatPanel.tsx`, `frontend/src/lib/chat.ts`, styles
   in `index.css`, one line in `App.tsx`.
 - `docs/features/chat.md`, `.env.example`, README pointer.
@@ -45,5 +49,8 @@ Out of scope: streaming replies, natural-language editing of the scenario
 - `.venv/bin/pytest backend/ -q -m "not perf"` green including the new file.
 - `cd frontend && npm run lint && npm run build && npm test` green.
 - In the browser: panel renders "Explainer off" without a key; with a bogus
-  key the 502 path surfaces Gemini's reason in the panel; with a real key,
-  a reply.
+  key the 502 path surfaces Gemini's reason in the panel; with Nathan's real
+  free-tier key, "Why is cancelling the gym in the plan?" answered with the
+  certificate's own figures ($34.99 freed, $8.25 under on Sep 24 without it)
+  and "What if my paycheck comes late?" answered that the solver has not
+  solved that case. Done Sat ~05:00.

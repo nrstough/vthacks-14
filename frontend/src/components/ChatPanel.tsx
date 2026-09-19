@@ -74,7 +74,10 @@ export default function ChatPanel({
     } catch (e) {
       if (ctl.signal.aborted) return
       setError(e instanceof Error ? e.message : 'The explainer failed.')
-      // Leave the question in the log so it can be retried by resending.
+      // Put the question back in the box, not the log: one click on Ask
+      // resends it, and the log never shows a question with no answer.
+      setMessages(messages)
+      setDraft(q)
     } finally {
       if (!ctl.signal.aborted) setPending(false)
     }
@@ -138,6 +141,14 @@ export default function ChatPanel({
           maxLength={4000}
           aria-label="Your question"
           onChange={(e) => setDraft(e.target.value)}
+          // Implicit form submission on Enter is the browser's job, but it is
+          // the one interaction a judge will try first, so it is also ours.
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              send(draft)
+            }
+          }}
         />
         <button type="submit" disabled={disabled || !draft.trim()}>
           Ask

@@ -305,3 +305,93 @@ def _resp(res: dict):
     from app.schemas import SolveResponse
 
     return SolveResponse.model_validate(res)
+
+
+# --------------------------------------------------------------------------
+# overloaded: retry, then fall back
+# --------------------------------------------------------------------------
+
+
+class Flaky:
+    """Answers per model according to a script of statuses; None means success."""
+
+    def __init__(self, script: dict[str, list[int | None]]):
+        self.script = {m: list(v) for m, v in script.items()}
+        self.calls: list[str] = []
+
+    def __call__(self, url, headers, payload, timeout_s):
+        model = url.rsplit("/models/", 1)[1].split(":")[0]
+        self.calls.append(model)
+        status = self.script[model].pop(0)
+        if status is not None:
+            raise gemini.GeminiError(f"{model} said {status}", status=status)
+        return {"candidates": [{"content": {"parts": [{"text": f"answer from {model}"}]}}]}
+
+
+def _cfg(model="a", fallbacks=("b", "c")):
+    return gemini.GeminiConfig(api_key="k", model=model, timeout_s=1.0, fallbacks=fallbacks)
+
+
+def test_high_demand_is_retried_once_then_the_next_model_answers(monkeypatch):
+    f = Flaky({"a": [503, 503], "b": [None]})
+    monkeypatch.setattr(gemini, "_post_json", f)
+    naps = []
+    text, model = gemini.generate_with_fallback(_cfg(), "sys", [("user", "q")], sleep=naps.append)
+    assert (text, model) == ("answer from b", "b")
+    assert f.calls == ["a", "a", "b"]
+    assert naps == [gemini.RETRY_PAUSE_S]
+
+
+def test_a_transient_that_clears_on_retry_stays_on_the_primary(monkeypatch):
+    f = Flaky({"a": [429, None]})
+    monkeypatch.setattr(gemini, "_post_json", f)
+    text, model = gemini.generate_with_fallback(_cfg(), "sys", [("user", "q")], sleep=lambda _: None)
+    assert (text, model) == ("answer from a", "a")
+
+
+def test_a_missing_model_moves_on_without_a_retry(monkeypatch):
+    f = Flaky({"a": [404], "b": [None]})
+    monkeypatch.setattr(gemini, "_post_json", f)
+    naps = []
+    _, model = gemini.generate_with_fallback(_cfg(), "sys", [("user", "q")], sleep=naps.append)
+    assert model == "b"
+    assert f.calls == ["a", "b"]
+    assert naps == []
+
+
+def test_a_bad_key_stops_at_once(monkeypatch):
+    f = Flaky({"a": [403], "b": [None]})
+    monkeypatch.setattr(gemini, "_post_json", f)
+    with pytest.raises(gemini.GeminiError, match="403"):
+        gemini.generate_with_fallback(_cfg(), "sys", [("user", "q")], sleep=lambda _: None)
+    assert f.calls == ["a"]
+
+
+def test_when_every_model_fails_the_last_error_is_reported(monkeypatch):
+    f = Flaky({"a": [503, 503], "b": [503, 503], "c": [500, 500]})
+    monkeypatch.setattr(gemini, "_post_json", f)
+    with pytest.raises(gemini.GeminiError, match="c said 500"):
+        gemini.generate_with_fallback(_cfg(), "sys", [("user", "q")], sleep=lambda _: None)
+    assert f.calls == ["a", "a", "b", "b", "c", "c"]
+
+
+def test_the_model_that_answered_is_what_the_client_sees(client, solved, monkeypatch):
+    f = Flaky({gemini.DEFAULT_MODEL: [503, 503], gemini.DEFAULT_FALLBACKS[0]: [None]})
+    monkeypatch.setattr(gemini, "_post_json", f)
+    monkeypatch.setattr(gemini.time, "sleep", lambda _: None)
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.delenv("GEMINI_MODEL", raising=False)
+    monkeypatch.delenv("GEMINI_FALLBACK_MODELS", raising=False)
+    r = client.post("/api/chat", json=body(solved))
+    assert r.status_code == 200
+    assert r.json()["model"] == gemini.DEFAULT_FALLBACKS[0]
+
+
+def test_fallbacks_come_from_the_environment(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    monkeypatch.setenv("GEMINI_MODEL", "x")
+    monkeypatch.setenv("GEMINI_FALLBACK_MODELS", " y , x ,, z ")
+    monkeypatch.setattr(gemini, "_env_loaded", True)
+    assert gemini.GeminiConfig.from_env().models() == ["x", "y", "z"]
+    monkeypatch.setenv("GEMINI_FALLBACK_MODELS", "")
+    assert gemini.GeminiConfig.from_env().models() == ["x"]

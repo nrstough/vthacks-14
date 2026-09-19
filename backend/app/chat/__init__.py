@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 
-from app.chat.gemini import GeminiConfig, GeminiError, generate
+from app.chat.gemini import GeminiConfig, GeminiError, generate_with_fallback
 from app.chat.prompt import system_instruction
 from app.chat.schemas import ChatRequest, ChatResponse, ChatStatus
 
@@ -51,7 +51,7 @@ def chat(req: ChatRequest, config: GeminiConfig | None = None, source: str = "se
     instruction = system_instruction(req.request, req.response, source)
     turns = [(m.role, m.text) for m in req.messages]
     try:
-        reply = generate(config, instruction, turns)
+        reply, model = generate_with_fallback(config, instruction, turns)
     except GeminiError as e:
         raise ChatUpstreamError(str(e)) from e
-    return ChatResponse(reply=scrub(reply), model=config.model)
+    return ChatResponse(reply=scrub(reply), model=model)

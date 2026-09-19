@@ -52,7 +52,17 @@ say where the numbers came from if asked.
 Copy `.env.example` to `.env` at the repository root and set `GEMINI_API_KEY`.
 `.env` is gitignored and is loaded once at first use, filling only variables
 not already set in the environment. Optional: `GEMINI_MODEL` (default
-`gemini-3.8-flash`), `GEMINI_TIMEOUT_S` (default 25).
+`gemini-3.8-flash`), `GEMINI_FALLBACK_MODELS` (default
+`gemini-3.5-flash,gemini-2.5-flash`), `GEMINI_TIMEOUT_S` (default 25).
+
+**Overload is handled, not surfaced.** On the first live test Google answered
+the second question with "high demand, try again later". A transient status
+(429, 500, 502, 503, 504) gets one retry on the same model after 1.5 s, then
+the next model in the fallback list; a missing model (404) skips straight to
+the next; a key problem (401, 403) stops at once. The reply names the model
+that actually answered. Only when every model fails does the client see a 502,
+and then the failed question drops back into the input box so one click
+resends it.
 
 The key goes in the `x-goog-api-key` header, never the URL, so it does not
 land in access logs.

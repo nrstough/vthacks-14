@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -21,6 +22,14 @@ from pathlib import Path
 
 ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 DEFAULT_MODEL = "gemini-3.8-flash"
+# Tried in order when the model above is overloaded or missing. Every one is on
+# the free tier. Override with GEMINI_FALLBACK_MODELS, comma separated.
+DEFAULT_FALLBACKS = ("gemini-3.5-flash", "gemini-2.5-flash")
+# Gemini statuses worth one more attempt on the same model before moving on.
+TRANSIENT = {429, 500, 502, 503, 504}
+# The key is wrong or forbidden: no other model will do better, stop at once.
+FATAL = {401, 403}
+RETRY_PAUSE_S = 1.5
 DEFAULT_TIMEOUT_S = 25.0
 MAX_OUTPUT_TOKENS = 600
 
@@ -51,16 +60,30 @@ class GeminiConfig:
     api_key: str | None
     model: str
     timeout_s: float
+    fallbacks: tuple[str, ...] = DEFAULT_FALLBACKS
 
     @classmethod
     def from_env(cls) -> GeminiConfig:
         load_dotenv_once()
         key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or None
+        raw = os.environ.get("GEMINI_FALLBACK_MODELS")
+        fallbacks = (
+            tuple(m.strip() for m in raw.split(",") if m.strip()) if raw is not None else DEFAULT_FALLBACKS
+        )
         return cls(
             api_key=key.strip() if key else None,
             model=os.environ.get("GEMINI_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL,
             timeout_s=float(os.environ.get("GEMINI_TIMEOUT_S", DEFAULT_TIMEOUT_S)),
+            fallbacks=fallbacks,
         )
+
+    def models(self) -> list[str]:
+        """The primary, then each fallback once, in order, without repeats."""
+        out: list[str] = []
+        for m in (self.model, *self.fallbacks):
+            if m and m not in out:
+                out.append(m)
+        return out
 
 
 class GeminiError(Exception):
@@ -96,10 +119,12 @@ def generate(
     system_instruction: str,
     turns: list[tuple[str, str]],
     temperature: float = 0.4,
+    model: str | None = None,
 ) -> str:
     """One completion. `turns` is (role, text) with roles 'user' | 'assistant'."""
     if not config.api_key:
         raise GeminiError("GEMINI_API_KEY is not set")
+    model = model or config.model
 
     body = {
         "systemInstruction": {"parts": [{"text": system_instruction}]},
@@ -116,8 +141,38 @@ def generate(
         "Content-Type": "application/json",
         "x-goog-api-key": config.api_key,
     }
-    payload = _post_json(ENDPOINT.format(model=config.model), headers, body, config.timeout_s)
+    payload = _post_json(ENDPOINT.format(model=model), headers, body, config.timeout_s)
     return extract_text(payload)
+
+
+def generate_with_fallback(
+    config: GeminiConfig,
+    system_instruction: str,
+    turns: list[tuple[str, str]],
+    sleep=time.sleep,
+) -> tuple[str, str]:
+    """Try the primary model, then each fallback. Returns (text, model that answered).
+
+    "High demand" on one model during a demo should cost a second, not the
+    answer. A transient status gets one retry on the same model after a short
+    pause, then the next model. A key problem stops everything at once, and
+    the last error is what the caller sees.
+    """
+    last: GeminiError | None = None
+    for model in config.models():
+        for attempt in range(2):
+            try:
+                return generate(config, system_instruction, turns, model=model), model
+            except GeminiError as e:
+                last = e
+                if e.status in FATAL:
+                    raise
+                if e.status in TRANSIENT and attempt == 0:
+                    sleep(RETRY_PAUSE_S)
+                    continue
+                break
+    assert last is not None
+    raise last
 
 
 def extract_text(payload: dict) -> str:
