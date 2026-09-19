@@ -1,66 +1,65 @@
-import type { Candidate, Locks, SolveRequest, SolveResponse } from '../types'
+import type { Candidate, SolveRequest, SolveResponse } from '../types'
+import type { Overrides } from '../lib/overrides'
+import { isRuledOut } from '../lib/overrides'
+import { PENDING, reasonFor } from '../lib/reasons'
+import { emptyPlanText } from '../lib/narrate'
 import { money, shortDate } from '../lib/format'
 
-export type LockState = 'in' | 'auto' | 'out'
-
-function stateOf(id: string, locks: Locks): LockState {
-  if (locks.in.includes(id)) return 'in'
-  if (locks.out.includes(id)) return 'out'
-  return 'auto'
-}
-
-// "Keep" was ambiguous next to a row reading "Skip the DoorDash order": it
-// could mean keep the order or keep the change. These say what the user means.
-const OPTIONS: [LockState, string, string][] = [
-  ['in', 'Must do', 'Force this change into the plan'],
-  ['auto', 'Auto', 'Let the solver decide'],
-  ['out', "Can't do", 'Rule this change out and re-plan without it'],
-]
-
-function LockControl({
+// One control, the same on every row in both sections: the user tells us
+// whether they can do a change, and nothing else. Which section a row is in is
+// the solver's answer; this checkbox is the user's input. They used to be the
+// same three-way control, which meant one visual state read as "chosen" on a
+// plan row and "rejected" on a left-out row.
+function CantDo({
   id,
-  locks,
-  onChange,
+  label,
+  checked,
+  onToggle,
 }: {
   id: string
-  locks: Locks
-  onChange: (id: string, next: LockState) => void
+  label: string
+  checked: boolean
+  onToggle: (id: string) => void
 }) {
-  const current = stateOf(id, locks)
   return (
-    <div className="locks" role="group" aria-label="Pin or rule out this change">
-      {OPTIONS.map(([value, label, title]) => (
-        <button
-          key={value}
-          type="button"
-          title={title}
-          aria-label={title}
-          aria-pressed={current === value}
-          onClick={() => onChange(id, value)}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
+    <label className="cant" htmlFor={`cant-${id}`}>
+      <input
+        id={`cant-${id}`}
+        type="checkbox"
+        checked={checked}
+        onChange={() => onToggle(id)}
+        // Eleven identical labels are indistinguishable to a screen reader, so
+        // the accessible name carries the change it belongs to.
+        aria-label={`Can't do this: ${label}`}
+      />
+      Can&rsquo;t do this
+    </label>
   )
 }
 
-function pain(n: number): string {
-  return `${'●'.repeat(n)}${'○'.repeat(5 - n)}`
+function Pain({ n }: { n: number }) {
+  return (
+    <div className="rx-pain">
+      <span aria-hidden="true">{`${'●'.repeat(n)}${'○'.repeat(5 - n)}`}</span>{' '}
+      <span className="rx-pain-text">Disruption {n} of 5</span>
+    </div>
+  )
 }
 
 export default function PrescriptionList({
   req,
   res,
-  locks,
+  ruledOut,
+  solvedRuledOut,
   newIds,
-  onLockChange,
+  onToggle,
 }: {
   req: SolveRequest
   res: SolveResponse
-  locks: Locks
+  ruledOut: Overrides
+  solvedRuledOut: Overrides
   newIds: string[]
-  onLockChange: (id: string, next: LockState) => void
+  onToggle: (id: string) => void
 }) {
   const used = new Set(res.plan.map((p) => p.candidate_id))
   const rest: Candidate[] = req.candidates.filter((c) => !used.has(c.id))
@@ -68,37 +67,32 @@ export default function PrescriptionList({
   return (
     <>
       <div className="rx">
-        {res.plan.length === 0 && (
-          <p className="rx-empty">Nothing to change. The schedule already clears on its own.</p>
-        )}
+        {res.plan.length === 0 && <p className="rx-empty">{emptyPlanText(res).body}</p>}
         {res.plan.map((p) => {
-          const pinned = stateOf(p.candidate_id, locks) === 'in'
-          const strictlyNeeded = p.strictly_needed
-          const cls = [
-            'rx-row',
-            pinned ? 'is-pinned' : '',
-            newIds.includes(p.candidate_id) ? 'is-new' : '',
-          ]
+          const cls = ['rx-row', newIds.includes(p.candidate_id) ? 'is-new' : '']
             .filter(Boolean)
             .join(' ')
           return (
             <div key={p.candidate_id} className={cls}>
-              <div className="rx-date num">{shortDate(p.date)}</div>
+              <div className="rx-date num">
+                {shortDate(p.date)}
+                <small>act by</small>
+              </div>
               <div>
-                <p className="rx-label">
-                  {p.label}
-                  {pinned && <span className="tag">you pinned this</span>}
-                </p>
+                <p className="rx-label">{p.label}</p>
                 <p className="rx-detail num">{p.detail}</p>
-                <p className={`rx-reason num${strictlyNeeded ? '' : ' soft'}`}>{p.reason}</p>
+                <p className={`rx-reason num${p.strictly_needed ? '' : ' soft'}`}>{p.reason}</p>
               </div>
               <div>
                 <div className="rx-amount num">+{money(p.freed_cents)}</div>
-                <div className="rx-pain" title={`Disruption ${p.pain} of 5`}>
-                  {pain(p.pain)}
-                </div>
+                <Pain n={p.pain} />
               </div>
-              <LockControl id={p.candidate_id} locks={locks} onChange={onLockChange} />
+              <CantDo
+                id={p.candidate_id}
+                label={p.label}
+                checked={isRuledOut(ruledOut, p.candidate_id)}
+                onToggle={onToggle}
+              />
             </div>
           )
         })}
@@ -112,24 +106,25 @@ export default function PrescriptionList({
           </summary>
           <div className="rx">
             {rest.map((c) => {
-              const out = stateOf(c.id, locks) === 'out'
+              const out = isRuledOut(ruledOut, c.id)
+              const solvedOut = isRuledOut(solvedRuledOut, c.id)
+              // The response on screen was solved with `solvedRuledOut`. If the
+              // user has since changed this row, no reason we could give would
+              // be about the answer they are looking at.
+              const reason = out !== solvedOut ? PENDING : reasonFor(c, req, res, solvedOut)
               return (
                 <div key={c.id} className={`rx-row${out ? ' is-out' : ''}`}>
                   <div className="rx-date num">{shortDate(c.effective_date)}</div>
                   <div>
-                    <p className="rx-label">
-                      {c.label}
-                      {out && <span className="tag tag-out">you ruled this out</span>}
-                    </p>
+                    <p className="rx-label">{c.label}</p>
                     <p className="rx-detail num">{c.detail}</p>
+                    <p className="rx-why">{reason.text}</p>
                   </div>
                   <div>
                     <div className="rx-amount num">+{money(c.freed_cents)}</div>
-                    <div className="rx-pain" title={`Disruption ${c.pain} of 5`}>
-                      {pain(c.pain)}
-                    </div>
+                    <Pain n={c.pain} />
                   </div>
-                  <LockControl id={c.id} locks={locks} onChange={onLockChange} />
+                  <CantDo id={c.id} label={c.label} checked={out} onToggle={onToggle} />
                 </div>
               )
             })}

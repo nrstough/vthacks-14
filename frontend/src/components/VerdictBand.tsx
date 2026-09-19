@@ -19,7 +19,7 @@ const TIER_LABEL_UNPROVEN: Record<1 | 2 | 3, string> = {
 
 export default function VerdictBand({ res, req }: { res: SolveResponse; req: SolveRequest }) {
   return (
-    <section className="verdict">
+    <section className="verdict" aria-live="polite" aria-atomic="true">
       <span className={`pill t${res.tier}`}>
         {(res.certificate.minimal_proven ? TIER_LABEL : TIER_LABEL_UNPROVEN)[res.tier]}
       </span>

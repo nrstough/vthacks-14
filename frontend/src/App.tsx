@@ -1,36 +1,50 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import BalanceChart from './components/BalanceChart'
+import ChatPanel from './components/ChatPanel'
 import PrescriptionList from './components/PrescriptionList'
-import type { LockState } from './components/PrescriptionList'
 import VerdictBand from './components/VerdictBand'
 import { SCENARIOS } from './fixtures/scenarios'
 import { solveViaApi } from './lib/api'
 import { money } from './lib/format'
+import { emptyPlanText, footerLines, narrateChart } from './lib/narrate'
+import type { Overrides } from './lib/overrides'
+import { NONE, count, fromIds, toLocks, toggle } from './lib/overrides'
 import { useDebounced } from './lib/useDebounced'
 import { solve } from './solver/mockSolver'
-import type { Locks, SolveResponse } from './types'
+import type { SolveResponse } from './types'
 
-const NO_LOCKS: Locks = { in: [], out: [] }
 const BASE = SCENARIOS[0].request
 
 export default function App() {
   const [opening, setOpening] = useState(BASE.opening_balance_cents)
   const [buffer, setBuffer] = useState(BASE.buffer_cents)
-  const [locks, setLocks] = useState<Locks>(NO_LOCKS)
+  const [ruledOut, setRuledOut] = useState<Overrides>(NONE)
   const [newIds, setNewIds] = useState<string[]>([])
   const previousPlan = useRef<string[]>([])
 
   const request = useMemo(
-    () => ({ ...BASE, opening_balance_cents: opening, buffer_cents: buffer, locks }),
-    [opening, buffer, locks],
+    () => ({
+      ...BASE,
+      opening_balance_cents: opening,
+      buffer_cents: buffer,
+      locks: toLocks(ruledOut),
+    }),
+    [opening, buffer, ruledOut],
   )
 
   // Seeded from the local solver so the first paint is instant and the page is
   // never blank, then replaced by the server's answer when it arrives.
   const [res, setRes] = useState(() => solve(request, []))
+  // Which overrides the answer on screen was actually solved with. The reasons
+  // under the left-out changes are statements about THAT solve, so they cannot
+  // be computed from a set the solver has not seen yet.
+  const [solvedRuledOut, setSolvedRuledOut] = useState<Overrides>(NONE)
   const [source, setSource] = useState<'local' | 'server'>('local')
   const [notice, setNotice] = useState<string | null>(null)
   const seq = useRef(0)
+  // The toggled row moves between the plan and the left-out list, so its
+  // checkbox unmounts and focus would land back on the document body.
+  const refocus = useRef<string | null>(null)
 
   // A drag of the balance slider steps through dozens of values. Debounce the
   // request, not the slider, so the number under the thumb still tracks it.
@@ -40,6 +54,7 @@ export default function App() {
     const mine = ++seq.current
     const ctl = new AbortController()
     const before = previousPlan.current
+    const sentOverrides = fromIds(debounced.locks.out)
 
     function apply(next: SolveResponse, from: 'local' | 'server', msg: string | null) {
       // A newer request has already landed, so this one is stale. Returning
@@ -48,6 +63,7 @@ export default function App() {
       if (mine !== seq.current) return
       previousPlan.current = next.plan.map((p) => p.candidate_id)
       setRes(next)
+      setSolvedRuledOut(sentOverrides)
       setNewIds(next.plan.map((p) => p.candidate_id).filter((id) => !before.includes(id)))
       setSource(from)
       setNotice(msg)
@@ -70,21 +86,27 @@ export default function App() {
     return () => ctl.abort()
   }, [debounced])
 
-  function onLockChange(id: string, next: LockState) {
-    setLocks((prev) => ({
-      in: next === 'in' ? [...prev.in.filter((x) => x !== id), id] : prev.in.filter((x) => x !== id),
-      out: next === 'out' ? [...prev.out.filter((x) => x !== id), id] : prev.out.filter((x) => x !== id),
-    }))
+  useEffect(() => {
+    const id = refocus.current
+    if (!id) return
+    refocus.current = null
+    document.getElementById(`cant-${id}`)?.focus()
+  }, [res])
+
+  function onToggle(id: string) {
+    if (document.activeElement?.id === `cant-${id}`) refocus.current = id
+    setRuledOut((prev) => toggle(prev, id))
   }
 
   function preset(cents: number, cushion: number) {
     setOpening(cents)
     setBuffer(cushion)
-    setLocks(NO_LOCKS)
+    setRuledOut(NONE)
     previousPlan.current = []
   }
 
-  const locked = locks.in.length + locks.out.length
+  const locked = count(ruledOut)
+  const narration = narrateChart(res).join(' ')
 
   return (
     <main className="shell">
@@ -174,18 +196,21 @@ export default function App() {
             </span>
           </div>
         </div>
-        <BalanceChart res={res} req={request} />
+        <p className="narration" id="chart-text">
+          {narration}
+        </p>
+        <BalanceChart res={res} req={request} describedBy="chart-text" />
       </section>
 
       <section className="band">
         <div className="band-head">
           <h2>
             {res.plan.length === 0
-              ? 'No changes needed'
+              ? emptyPlanText(res).heading
               : `${res.plan.length} change${res.plan.length === 1 ? '' : 's'}, in the order you have to make them`}
           </h2>
           {locked > 0 && (
-            <button type="button" className="reset" onClick={() => setLocks(NO_LOCKS)}>
+            <button type="button" className="reset" onClick={() => setRuledOut(NONE)}>
               Clear {locked} override{locked === 1 ? '' : 's'}
             </button>
           )}
@@ -193,17 +218,19 @@ export default function App() {
         <PrescriptionList
           req={request}
           res={res}
-          locks={locks}
+          ruledOut={ruledOut}
+          solvedRuledOut={solvedRuledOut}
           newIds={newIds}
-          onLockChange={onLockChange}
+          onToggle={onToggle}
         />
       </section>
 
+      <ChatPanel req={request} res={res} source={source} />
+
       <footer className="meta num">
-        <span>Solver: {res.meta.solver}</span>
-        <span>Status: {res.meta.status}</span>
-        <span>Solved in {res.meta.wall_ms} ms</span>
-        <span>{res.meta.candidates_considered} candidates on the table</span>
+        {footerLines(res).map((line) => (
+          <span key={line}>{line}</span>
+        ))}
         {source === 'local' && (
           <span className="meta-local" title={notice ?? undefined}>
             Running on the built-in solver

@@ -10,12 +10,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from typing import Literal
+
+from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.candidates import generate
+from app.chat import ChatUnavailable, ChatUpstreamError, chat, status as chat_status
+from app.chat.schemas import ChatRequest, ChatResponse, ChatStatus
 from app.schemas import (
     CandidatesRequest,
     CandidatesResponse,
@@ -46,6 +50,16 @@ def create_app(dist_dir: Path | None = DEFAULT_DIST) -> FastAPI:
         # unable to answer it exactly right now. Never a heuristic answer.
         return JSONResponse(status_code=503, content={"detail": str(exc)})
 
+    @app.exception_handler(ChatUnavailable)
+    async def _chat_unavailable(_: Request, exc: ChatUnavailable) -> JSONResponse:
+        # No key on the server. The UI shows the explainer as off; the solver
+        # is unaffected.
+        return JSONResponse(status_code=503, content={"detail": str(exc)})
+
+    @app.exception_handler(ChatUpstreamError)
+    async def _chat_upstream(_: Request, exc: ChatUpstreamError) -> JSONResponse:
+        return JSONResponse(status_code=502, content={"detail": str(exc)})
+
     @app.get("/health")
     def health() -> dict[str, bool]:
         return {"ok": True}
@@ -57,6 +71,20 @@ def create_app(dist_dir: Path | None = DEFAULT_DIST) -> FastAPI:
     @app.post("/api/candidates", response_model=CandidatesResponse)
     def api_candidates(req: CandidatesRequest) -> CandidatesResponse:
         return generate(req)
+
+    # The explainer. Gemini puts words to a solve the client already has; the
+    # numbers in the reply can only come from the request body. `source` says
+    # whether the client's numbers came from this server or its local fallback,
+    # so the answer can be honest about provenance.
+    @app.get("/api/chat/status", response_model=ChatStatus)
+    def api_chat_status() -> ChatStatus:
+        return chat_status()
+
+    @app.post("/api/chat", response_model=ChatResponse)
+    def api_chat(
+        req: ChatRequest, source: Literal["server", "local"] = Query(default="server")
+    ) -> ChatResponse:
+        return chat(req, source=source)
 
     # Mounted last. A mount at "/" registered first would shadow every route
     # above it, and the API would answer 404 for /health and 405 for the two

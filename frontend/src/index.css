@@ -362,6 +362,13 @@ body {
   padding: 4px 0;
   text-align: center;
 }
+.rx-date small {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
 .rx-row.is-out .rx-date { color: var(--ink-3); background: var(--panel-2); }
 
 .rx-label { font-size: 15px; font-weight: 600; margin: 0 0 2px; letter-spacing: -0.005em; }
@@ -371,25 +378,44 @@ body {
 
 .rx-amount { font-size: 16px; font-weight: 600; text-align: right; white-space: nowrap; }
 .rx-pain { font-size: 11px; color: var(--ink-3); text-align: right; margin-top: 2px; white-space: nowrap; }
+.rx-pain-text { font-variant-numeric: tabular-nums; }
 
-.locks { display: flex; gap: 2px; background: var(--panel-2); padding: 3px; border-radius: 8px; }
-.locks button {
-  border: 0;
-  background: transparent;
-  font: inherit;
-  font-size: 12px;
-  color: var(--ink-3);
-  padding: 4px 9px;
-  border-radius: 6px;
+/* Why a change the solver did not use is not in the plan. */
+.rx-why { font-size: 13px; color: var(--ink-2); margin: 6px 0 0; }
+
+/* The chart's text equivalent: what a screen reader gets, and what you read
+   aloud to a judge. */
+.narration {
+  font-size: 14px;
+  color: var(--ink-2);
+  margin: 0 0 var(--s2);
+  max-width: 68ch;
+}
+
+/* One control per row, identical in both sections: the user says only whether
+   they can do a change. Unchecked is "you have not said", which is why nothing
+   is preselected. */
+.cant {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink-2);
+  white-space: nowrap;
   cursor: pointer;
+  user-select: none;
 }
-.locks button:hover { color: var(--ink); }
-.locks button[aria-pressed='true'] {
-  background: var(--bg);
-  color: var(--ink);
-  font-weight: 600;
-  box-shadow: 0 1px 2px rgba(18, 20, 26, 0.1);
+.cant:hover { color: var(--ink); }
+.cant input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex: none;
 }
+.cant input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.rx-row.is-out .cant { color: var(--warn); font-weight: 600; }
 
 .rx-empty { padding: var(--s3); text-align: center; color: var(--ink-3); font-size: 14px; }
 
@@ -441,5 +467,106 @@ details.considered[open] summary { margin-bottom: var(--s1); }
   .verdict h1 { font-size: 28px; }
   .rx-row { grid-template-columns: 56px 1fr; }
   .rx-amount, .rx-pain { text-align: left; grid-column: 2; }
-  .locks { grid-column: 2; justify-self: start; }
+  .cant { grid-column: 2; justify-self: start; }
 }
+
+/* ---------- band 4: the explainer ---------- */
+
+.chat-off {
+  font-size: 12px;
+  color: var(--warn);
+  background: var(--warn-wash);
+  border-radius: 999px;
+  padding: 1px 10px;
+  font-weight: 600;
+}
+.chat-model { font-size: 12px; color: var(--ink-3); }
+
+.chat-log {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: var(--s2);
+  max-height: 360px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.chat-empty { margin: 0; font-size: 14px; color: var(--ink-3); max-width: 60ch; }
+
+.msg {
+  max-width: 72ch;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.msg-user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.msg-bot {
+  align-self: flex-start;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-bottom-left-radius: 4px;
+}
+.msg-pending { display: flex; gap: 4px; padding: 12px 14px; }
+.msg-pending span {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ink-3);
+  animation: chat-dot 1s infinite ease-in-out;
+}
+.msg-pending span:nth-child(2) { animation-delay: 0.15s; }
+.msg-pending span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes chat-dot { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
+
+.chat-error { margin: 0; font-size: 13px; color: var(--neg); }
+
+.chips { display: flex; flex-wrap: wrap; gap: var(--s1); margin-top: var(--s2); }
+.chips button {
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink-2);
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.chips button:hover:not(:disabled) { color: var(--accent-ink); border-color: var(--accent); background: var(--accent-wash); }
+.chips button:disabled { opacity: 0.5; cursor: default; }
+
+.chat-form { display: flex; gap: var(--s1); margin-top: var(--s2); }
+.chat-form input {
+  flex: 1;
+  font: inherit;
+  font-size: 14px;
+  padding: 9px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--ink);
+  min-width: 0;
+}
+.chat-form input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.chat-form input:disabled { background: var(--panel-2); color: var(--ink-3); }
+.chat-form button {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 9px 18px;
+  border-radius: var(--radius);
+  border: 1px solid var(--accent-ink);
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+.chat-form button:disabled { opacity: 0.45; cursor: default; }
+
+.chat-note { margin: var(--s1) 0 0; font-size: 12px; color: var(--ink-3); }
