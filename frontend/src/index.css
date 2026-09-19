@@ -2,33 +2,76 @@
 
 /* ---------- the typographic engine ---------- */
 
-/* Clash Display carries every heading, the wordmark and the KPI figures. The
-   variable file is one request for the whole 200-700 range; the static
-   Semibold is the fallback for engines without variable-font support. */
+/* Three families, self-hosted as latin-subset woff2 under public/fonts, one
+   file per weight the app actually asks for. Nothing is fetched at runtime:
+   venue wifi cannot be trusted to hand us a typeface mid-demo. `swap` on every
+   face, so a file that fails to arrive costs the fallback, never the text. */
+
+/* Libre Baskerville: the wordmark, the verdict and every panel heading. A
+   financial serif, which is the register this product is asking for. */
 @font-face {
-  font-family: 'Clash Display';
-  src: url('/fonts/ClashDisplay-Variable.woff2') format('woff2-variations'),
-       url('/fonts/ClashDisplay-Variable.woff') format('woff-variations');
-  font-weight: 200 700;
+  font-family: 'Libre Baskerville';
+  src: url('/fonts/LibreBaskerville-400.woff2') format('woff2');
+  font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Clash Display Static';
-  src: url('/fonts/ClashDisplay-Semibold.woff2') format('woff2'),
-       url('/fonts/ClashDisplay-Semibold.woff') format('woff');
+  font-family: 'Libre Baskerville';
+  src: url('/fonts/LibreBaskerville-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Inter: body copy and every sentence a person reads. */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-600.woff2') format('woff2');
   font-weight: 600;
   font-style: normal;
   font-display: swap;
 }
 
-/* Doto is a dot-matrix face. It is decorative, so it is kept off every figure
-   a judge has to read and used only for the topbar's solve timestamp. */
+/* JetBrains Mono: eyebrows, labels, chips and every figure. Tabular by
+   construction, so a digit never changes width as a slider moves. */
 @font-face {
-  font-family: 'Doto';
-  src: url('/fonts/Doto-Variable.woff2') format('woff2-variations');
-  font-weight: 100 900;
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-600.woff2') format('woff2');
+  font-weight: 600;
   font-style: normal;
   font-display: swap;
 }
@@ -92,18 +135,13 @@
   /* The gradient the nav and the hero sit on. */
   --grad: linear-gradient(135deg, #1e3a8a 0%, #2563eb 55%, #3b82f6 100%);
 
-  /* Body copy and every sentence a person reads. Arial GT first so a machine
-     that has it licensed uses it; Arial is metrically compatible, so the
-     layout is identical either way. */
-  --sans: 'Arial GT', Arial, 'Helvetica Neue', Helvetica, sans-serif;
-  /* Headings and the wordmark. */
-  --display: 'Clash Display', 'Clash Display Static', var(--sans);
-  /* Eyebrows, labels and figures. The config points `numbers` and `dotted` at
-     Doto with a `monospace` fallback; Doto is a dot-matrix face and is kept
-     out of anything a judge has to read off a balance. `--dotted` below is
-     Doto itself, for decoration only. */
-  --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
-  --dotted: 'Doto', var(--mono);
+  /* Body copy and every sentence a person reads. */
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  /* Headings and the wordmark. Georgia is the fallback because it is the
+     nearest thing to a Baskerville that every machine already has. */
+  --display: 'Libre Baskerville', Georgia, 'Times New Roman', serif;
+  /* Eyebrows, labels, chips and every figure. */
+  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
   font-family: var(--sans);
   font-size: 16px;
@@ -117,38 +155,39 @@
 
 * { box-sizing: border-box; }
 
-/* One display face, one text face. Clash Display is structural: it marks the
+/* One display face, one text face. The serif is structural: it marks the
    things a judge's eye should land on first — the wordmark, every panel
-   heading, the verdict and the KPI figures. Everything a person has to READ,
-   and every figure they have to trust, stays in the text face. */
-.sidebar-brand,
-.topbar h1,
+   heading and the verdict. Everything a person has to READ, and every figure
+   they have to trust, stays in the text or the mono face. 700 because Libre
+   Baskerville ships 400 and 700 and nothing between; the tighter tracking the
+   old grotesque needed is eased off, a serif does not want it. */
 .panel-head h2,
 .band-head h2,
 .verdict h1,
-.kpi-card .kpi-value,
 h1, h2, h3 {
   font-family: var(--display);
-  font-weight: 600;
-  letter-spacing: -0.015em;
+  font-weight: 700;
+  letter-spacing: -0.005em;
   font-synthesis-weight: none;
 }
 
-/* Money is data, not decoration. Tabular figures in the text face, so columns
-   line up and a digit never changes width as a slider moves. */
-.num,
-.kpi-card .kpi-value,
-.t-num,
-.t-amount {
+/* Money is data, not decoration. Tabular figures, so columns line up and a
+   digit never changes width as a slider moves. `.num` stays in the TEXT face
+   on purpose: it is carried by the qualifier, the proof paragraph and the
+   reason lines, which are prose with figures in them, not figures. */
+.num {
   font-family: var(--sans);
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
   letter-spacing: -0.01em;
 }
 
-.num {
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: 'tnum' 1;
+/* The figures themselves. `.stat-value`, `.wallet-balance`, `.wallet-amt` and
+   `.cash-callout .amount` reach the mono face through their own rules. */
+.rx-amount,
+.rx-date,
+.ctl-head b {
+  font-family: var(--mono);
 }
 
 /* ---------- shell: gradient nav over a floating page ---------- */
@@ -194,7 +233,10 @@ body {
   gap: 10px;
   font-family: var(--display);
   font-size: 17px;
-  font-weight: 600;
+  /* 700, not 600: Libre Baskerville has no 600, and with synthesis off a 600
+     request would silently render the regular. */
+  font-weight: 700;
+  font-synthesis-weight: none;
   letter-spacing: -0.01em;
   color: #fff;
   white-space: nowrap;

@@ -6,9 +6,9 @@ import type { Config } from 'tailwindcss'
 //
 // An earlier generation of this config carried a different design system
 // entirely — a warm red-to-peach brand ramp, an 18/24/32px radius scale, and
-// font stacks keyed to `--font-clash` / `--font-jakarta` / `--font-doto`, none
-// of which were ever defined. Two disagreeing palettes in one app is how a
-// demo ends up with two shades of "the accent". These are the real ones.
+// font stacks keyed to families that were never defined anywhere. Two
+// disagreeing palettes in one app is how a demo ends up with two shades of
+// "the accent". These are the real ones.
 //
 // Note there are no `@tailwind` directives in index.css, so nothing is emitted
 // today; the config is kept in step for whenever that changes.
@@ -58,20 +58,16 @@ const config: Config = {
         xs: 'var(--radius-xs)',
         pill: 'var(--radius-pill)',
       },
+      // The three families self-hosted under public/fonts, in the same order
+      // the stylesheet's --sans / --display / --mono declare them.
       fontFamily: {
-        // Body copy: every sentence a person reads. Arial GT where it is
-        // licensed, Arial everywhere else; the two are metrically compatible,
-        // so the layout does not move between them.
-        sans: ['Arial GT', 'Arial', 'Helvetica Neue', 'Helvetica', 'sans-serif'],
-        // Headings and the wordmark.
-        display: ['Clash Display', 'Clash Display Static', 'Arial GT', 'Arial', 'sans-serif'],
-        // Eyebrows, labels and figures. This config originally pointed
-        // `numbers` and `dotted` at Doto with a `monospace` fallback; since no
-        // @font-face ever loaded Doto, what actually rendered was the fallback,
-        // and that is the look being kept. Doto stays available as `dotted`
-        // for decoration, and is kept out of anything read off a balance.
-        numbers: ['ui-monospace', 'SF Mono', 'SFMono-Regular', 'Menlo', 'monospace'],
-        dotted: ['Doto', 'ui-monospace', 'Menlo', 'monospace'],
+        // Body copy: every sentence a person reads.
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Helvetica', 'Arial', 'sans-serif'],
+        // Headings and the wordmark. Georgia is the fallback because it is the
+        // nearest Baskerville every machine already has.
+        display: ['Libre Baskerville', 'Georgia', 'Times New Roman', 'serif'],
+        // Eyebrows, labels, chips and every figure.
+        numbers: ['JetBrains Mono', 'ui-monospace', 'SF Mono', 'Menlo', 'Consolas', 'monospace'],
       },
       boxShadow: {
         card: 'var(--shadow-card)',
