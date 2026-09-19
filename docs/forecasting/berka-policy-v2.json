@@ -1,0 +1,49 @@
+{
+  "amount_policy": "Sum strictly positive debits in exact hundredths; zero debits excluded, credits not netted. Includes cash withdrawals, transfers, bills and charges; no residual/discretionary claim.",
+  "context_days": 56,
+  "credit_types": [
+    "PRIJEM"
+  ],
+  "currency": "SOURCE_NATIVE",
+  "currency_note": "Historical Czech-bank context suggests Czech crowns but inspected primary dictionary/archive do not explicitly identify currency. No currency conversion or USD relabeling.",
+  "debit_types": [
+    "VYDAJ",
+    "VYBER"
+  ],
+  "features": "Only historical daily outflow and causal calendar features; no balance, demographics, loan outcome, permanent-order or future-derived feature.",
+  "final_test": "Freeze before any training; select with validation only; final 1998 held-out components once after selection. No retuning on test.",
+  "frozen_before_training": true,
+  "horizon_days": 14,
+  "observation_assumption": "Absent dates are assumed observed zeros from max(account opening date, first recorded transaction) through global source end; account closure/feed completeness unverified. No last-activity or future-activity eligibility filter.",
+  "origin_grid": "January 1 plus multiples of 15 days within each assigned year",
+  "origin_stride_days": 15,
+  "period_choice": "Chosen from raw coverage 1993-01-01 through 1998-12-31, before model training or scores; targets must end in assigned year.",
+  "record_unit": "Individual account at forecast origin; component is cluster/bootstrap key",
+  "source_sha256": "affa4477572e9d8f2de6beff8a525d37c056d5d8e4a9670dd8c7636208c002ce",
+  "split_fractions": [
+    0.7,
+    0.15,
+    0.15
+  ],
+  "split_hash": "Full sha256('berka-forecast-v2:' + component), exact integer thresholds 70/15/15",
+  "split_unit": "Connected component of account-client bipartite disposition graph; stable ID is berka-component- plus numerically smallest account ID",
+  "synthetic": false,
+  "target": "total_posted_outflow",
+  "transfer_scope": "IBM 2016-2017 pretraining into Berka 1990s is retrospective domain-transfer research; it is not an as-of-1990s deployed forecast.",
+  "type_note": "Dictionary defines VYDAJ as withdrawal; raw source also has VYBER only with operation VYBER (dictionary: cash withdrawal). Include both as debit types and audit balance-change evidence; never treat VYBER as credit.",
+  "version": "berka-forecast-v2",
+  "years": {
+    "test": [
+      1998
+    ],
+    "train": [
+      1993,
+      1994,
+      1995,
+      1996
+    ],
+    "validation": [
+      1997
+    ]
+  }
+}

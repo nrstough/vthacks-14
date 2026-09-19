@@ -1,0 +1,29 @@
+{
+  "schema_version": 2,
+  "source": "ibm",
+  "target": "card_spending",
+  "currency": "USD",
+  "synthetic": true,
+  "experimental": true,
+  "context_days": 56,
+  "horizon_days": 14,
+  "amount_units": "major source monetary units",
+  "origin_units": "integer Unix day, first forecast date",
+  "source_sha256": "e9f589a0958f40d60f81b1a2e8428db86e00c05755caf44fb055827976c0efa2",
+  "evaluation_sha256": "1f1b078c61dd09e029859861f5023ed4b1169fcc8ddd4be3abce39c8b95640e8",
+  "group_split_version": "forecast-v1",
+  "real_world_validated": false,
+  "observation_assumption": "Observed-zero assumption from first qualifying successful positive transaction through global dataset end. Account-specific closure or missing coverage is unverified; no future last-activity eligibility filter.",
+  "bill_exclusion": "none; target is synthetic card spending, not residual checking-account outflow",
+  "data_file": "ibm_windows.npz",
+  "data_sha256": "81ed9261c0e6ee3fe01bfc0654ed7f3b67d59e1c0a0dabe3d109296cd26db449",
+  "data_bytes": 6130041,
+  "audit_file": "ibm_audit.json",
+  "audit_sha256": "c67fbb7c225023baefdf16dbb85e0f6533fbbadbffd7aaa42a74e741227ca908",
+  "window_counts": {
+    "train": 53340,
+    "validation": 5915,
+    "test": 5520
+  },
+  "preprocessing_seconds": 90.14056850003544
+}

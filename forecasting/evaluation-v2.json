@@ -1,0 +1,61 @@
+{
+  "version": "forecast-v2",
+  "frozen_before_training": true,
+  "authorization": "Nathan explicitly requested executing both the Transformer/SSL experiment and real-data acquisition on 2026-09-19.",
+  "context_days": 56,
+  "horizon_days": 14,
+  "origin_stride_days": 15,
+  "ibm": {
+    "target": "card_spending",
+    "currency": "USD",
+    "synthetic": true,
+    "group_split_version": "forecast-v1",
+    "split_fractions": [0.7, 0.15, 0.15],
+    "years": {"train": [2016, 2017], "validation": [2018], "test": [2019]},
+    "test_scope": "New future period of the same held-out customer cohort whose v1 2018 results were already inspected; no held-out customers in fitting.",
+    "amount_policy": "Successful positive card charges pooled by User across Cards; no known-bill exclusion; absent dates assumed observed zeros after first qualifying transaction."
+  },
+  "moneydata": {"role": "excluded from this training, SSL, normalization fitting, selection and benchmark; separately frozen external evaluation only"},
+  "berka": {"role": "Real-data fallback; acquisition, accounting audit and separate concrete split-policy freeze required before any model fitting", "historical_claim": "IBM 2016-17 to Berka 1990s is retrospective cross-domain transfer, not a historical deployment simulation", "representative_real_world_evidence": false},
+  "baselines": ["recent_28day_mean", "weekday_8week_mean", "ridge"],
+  "ridge_alphas": [0.1, 1.0, 10.0, 100.0],
+  "architectures": {
+    "mlp": "99-64-32-14, ReLU/ReLU/softplus",
+    "tcn": "4 residual blocks, width24, two causal kernel3 convolutions each, dilations1/2/4/8; last state plus43 aux ->32 ReLU->14softplus",
+    "gru": "one layer hidden48 input3, laststate plus43 aux ->32 ReLU->14softplus",
+    "transformer": "input3->32, learned mask embedding, fixed positional encoding, two encoder layers, heads2, FF64, no dropout; meanpool plus43aux ->16 ReLU->14softplus"
+  },
+  "optional_dlinear": "Not admitted: focus the implementation allowance on all four required architectures plus the requested paired SSL study; decided before model scores.",
+  "maximum_parameters": 50000,
+  "features": "History-only scale=max(last28daymean,1 source native unit); 99-feature MLP/ridge; sequence56x3 scaledlag and historicalweekday sin/cos, same43 auxiliary features standardized on current domain training windows only.",
+  "training": {
+    "seeds": [11, 23, 47],
+    "max_epochs": 60,
+    "patience": 10,
+    "batch_size": 256,
+    "learning_rate": 0.001,
+    "gradient_norm_clip": 5.0,
+    "max_seconds": 240,
+    "minimum_epochs_for_selection": 3,
+    "threads": 4,
+    "device": "cpu",
+    "loss": "mean squared error of normalized 14 daily targets",
+    "selection": "validation 14-day total MAE; architecture eligible only if all three seeds finish at least three epochs"
+  },
+  "ssl": {
+    "architecture": "transformer",
+    "max_epochs": 5,
+    "max_seconds": 240,
+    "mask_days": 7,
+    "mask_policy": "One uniformly chosen contiguous seven-day training-history patch; normalize using visible last28 values only, floor1; zero hidden amounts plus explicit mask embedding; no forecast auxiliary summaries in encoder.",
+    "selection": "Use final completed fixed-budget pretraining state, no validation/test reconstruction selection.",
+    "conditions_ibm": ["scratch", "ibm_ssl_then_ibm_forecast", "compute_matched_scratch"],
+    "conditions_berka": ["berka_scratch", "berka_ssl_then_berka_forecast", "ibm_ssl_then_berka_forecast", "ibm_forecast_then_berka_forecast", "compute_matched_scratch"],
+    "fine_tuning": "Reset forecast head with the same seed; transfer only encoder state; target-domain training-only auxiliary normalization.",
+    "compute_matching": "Same batch size and optimizer-update target as corresponding SSL plus fine-tuning; record examples and wall-time separately, because update matching is not identical FLOPs or time. IBM uses own SSL+adaptation; Berka uses IBM SSL+adaptation as primary transfer comparison.",
+    "matched_scratch_max_seconds": 480
+  },
+  "bootstrap": {"replicates": 2000, "seed": 92471},
+  "promotion": {"minimum_relative_14day_mae_gain": 0.05, "paired_improvement_ci_lower_must_exceed": 0, "maximum_underprediction_ratio": 1.05, "requires_representative_real_multicustomer_data": true},
+  "final_holdout": "Freeze every validation selection before reading final-test outcomes. Report frozen candidates for transparency but never reselect on test. Preserve all three seeds, exact policies, hashes and logs. No MoneyData fallback training or real-world promotion."
+}

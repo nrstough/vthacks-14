@@ -1,0 +1,1151 @@
+{
+  "blocking_items": [],
+  "content_duplicate_policy": "Identical numeric histories alone do not prove record leakage (especially all-zero histories). Report content overlap separately from group/origin keys.",
+  "eligibility": {
+    "test": {
+      "candidate_windows": 15000,
+      "included_windows": 14959,
+      "insufficient_prior_observation": 41,
+      "outside_global_span": 0
+    },
+    "train": {
+      "candidate_windows": 302880,
+      "included_windows": 103116,
+      "insufficient_prior_observation": 187144,
+      "outside_global_span": 12620
+    },
+    "validation": {
+      "candidate_windows": 17280,
+      "included_windows": 14891,
+      "insufficient_prior_observation": 2389,
+      "outside_global_span": 0
+    }
+  },
+  "group_overlap_policy": "No connected account-client component may cross splits; account+origin is record key and component is bootstrap cluster",
+  "preprocessing_seconds": 7.46634341601748,
+  "raw": {
+    "all_transaction_year_counts": {
+      "1993": 28205,
+      "1994": 91628,
+      "1995": 133022,
+      "1996": 196779,
+      "1997": 284409,
+      "1998": 322277
+    },
+    "balance_note": "Diagnostic only. Adjacent observed days each containing exactly one transaction; no intraday-order assumption. Balance is never a training feature or eligibility filter.",
+    "balance_reconciliation": {
+      "PRIJEM": {
+        "exact_match": 133189,
+        "maximum_absolute_discrepancy_native": 0.1,
+        "unambiguous_comparisons": 137349,
+        "within_one_source_unit": 137349
+      },
+      "VYBER": {
+        "exact_match": 9597,
+        "maximum_absolute_discrepancy_native": 0.0,
+        "unambiguous_comparisons": 9597,
+        "within_one_source_unit": 9597
+      },
+      "VYDAJ": {
+        "exact_match": 258859,
+        "maximum_absolute_discrepancy_native": 0.1,
+        "unambiguous_comparisons": 259995,
+        "within_one_source_unit": 259995
+      }
+    },
+    "bill_exclusion": "none; gross posted outflow includes recurring obligations and transfers",
+    "columns": [
+      "trans_id",
+      "account_id",
+      "date",
+      "type",
+      "operation",
+      "amount",
+      "balance",
+      "k_symbol",
+      "bank",
+      "account"
+    ],
+    "component_assignment_counts": {
+      "test": 625,
+      "train": 3155,
+      "validation": 720
+    },
+    "credit_rows_excluded": 405083,
+    "currency": "SOURCE_NATIVE",
+    "currency_note": "Historical Czech-bank context suggests Czech crowns but inspected primary dictionary/archive do not explicitly identify currency. No currency conversion or USD relabeling.",
+    "duplicate_transaction_ids": 0,
+    "exact_duplicate_rows": 0,
+    "graph": {
+      "accounts": 4500,
+      "accounts_with_multiple_clients": 869,
+      "clients": 5369,
+      "clients_with_multiple_accounts": 0,
+      "component_account_sizes": {
+        "1": 4500
+      },
+      "components": 4500,
+      "dispositions": 5369,
+      "duplicate_account_client_links": 0,
+      "missing_account_or_client_links": 0
+    },
+    "missing_day_policy": "Absent dates are assumed observed zeros from max(account opening date, first recorded transaction) through global source end; account closure/feed completeness unverified. No last-activity or future-activity eligibility filter.",
+    "missing_values_by_column": {
+      "account": 760931,
+      "account_id": 0,
+      "amount": 0,
+      "balance": 0,
+      "bank": 782812,
+      "date": 0,
+      "k_symbol": 535314,
+      "operation": 183114,
+      "trans_id": 0,
+      "type": 0
+    },
+    "negative_amount_rows": 0,
+    "positive_debit_amount_quantiles": [
+      0.1,
+      2128.0,
+      12600.0,
+      19189.499999999767,
+      37400.0,
+      87400.0
+    ],
+    "positive_debit_rows": 651227,
+    "rows": 1056320,
+    "table_rows_loaded": {
+      "account": 4500,
+      "client": 5369,
+      "disp": 5369,
+      "trans": 1056320
+    },
+    "type_counts": {
+      "PRIJEM": 405083,
+      "VYBER": 16666,
+      "VYDAJ": 634571
+    },
+    "weekday_counts_monday_first": [
+      151553,
+      153516,
+      145158,
+      148410,
+      149919,
+      158499,
+      149265
+    ],
+    "zero_debits_excluded": 10
+  },
+  "source": "berka",
+  "source_end": "1998-12-31",
+  "source_start": "1993-01-01",
+  "split_integrity": {
+    "train_vs_test": {
+      "all_target_dates_strictly_ordered": true,
+      "identical_account_origin_records": 0,
+      "shared_accounts": 0,
+      "shared_components": 0,
+      "shared_history_content_hashes": 142
+    },
+    "train_vs_validation": {
+      "all_target_dates_strictly_ordered": true,
+      "identical_account_origin_records": 0,
+      "shared_accounts": 0,
+      "shared_components": 0,
+      "shared_history_content_hashes": 256
+    },
+    "validation_vs_test": {
+      "all_target_dates_strictly_ordered": true,
+      "identical_account_origin_records": 0,
+      "shared_accounts": 0,
+      "shared_components": 0,
+      "shared_history_content_hashes": 32
+    }
+  },
+  "splits": {
+    "test": {
+      "accounts": 625,
+      "all_zero_histories": 208,
+      "all_zero_history_examples": [
+        "118@1998-01-01",
+        "118@1998-01-16",
+        "118@1998-01-31",
+        "118@1998-02-15",
+        "134@1998-02-15",
+        "134@1998-03-02",
+        "140@1998-01-01",
+        "140@1998-01-16",
+        "140@1998-06-15",
+        "140@1998-09-13",
+        "178@1998-01-01",
+        "178@1998-01-16",
+        "308@1998-01-01",
+        "308@1998-03-02",
+        "308@1998-03-17",
+        "308@1998-04-01",
+        "308@1998-05-31",
+        "308@1998-06-15",
+        "308@1998-06-30",
+        "308@1998-07-15"
+      ],
+      "constant_histories": 208,
+      "context_start_min": "1997-11-06",
+      "daily_target_zero_fraction_range": [
+        0.8001203288989905,
+        0.9336185573901998
+      ],
+      "duplicate_account_origin_count": 0,
+      "duplicate_history_content_count": 298,
+      "groups": 625,
+      "history_amounts": {
+        "max": 92004.0,
+        "mean": 612.7463202992942,
+        "min": 0.0,
+        "quantiles_p0_p50_p90_p95_p99_p100": [
+          0.0,
+          0.0,
+          14.6,
+          3254.0,
+          15100.0,
+          92004.0
+        ],
+        "zero_count": 738245
+      },
+      "history_dtype": "float64",
+      "history_length_min_max_mean_median_p5_p95": [
+        56,
+        56,
+        56,
+        56,
+        56,
+        56
+      ],
+      "negative": 0,
+      "nonfinite": 0,
+      "origin_weekdays_monday_first": [
+        1875,
+        1875,
+        1875,
+        2484,
+        2489,
+        2489,
+        1872
+      ],
+      "shapes_history_y_group_origin": [
+        [
+          14959,
+          56
+        ],
+        [
+          14959,
+          14
+        ],
+        [
+          14959
+        ],
+        [
+          14959
+        ]
+      ],
+      "target_dtype": "float64",
+      "target_end_max": "1998-12-25",
+      "target_heads": [
+        {
+          "day": 1,
+          "max": 65700.0,
+          "mean": 600.0755665485661,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            14.6,
+            3020.299999999952,
+            14718.900000000003,
+            65700.0
+          ],
+          "zero_count": 11969
+        },
+        {
+          "day": 2,
+          "max": 69400.0,
+          "mean": 529.9832609131627,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            14.6,
+            1921.4599999999787,
+            16697.68,
+            69400.0
+          ],
+          "zero_count": 13399
+        },
+        {
+          "day": 3,
+          "max": 61500.0,
+          "mean": 461.92669964569825,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            14.6,
+            1202.9999999999563,
+            13600.0,
+            61500.0
+          ],
+          "zero_count": 12902
+        },
+        {
+          "day": 4,
+          "max": 62800.0,
+          "mean": 428.47307975132026,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            14.6,
+            300.0,
+            12900.0,
+            62800.0
+          ],
+          "zero_count": 12999
+        },
+        {
+          "day": 5,
+          "max": 74062.0,
+          "mean": 397.26091316264456,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            0.0,
+            1702.0999999999694,
+            10568.0,
+            74062.0
+          ],
+          "zero_count": 13966
+        },
+        {
+          "day": 6,
+          "max": 85100.0,
+          "mean": 529.6572631860419,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            0.0,
+            2763.999999999942,
+            12568.680000000004,
+            85100.0
+          ],
+          "zero_count": 13694
+        },
+        {
+          "day": 7,
+          "max": 71000.0,
+          "mean": 672.629788087439,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            0.0,
+            3360.0,
+            18450.460000000014,
+            71000.0
+          ],
+          "zero_count": 13664
+        },
+        {
+          "day": 8,
+          "max": 63000.0,
+          "mean": 692.5974998328766,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            0.0,
+            3826.1999999999825,
+            17484.000000000015,
+            63000.0
+          ],
+          "zero_count": 13493
+        },
+        {
+          "day": 9,
+          "max": 92004.0,
+          "mean": 720.3868574102547,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            352.0000000000073,
+            3840.199999999997,
+            17182.600000000002,
+            92004.0
+          ],
+          "zero_count": 13349
+        },
+        {
+          "day": 10,
+          "max": 77200.0,
+          "mean": 664.2138511932616,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            47.60000000000218,
+            3551.1999999999825,
+            16042.000000000007,
+            77200.0
+          ],
+          "zero_count": 13449
+        },
+        {
+          "day": 11,
+          "max": 78300.0,
+          "mean": 693.3666956347348,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            635.2000000000044,
+            4100.0,
+            15201.980000000012,
+            78300.0
+          ],
+          "zero_count": 13323
+        },
+        {
+          "day": 12,
+          "max": 77100.0,
+          "mean": 723.7884484256971,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            868.0,
+            4318.0,
+            15642.000000000007,
+            77100.0
+          ],
+          "zero_count": 13267
+        },
+        {
+          "day": 13,
+          "max": 70500.0,
+          "mean": 751.7508389598236,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            1277.6000000000022,
+            4572.0,
+            16169.840000000004,
+            70500.0
+          ],
+          "zero_count": 13144
+        },
+        {
+          "day": 14,
+          "max": 63000.0,
+          "mean": 621.5094190788154,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            219.60000000000582,
+            3500.0,
+            13942.000000000007,
+            63000.0
+          ],
+          "zero_count": 12848
+        }
+      ],
+      "target_length_min_max_mean_median_p5_p95": [
+        14,
+        14,
+        14,
+        14,
+        14,
+        14
+      ],
+      "target_start_min": "1998-01-01",
+      "target_total_14days": {
+        "max": 216400.0,
+        "mean": 8487.620181830336,
+        "min": 0.0,
+        "quantiles_p0_p50_p90_p95_p99_p100": [
+          0.0,
+          3549.0,
+          23000.0,
+          32954.54999999993,
+          65698.086,
+          216400.0
+        ],
+        "zero_count": 3366
+      },
+      "windows": 14959
+    },
+    "train": {
+      "accounts": 2327,
+      "all_zero_histories": 5003,
+      "all_zero_history_examples": [
+        "1@1995-05-31",
+        "1@1995-06-15",
+        "4@1996-04-30",
+        "4@1996-05-15",
+        "4@1996-05-30",
+        "4@1996-06-14",
+        "4@1996-06-29",
+        "6@1994-11-27",
+        "6@1994-12-12",
+        "6@1995-01-01",
+        "6@1995-01-16",
+        "6@1995-01-31",
+        "11@1995-12-12",
+        "11@1996-01-01",
+        "11@1996-01-16",
+        "11@1996-01-31",
+        "15@1993-11-27",
+        "18@1993-07-30",
+        "18@1993-08-14",
+        "18@1993-08-29"
+      ],
+      "constant_histories": 5003,
+      "context_start_min": "1993-01-05",
+      "daily_target_zero_fraction_range": [
+        0.8253714263547849,
+        0.924298847899453
+      ],
+      "duplicate_account_origin_count": 0,
+      "duplicate_history_content_count": 7394,
+      "groups": 2327,
+      "history_amounts": {
+        "max": 124600.0,
+        "mean": 540.3545567439999,
+        "min": 0.0,
+        "quantiles_p0_p50_p90_p95_p99_p100": [
+          0.0,
+          0.0,
+          14.6,
+          2700.0,
+          14400.0,
+          124600.0
+        ],
+        "zero_count": 5169411
+      },
+      "history_dtype": "float64",
+      "history_length_min_max_mean_median_p5_p95": [
+        56,
+        56,
+        56,
+        56,
+        56,
+        56
+      ],
+      "negative": 0,
+      "nonfinite": 0,
+      "origin_weekdays_monday_first": [
+        16717,
+        16002,
+        14852,
+        12817,
+        13114,
+        14094,
+        15520
+      ],
+      "shapes_history_y_group_origin": [
+        [
+          103116,
+          56
+        ],
+        [
+          103116,
+          14
+        ],
+        [
+          103116
+        ],
+        [
+          103116
+        ]
+      ],
+      "target_dtype": "float64",
+      "target_end_max": "1996-12-24",
+      "target_heads": [
+        {
+          "day": 1,
+          "max": 86400.0,
+          "mean": 556.3175928080996,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            14.6,
+            2927.0,
+            14700.0,
+            86400.0
+          ],
+          "zero_count": 85109
+        },
+        {
+          "day": 2,
+          "max": 94300.0,
+          "mean": 510.7295424570387,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            14.6,
+            2320.0,
+            13900.0,
+            94300.0
+          ],
+          "zero_count": 90390
+        },
+        {
+          "day": 3,
+          "max": 78006.0,
+          "mean": 472.41514604910975,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            14.6,
+            1769.0,
+            13900.0,
+            78006.0
+          ],
+          "zero_count": 90279
+        },
+        {
+          "day": 4,
+          "max": 91451.0,
+          "mean": 438.95350382093955,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            14.6,
+            960.0,
+            14000.0,
+            91451.0
+          ],
+          "zero_count": 88836
+        },
+        {
+          "day": 5,
+          "max": 73400.0,
+          "mean": 449.1390453469878,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            0.0,
+            1305.0,
+            13841.0,
+            73400.0
+          ],
+          "zero_count": 93079
+        },
+        {
+          "day": 6,
+          "max": 78900.0,
+          "mean": 538.145409053881,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            0.0,
+            2400.0,
+            15100.0,
+            78900.0
+          ],
+          "zero_count": 95310
+        },
+        {
+          "day": 7,
+          "max": 124600.0,
+          "mean": 523.435441638543,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            0.0,
+            2385.75,
+            14300.0,
+            124600.0
+          ],
+          "zero_count": 95252
+        },
+        {
+          "day": 8,
+          "max": 91300.0,
+          "mean": 553.8974068039878,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            0.0,
+            2800.0,
+            14500.0,
+            91300.0
+          ],
+          "zero_count": 94301
+        },
+        {
+          "day": 9,
+          "max": 86200.0,
+          "mean": 596.9422010163311,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            0.0,
+            3240.0,
+            14800.0,
+            86200.0
+          ],
+          "zero_count": 93264
+        },
+        {
+          "day": 10,
+          "max": 91356.0,
+          "mean": 565.1643779820785,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            0.0,
+            3100.75,
+            13891.750000000087,
+            91356.0
+          ],
+          "zero_count": 93189
+        },
+        {
+          "day": 11,
+          "max": 111500.0,
+          "mean": 648.0460859614415,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            0.0,
+            3477.0,
+            16100.0,
+            111500.0
+          ],
+          "zero_count": 92823
+        },
+        {
+          "day": 12,
+          "max": 82229.0,
+          "mean": 650.927866674425,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            390.0,
+            3744.175,
+            15214.700000000012,
+            82229.0
+          ],
+          "zero_count": 92221
+        },
+        {
+          "day": 13,
+          "max": 100800.0,
+          "mean": 647.30838570154,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            487.0,
+            3727.75,
+            15160.500000000175,
+            100800.0
+          ],
+          "zero_count": 92050
+        },
+        {
+          "day": 14,
+          "max": 111300.0,
+          "mean": 611.2306877691144,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            30.0,
+            3334.0,
+            15100.0,
+            111300.0
+          ],
+          "zero_count": 91300
+        }
+      ],
+      "target_length_min_max_mean_median_p5_p95": [
+        14,
+        14,
+        14,
+        14,
+        14,
+        14
+      ],
+      "target_start_min": "1993-03-02",
+      "target_total_14days": {
+        "max": 198000.0,
+        "mean": 7762.652693083518,
+        "min": 0.0,
+        "quantiles_p0_p50_p90_p95_p99_p100": [
+          0.0,
+          3292.0,
+          21134.8,
+          29720.25,
+          59602.55000000002,
+          198000.0
+        ],
+        "zero_count": 25898
+      },
+      "windows": 103116
+    },
+    "validation": {
+      "accounts": 688,
+      "all_zero_histories": 439,
+      "all_zero_history_examples": [
+        "12@1997-06-15",
+        "12@1997-06-30",
+        "103@1997-01-31",
+        "129@1997-11-27",
+        "129@1997-12-12",
+        "157@1997-05-31",
+        "157@1997-06-15",
+        "157@1997-06-30",
+        "157@1997-07-15",
+        "164@1997-01-01",
+        "166@1997-01-01",
+        "189@1997-06-15",
+        "241@1997-01-01",
+        "241@1997-01-16",
+        "258@1997-09-13",
+        "258@1997-09-28",
+        "258@1997-10-13",
+        "258@1997-10-28",
+        "258@1997-11-12",
+        "406@1997-01-01"
+      ],
+      "constant_histories": 439,
+      "context_start_min": "1996-11-06",
+      "daily_target_zero_fraction_range": [
+        0.8177422604257605,
+        0.9312336310523135
+      ],
+      "duplicate_account_origin_count": 0,
+      "duplicate_history_content_count": 490,
+      "groups": 688,
+      "history_amounts": {
+        "max": 100400.0,
+        "mean": 579.0590523278682,
+        "min": 0.0,
+        "quantiles_p0_p50_p90_p95_p99_p100": [
+          0.0,
+          0.0,
+          14.6,
+          2997.0,
+          14700.0,
+          100400.0
+        ],
+        "zero_count": 739754
+      },
+      "history_dtype": "float64",
+      "history_length_min_max_mean_median_p5_p95": [
+        56,
+        56,
+        56,
+        56,
+        56,
+        56
+      ],
+      "negative": 0,
+      "nonfinite": 0,
+      "origin_weekdays_monday_first": [
+        1873,
+        1891,
+        2454,
+        2478,
+        2499,
+        1838,
+        1858
+      ],
+      "shapes_history_y_group_origin": [
+        [
+          14891,
+          56
+        ],
+        [
+          14891,
+          14
+        ],
+        [
+          14891
+        ],
+        [
+          14891
+        ]
+      ],
+      "target_dtype": "float64",
+      "target_end_max": "1997-12-25",
+      "target_heads": [
+        {
+          "day": 1,
+          "max": 70500.0,
+          "mean": 529.5489691760124,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            14.6,
+            2321.35,
+            14310.000000000036,
+            70500.0
+          ],
+          "zero_count": 12177
+        },
+        {
+          "day": 2,
+          "max": 65123.0,
+          "mean": 517.3774427506548,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            14.6,
+            2089.5,
+            14220.000000000073,
+            65123.0
+          ],
+          "zero_count": 13260
+        },
+        {
+          "day": 3,
+          "max": 86600.0,
+          "mean": 480.19764958699886,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            14.6,
+            1652.5,
+            14200.0,
+            86600.0
+          ],
+          "zero_count": 12816
+        },
+        {
+          "day": 4,
+          "max": 78000.0,
+          "mean": 400.2720435162179,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            14.6,
+            600.0,
+            12464.000000000015,
+            78000.0
+          ],
+          "zero_count": 12885
+        },
+        {
+          "day": 5,
+          "max": 63400.0,
+          "mean": 481.99086696662414,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            0.0,
+            1903.5,
+            13820.000000000073,
+            63400.0
+          ],
+          "zero_count": 13867
+        },
+        {
+          "day": 6,
+          "max": 63300.0,
+          "mean": 494.1468672352428,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            0.0,
+            2064.0,
+            13900.0,
+            63300.0
+          ],
+          "zero_count": 13767
+        },
+        {
+          "day": 7,
+          "max": 71100.0,
+          "mean": 597.743603518904,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            0.0,
+            2800.0,
+            16284.700000000006,
+            71100.0
+          ],
+          "zero_count": 13643
+        },
+        {
+          "day": 8,
+          "max": 75599.0,
+          "mean": 554.794842522329,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            0.0,
+            2852.0,
+            14252.90000000001,
+            75599.0
+          ],
+          "zero_count": 13542
+        },
+        {
+          "day": 9,
+          "max": 72100.0,
+          "mean": 692.5785373715668,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            400.0,
+            3854.0,
+            16174.100000000051,
+            72100.0
+          ],
+          "zero_count": 13286
+        },
+        {
+          "day": 10,
+          "max": 72900.0,
+          "mean": 704.8622657981331,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            659.0,
+            4200.0,
+            15300.0,
+            72900.0
+          ],
+          "zero_count": 13214
+        },
+        {
+          "day": 11,
+          "max": 64100.0,
+          "mean": 565.9371566718152,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            85.0,
+            3215.75,
+            12910.000000000036,
+            64100.0
+          ],
+          "zero_count": 13353
+        },
+        {
+          "day": 12,
+          "max": 64300.0,
+          "mean": 747.9732858773756,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            750.0,
+            4128.0,
+            17810.000000000036,
+            64300.0
+          ],
+          "zero_count": 13202
+        },
+        {
+          "day": 13,
+          "max": 66819.5,
+          "mean": 656.5954133369149,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            720.0,
+            3795.0,
+            13800.0,
+            66819.5
+          ],
+          "zero_count": 13213
+        },
+        {
+          "day": 14,
+          "max": 80200.0,
+          "mean": 642.4244442952117,
+          "min": 0.0,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            0.0,
+            100.0,
+            3470.0,
+            16600.0,
+            80200.0
+          ],
+          "zero_count": 12880
+        }
+      ],
+      "target_length_min_max_mean_median_p5_p95": [
+        14,
+        14,
+        14,
+        14,
+        14,
+        14
+      ],
+      "target_start_min": "1997-01-01",
+      "target_total_14days": {
+        "max": 141914.6,
+        "mean": 8066.443388624001,
+        "min": 0.0,
+        "quantiles_p0_p50_p90_p95_p99_p100": [
+          0.0,
+          3414.6,
+          21699.0,
+          30600.0,
+          64773.82000000005,
+          141914.6
+        ],
+        "zero_count": 3590
+      },
+      "windows": 14891
+    }
+  },
+  "train_verdict": "train_for_limited_retrospective_research_only",
+  "warnings": [
+    "train: 5003/103116 histories entirely zero; retained under causal activity/completeness policy, not treated as missing automatically",
+    "validation: 439/14891 histories entirely zero; retained under causal activity/completeness policy, not treated as missing automatically",
+    "test: 208/14959 histories entirely zero; retained under causal activity/completeness policy, not treated as missing automatically",
+    "train: daily-head zero fractions 82.54%\u201392.43%; sparse regression requires 14-day-total error and underprediction metrics, not zero-class accuracy",
+    "validation: daily-head zero fractions 81.77%\u201393.12%; sparse regression requires 14-day-total error and underprediction metrics, not zero-class accuracy",
+    "test: daily-head zero fractions 80.01%\u201393.36%; sparse regression requires 14-day-total error and underprediction metrics, not zero-class accuracy",
+    "train/validation: 256 identical numeric history patterns across distinct accounts; recorded as content overlap, not silently counted as independent patterns",
+    "train/test: 142 identical numeric history patterns across distinct accounts; recorded as content overlap, not silently counted as independent patterns",
+    "validation/test: 32 identical numeric history patterns across distinct accounts; recorded as content overlap, not silently counted as independent patterns",
+    "Historical Czech banking data is not representative of contemporary US students.",
+    "SOURCE_NATIVE blocks direct currency-dependent product integration.",
+    "Observation completeness and account closure are unverified; absent dates become zeros under a disclosed assumption.",
+    "Gross outflow is not residual spending: inserting it alongside separately scheduled bills double counts obligations."
+  ]
+}

@@ -1,0 +1,973 @@
+{
+  "splits": {
+    "train": {
+      "windows": 53340,
+      "groups": 1117,
+      "shapes_history_y_group_origin": [
+        [
+          53340,
+          56
+        ],
+        [
+          53340,
+          14
+        ],
+        [
+          53340
+        ],
+        [
+          53340
+        ]
+      ],
+      "history_dtype": "float64",
+      "target_dtype": "float64",
+      "nonfinite": 0,
+      "negative": 0,
+      "all_zero_histories": 1967,
+      "constant_histories": 1967,
+      "duplicate_history_content_count": 1966,
+      "duplicate_group_origin_count": 0,
+      "history_length_min_max_mean_median_p5_p95": [
+        56,
+        56,
+        56,
+        56,
+        56,
+        56
+      ],
+      "target_length_min_max_mean_median_p5_p95": [
+        14,
+        14,
+        14,
+        14,
+        14,
+        14
+      ],
+      "origin_weekdays_monday_first": [
+        7781,
+        7783,
+        6668,
+        6671,
+        7773,
+        7774,
+        8890
+      ],
+      "context_start_min": "2015-11-06",
+      "target_start_min": "2016-01-01",
+      "target_end_max": "2017-12-25",
+      "history_amounts": {
+        "min": 0.0,
+        "max": 5666.02,
+        "mean": 143.82629573089076,
+        "quantiles_p0_p50_p90_p95_p99_p100": [
+          0.0,
+          95.85,
+          336.16,
+          458.38,
+          831.69,
+          5666.02
+        ],
+        "zero_count": 369179
+      },
+      "target_total_14days": {
+        "min": 0.0,
+        "max": 15956.529999999999,
+        "mean": 2016.847510311211,
+        "quantiles_p0_p50_p90_p95_p99_p100": [
+          0.0,
+          1714.97,
+          3747.841,
+          4650.495499999997,
+          7123.300400000004,
+          15956.529999999999
+        ],
+        "zero_count": 2026
+      },
+      "target_heads": [
+        {
+          "day": 1,
+          "min": 0.0,
+          "max": 3570.15,
+          "mean": 143.85970959880015,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            96.51,
+            336.27,
+            460.7224999999998,
+            836.1014000000005,
+            3570.15
+          ],
+          "zero_count": 6578
+        },
+        {
+          "day": 2,
+          "min": 0.0,
+          "max": 2588.68,
+          "mean": 143.8527971503562,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            95.63,
+            336.57099999999997,
+            462.5069999999994,
+            820.5447000000001,
+            2588.68
+          ],
+          "zero_count": 6523
+        },
+        {
+          "day": 3,
+          "min": 0.0,
+          "max": 3538.2,
+          "mean": 144.41361904761905,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            96.61500000000001,
+            338.46,
+            463.3834999999997,
+            834.0913000000002,
+            3538.2
+          ],
+          "zero_count": 6465
+        },
+        {
+          "day": 4,
+          "min": 0.0,
+          "max": 3394.96,
+          "mean": 143.97869778777653,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            96.09,
+            335.5989999999998,
+            456.96,
+            824.6344,
+            3394.96
+          ],
+          "zero_count": 6481
+        },
+        {
+          "day": 5,
+          "min": 0.0,
+          "max": 2722.46,
+          "mean": 143.63249400074992,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            96.25,
+            336.852,
+            459.69149999999985,
+            829.7749,
+            2722.46
+          ],
+          "zero_count": 6547
+        },
+        {
+          "day": 6,
+          "min": 0.0,
+          "max": 3710.85,
+          "mean": 145.09876452943382,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            96.285,
+            337.63399999999996,
+            458.7809999999999,
+            842.2119000000005,
+            3710.85
+          ],
+          "zero_count": 6554
+        },
+        {
+          "day": 7,
+          "min": 0.0,
+          "max": 4837.54,
+          "mean": 143.81035526809148,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            94.945,
+            336.56,
+            460.32599999999945,
+            831.7327,
+            4837.54
+          ],
+          "zero_count": 6576
+        },
+        {
+          "day": 8,
+          "min": 0.0,
+          "max": 3393.73,
+          "mean": 143.8228877015373,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            96.36,
+            336.26099999999997,
+            455.3919999999998,
+            828.0101000000002,
+            3393.73
+          ],
+          "zero_count": 6550
+        },
+        {
+          "day": 9,
+          "min": 0.0,
+          "max": 2530.49,
+          "mean": 144.37669703787026,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            96.1,
+            338.21099999999996,
+            459.0304999999999,
+            836.2447000000002,
+            2530.49
+          ],
+          "zero_count": 6596
+        },
+        {
+          "day": 10,
+          "min": 0.0,
+          "max": 5666.02,
+          "mean": 143.79968278965129,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            95.72,
+            337.52299999999997,
+            457.1759999999995,
+            831.3396000000002,
+            5666.02
+          ],
+          "zero_count": 6551
+        },
+        {
+          "day": 11,
+          "min": 0.0,
+          "max": 4116.35,
+          "mean": 143.9835650543682,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            97.565,
+            334.40299999999996,
+            451.4739999999997,
+            829.5498000000007,
+            4116.35
+          ],
+          "zero_count": 6561
+        },
+        {
+          "day": 12,
+          "min": 0.0,
+          "max": 4865.58,
+          "mean": 143.82976490438696,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            95.32,
+            336.93199999999996,
+            457.0584999999984,
+            828.1757000000002,
+            4865.58
+          ],
+          "zero_count": 6560
+        },
+        {
+          "day": 13,
+          "min": 0.0,
+          "max": 3763.77,
+          "mean": 144.65660179977502,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            96.1,
+            336.72299999999996,
+            461.51699999999937,
+            841.0223000000009,
+            3763.77
+          ],
+          "zero_count": 6537
+        },
+        {
+          "day": 14,
+          "min": 0.0,
+          "max": 3586.49,
+          "mean": 143.7318736407949,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            95.49,
+            337.08099999999996,
+            457.31199999999984,
+            839.8563000000005,
+            3586.49
+          ],
+          "zero_count": 6685
+        }
+      ]
+    },
+    "validation": {
+      "windows": 5915,
+      "groups": 249,
+      "shapes_history_y_group_origin": [
+        [
+          5915,
+          56
+        ],
+        [
+          5915,
+          14
+        ],
+        [
+          5915
+        ],
+        [
+          5915
+        ]
+      ],
+      "history_dtype": "float64",
+      "target_dtype": "float64",
+      "nonfinite": 0,
+      "negative": 0,
+      "all_zero_histories": 383,
+      "constant_histories": 383,
+      "duplicate_history_content_count": 382,
+      "duplicate_group_origin_count": 0,
+      "history_length_min_max_mean_median_p5_p95": [
+        56,
+        56,
+        56,
+        56,
+        56,
+        56
+      ],
+      "target_length_min_max_mean_median_p5_p95": [
+        14,
+        14,
+        14,
+        14,
+        14,
+        14
+      ],
+      "origin_weekdays_monday_first": [
+        985,
+        987,
+        987,
+        738,
+        739,
+        739,
+        740
+      ],
+      "context_start_min": "2017-11-06",
+      "target_start_min": "2018-01-01",
+      "target_end_max": "2018-12-25",
+      "history_amounts": {
+        "min": 0.0,
+        "max": 2549.88,
+        "mean": 130.213453024997,
+        "quantiles_p0_p50_p90_p95_p99_p100": [
+          0.0,
+          87.0,
+          302.4210000000004,
+          408.69,
+          765.26,
+          2549.88
+        ],
+        "zero_count": 46213
+      },
+      "target_total_14days": {
+        "min": 0.0,
+        "max": 10488.89,
+        "mean": 1819.876312764159,
+        "quantiles_p0_p50_p90_p95_p99_p100": [
+          0.0,
+          1649.4399999999998,
+          3312.816,
+          3990.143,
+          5695.0961999999945,
+          10488.89
+        ],
+        "zero_count": 388
+      },
+      "target_heads": [
+        {
+          "day": 1,
+          "min": 0.0,
+          "max": 1854.4,
+          "mean": 129.0778360101437,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            88.32,
+            294.1260000000002,
+            387.7430000000001,
+            750.9319999999979,
+            1854.4
+          ],
+          "zero_count": 811
+        },
+        {
+          "day": 2,
+          "min": 0.0,
+          "max": 2220.47,
+          "mean": 128.9781234150465,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            87.52,
+            297.26,
+            393.2320000000001,
+            706.1748,
+            2220.47
+          ],
+          "zero_count": 855
+        },
+        {
+          "day": 3,
+          "min": 0.0,
+          "max": 2432.84,
+          "mean": 130.04600338123416,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            88.6,
+            298.82000000000005,
+            407.4340000000002,
+            706.2463999999987,
+            2432.84
+          ],
+          "zero_count": 811
+        },
+        {
+          "day": 4,
+          "min": 0.0,
+          "max": 2382.94,
+          "mean": 131.24024344885885,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            88.72,
+            300.612,
+            412.0300000000001,
+            755.9739999999986,
+            2382.94
+          ],
+          "zero_count": 808
+        },
+        {
+          "day": 5,
+          "min": 0.0,
+          "max": 2549.88,
+          "mean": 130.53307861369402,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            86.21,
+            302.8440000000002,
+            407.7660000000001,
+            800.0523999999997,
+            2549.88
+          ],
+          "zero_count": 820
+        },
+        {
+          "day": 6,
+          "min": 0.0,
+          "max": 2067.07,
+          "mean": 131.0589078613694,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            84.95,
+            306.596,
+            415.7130000000001,
+            809.6931999999974,
+            2067.07
+          ],
+          "zero_count": 812
+        },
+        {
+          "day": 7,
+          "min": 0.0,
+          "max": 1909.26,
+          "mean": 134.295100591716,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            91.58,
+            305.11600000000016,
+            433.00900000000007,
+            814.8713999999997,
+            1909.26
+          ],
+          "zero_count": 823
+        },
+        {
+          "day": 8,
+          "min": 0.0,
+          "max": 1989.31,
+          "mean": 131.97558072696535,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            87.15,
+            306.312,
+            415.3340000000001,
+            777.1721999999994,
+            1989.31
+          ],
+          "zero_count": 818
+        },
+        {
+          "day": 9,
+          "min": 0.0,
+          "max": 2269.05,
+          "mean": 127.51662552831783,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            86.13,
+            302.9800000000001,
+            408.5810000000001,
+            715.8159999999987,
+            2269.05
+          ],
+          "zero_count": 855
+        },
+        {
+          "day": 10,
+          "min": 0.0,
+          "max": 1628.04,
+          "mean": 128.9769636517329,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            88.44,
+            292.4640000000002,
+            395.65900000000005,
+            711.405399999999,
+            1628.04
+          ],
+          "zero_count": 801
+        },
+        {
+          "day": 11,
+          "min": 0.0,
+          "max": 1781.6,
+          "mean": 130.5165190194421,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            86.33,
+            306.4580000000001,
+            409.03300000000013,
+            765.4909999999993,
+            1781.6
+          ],
+          "zero_count": 833
+        },
+        {
+          "day": 12,
+          "min": 0.0,
+          "max": 1642.77,
+          "mean": 128.95769568892646,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            86.64,
+            305.65800000000024,
+            401.4740000000001,
+            738.0743999999987,
+            1642.77
+          ],
+          "zero_count": 849
+        },
+        {
+          "day": 13,
+          "min": 0.0,
+          "max": 1822.78,
+          "mean": 129.9438951817413,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            84.31,
+            304.236,
+            415.3210000000003,
+            748.5085999999966,
+            1822.78
+          ],
+          "zero_count": 806
+        },
+        {
+          "day": 14,
+          "min": 0.0,
+          "max": 1998.81,
+          "mean": 126.75973964497041,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            85.74,
+            289.1400000000001,
+            384.89000000000004,
+            741.386199999999,
+            1998.81
+          ],
+          "zero_count": 831
+        }
+      ]
+    },
+    "test": {
+      "windows": 5520,
+      "groups": 230,
+      "shapes_history_y_group_origin": [
+        [
+          5520,
+          56
+        ],
+        [
+          5520,
+          14
+        ],
+        [
+          5520
+        ],
+        [
+          5520
+        ]
+      ],
+      "history_dtype": "float64",
+      "target_dtype": "float64",
+      "nonfinite": 0,
+      "negative": 0,
+      "all_zero_histories": 334,
+      "constant_histories": 334,
+      "duplicate_history_content_count": 333,
+      "duplicate_group_origin_count": 0,
+      "history_length_min_max_mean_median_p5_p95": [
+        56,
+        56,
+        56,
+        56,
+        56,
+        56
+      ],
+      "target_length_min_max_mean_median_p5_p95": [
+        14,
+        14,
+        14,
+        14,
+        14,
+        14
+      ],
+      "origin_weekdays_monday_first": [
+        690,
+        920,
+        920,
+        920,
+        690,
+        690,
+        690
+      ],
+      "context_start_min": "2018-11-06",
+      "target_start_min": "2019-01-01",
+      "target_end_max": "2019-12-25",
+      "history_amounts": {
+        "min": 0.0,
+        "max": 3139.62,
+        "mean": 125.11551361930641,
+        "quantiles_p0_p50_p90_p95_p99_p100": [
+          0.0,
+          79.05,
+          300.88,
+          418.37,
+          748.21,
+          3139.62
+        ],
+        "zero_count": 44771
+      },
+      "target_total_14days": {
+        "min": 0.0,
+        "max": 9520.260000000002,
+        "mean": 1747.2728369565216,
+        "quantiles_p0_p50_p90_p95_p99_p100": [
+          0.0,
+          1481.13,
+          3345.5530000000017,
+          4292.539000000001,
+          6462.186000000004,
+          9520.260000000002
+        ],
+        "zero_count": 344
+      },
+      "target_heads": [
+        {
+          "day": 1,
+          "min": 0.0,
+          "max": 2126.21,
+          "mean": 125.2489492753623,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            79.175,
+            299.97200000000015,
+            424.72150000000016,
+            733.9553000000004,
+            2126.21
+          ],
+          "zero_count": 785
+        },
+        {
+          "day": 2,
+          "min": 0.0,
+          "max": 2379.58,
+          "mean": 125.52263949275361,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            79.25,
+            301.635,
+            401.47400000000005,
+            731.749000000002,
+            2379.58
+          ],
+          "zero_count": 796
+        },
+        {
+          "day": 3,
+          "min": 0.0,
+          "max": 1537.99,
+          "mean": 125.94932971014494,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            79.69999999999999,
+            298.742,
+            418.6415000000001,
+            773.7142000000056,
+            1537.99
+          ],
+          "zero_count": 774
+        },
+        {
+          "day": 4,
+          "min": 0.0,
+          "max": 1609.91,
+          "mean": 122.83285326086956,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            77.545,
+            295.2370000000002,
+            404.56000000000034,
+            753.9643000000001,
+            1609.91
+          ],
+          "zero_count": 820
+        },
+        {
+          "day": 5,
+          "min": 0.0,
+          "max": 1991.56,
+          "mean": 124.3727427536232,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            77.31,
+            298.8410000000001,
+            413.82800000000105,
+            740.5558000000012,
+            1991.56
+          ],
+          "zero_count": 803
+        },
+        {
+          "day": 6,
+          "min": 0.0,
+          "max": 2162.92,
+          "mean": 127.25678985507245,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            80.13499999999999,
+            308.272,
+            424.14350000000024,
+            758.8595000000076,
+            2162.92
+          ],
+          "zero_count": 818
+        },
+        {
+          "day": 7,
+          "min": 0.0,
+          "max": 1856.0,
+          "mean": 124.4658134057971,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            76.685,
+            304.2670000000002,
+            429.81550000000016,
+            747.1578000000002,
+            1856.0
+          ],
+          "zero_count": 814
+        },
+        {
+          "day": 8,
+          "min": 0.0,
+          "max": 2253.89,
+          "mean": 124.51952717391305,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            79.34,
+            305.7960000000001,
+            411.4335000000001,
+            735.3265000000018,
+            2253.89
+          ],
+          "zero_count": 843
+        },
+        {
+          "day": 9,
+          "min": 0.0,
+          "max": 3019.03,
+          "mean": 126.1963677536232,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            81.26,
+            303.5650000000001,
+            427.69150000000013,
+            742.4505000000012,
+            3019.03
+          ],
+          "zero_count": 821
+        },
+        {
+          "day": 10,
+          "min": 0.0,
+          "max": 2790.62,
+          "mean": 125.51770652173913,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            81.495,
+            298.02200000000005,
+            415.7480000000001,
+            725.1756000000023,
+            2790.62
+          ],
+          "zero_count": 805
+        },
+        {
+          "day": 11,
+          "min": 0.0,
+          "max": 2129.93,
+          "mean": 122.27022826086957,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            76.41499999999999,
+            291.0640000000002,
+            412.85550000000006,
+            723.1656000000003,
+            2129.93
+          ],
+          "zero_count": 789
+        },
+        {
+          "day": 12,
+          "min": 0.0,
+          "max": 1982.03,
+          "mean": 123.98527717391303,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            80.0,
+            294.5080000000003,
+            409.4500000000001,
+            728.5821000000005,
+            1982.03
+          ],
+          "zero_count": 800
+        },
+        {
+          "day": 13,
+          "min": 0.0,
+          "max": 2364.66,
+          "mean": 124.66278442028987,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            78.74000000000001,
+            299.899,
+            415.23100000000017,
+            734.436800000001,
+            2364.66
+          ],
+          "zero_count": 793
+        },
+        {
+          "day": 14,
+          "min": 0.0,
+          "max": 1975.59,
+          "mean": 124.47182789855073,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            77.905,
+            297.95200000000017,
+            423.37800000000004,
+            761.9219000000023,
+            1975.59
+          ],
+          "zero_count": 780
+        }
+      ]
+    }
+  },
+  "blocking_items": [],
+  "warnings": [
+    "train: 1967/53340 histories entirely zero; retained under causal activity/completeness policy, not treated as missing automatically",
+    "validation: 383/5915 histories entirely zero; retained under causal activity/completeness policy, not treated as missing automatically",
+    "test: 334/5520 histories entirely zero; retained under causal activity/completeness policy, not treated as missing automatically"
+  ],
+  "split_integrity": {
+    "train_vs_validation": {
+      "shared_groups": 0,
+      "identical_group_origin_records": 0,
+      "shared_history_content_hashes": 1,
+      "all_target_dates_strictly_ordered": true
+    },
+    "train_vs_test": {
+      "shared_groups": 0,
+      "identical_group_origin_records": 0,
+      "shared_history_content_hashes": 1,
+      "all_target_dates_strictly_ordered": true
+    },
+    "validation_vs_test": {
+      "shared_groups": 0,
+      "identical_group_origin_records": 0,
+      "shared_history_content_hashes": 1,
+      "all_target_dates_strictly_ordered": true
+    }
+  },
+  "group_overlap_policy": "No customer may cross splits",
+  "content_duplicate_policy": "Identical numeric histories alone do not prove record leakage (especially all-zero histories). Report content overlap separately from group/origin keys.",
+  "train_verdict": "train_for_limited_research_only",
+  "source": "ibm",
+  "raw": {
+    "raw_rows": 24386900,
+    "qualifying_rows": 22751208,
+    "error_rows": 388431,
+    "nonpositive_rows": 1264896,
+    "error_and_nonpositive_rows": 17635,
+    "positive_fraud_rows_kept": 27376,
+    "negative_refund_rows": 1244683,
+    "zero_amount_rows": 20213,
+    "raw_groups": 2000,
+    "qualifying_groups": 2000,
+    "raw_exact_duplicate_estimate": 66,
+    "duplicate_method": "All rows/all columns; pandas 64-bit row hash, collision possibility. Retain every row because no unique event identifier proves duplication.",
+    "raw_weekday_counts_monday_first": [
+      3480263,
+      3468169,
+      3475771,
+      3495004,
+      3482897,
+      3499591,
+      3485205
+    ],
+    "archive_member": "card_transaction.v1.csv",
+    "missing_day_policy": "Observed-zero assumption from first qualifying successful positive transaction through global dataset end. Account-specific closure or missing coverage is unverified; no future last-activity eligibility filter.",
+    "bill_exclusion": "none; target is synthetic card spending, not residual checking-account outflow",
+    "fraud_policy": "Positive successful charges retained regardless of fraud annotation; annotation is neither feature nor eligibility signal."
+  },
+  "source_start": "1991-01-02",
+  "source_end": "2020-02-28",
+  "eligibility": {
+    "train": {
+      "candidate_windows": 66528,
+      "outside_global_observation_span": 0,
+      "first_qualifying_transaction_after_context_start": 13188,
+      "included_windows": 53340
+    },
+    "validation": {
+      "candidate_windows": 7608,
+      "outside_global_observation_span": 0,
+      "first_qualifying_transaction_after_context_start": 1693,
+      "included_windows": 5915
+    },
+    "test": {
+      "candidate_windows": 7128,
+      "outside_global_observation_span": 0,
+      "first_qualifying_transaction_after_context_start": 1608,
+      "included_windows": 5520
+    }
+  },
+  "test_scope": "New future period of the same held-out customer cohort whose v1 2018 results were already inspected; no held-out customers in fitting.",
+  "elapsed_seconds": 89.16857079206966
+}

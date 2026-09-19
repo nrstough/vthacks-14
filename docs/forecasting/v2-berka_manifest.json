@@ -1,0 +1,32 @@
+{
+  "amount_units": "major source-native monetary units",
+  "audit_file": "berka_audit.json",
+  "audit_sha256": "957bd02598f7d1f603aba1d8a4d14a58f6c84e8968a8c0b4a7dbf8e4b97e47ca",
+  "bill_exclusion": "none; gross posted outflow",
+  "context_days": 56,
+  "currency": "SOURCE_NATIVE",
+  "data_bytes": 1865213,
+  "data_file": "berka_windows.npz",
+  "data_sha256": "12d5dc488ddb0dac23d8c4e9354b6a2684d465f68d5611b83933fbec50034383",
+  "evaluation_sha256": "cf7c65f6e04c4004b54ab1c5074983b72a657c36f08c1acae99f59bbdbd9a400",
+  "experimental": true,
+  "group_key": "account-client connected component",
+  "horizon_days": 14,
+  "observation_assumption": "Absent dates are assumed observed zeros from max(account opening date, first recorded transaction) through global source end; account closure/feed completeness unverified. No last-activity or future-activity eligibility filter.",
+  "origin_units": "days since 1970-01-01; first forecast day",
+  "policy_file": "policy.json",
+  "preprocessing_seconds": 7.796784707927145,
+  "real_world_validated": false,
+  "record_key": "account + origin",
+  "schema_version": 1,
+  "source": "berka",
+  "source_sha256": "affa4477572e9d8f2de6beff8a525d37c056d5d8e4a9670dd8c7636208c002ce",
+  "synthetic": false,
+  "target": "total_posted_outflow",
+  "transfer_scope": "IBM 2016-2017 pretraining into Berka 1990s is retrospective domain-transfer research; it is not an as-of-1990s deployed forecast.",
+  "window_counts": {
+    "test": 14959,
+    "train": 103116,
+    "validation": 14891
+  }
+}

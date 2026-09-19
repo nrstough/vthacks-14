@@ -1,0 +1,32 @@
+{
+  "experiment": "forecast-v2",
+  "before_model_selection": true,
+  "datasets": {
+    "ibm": {
+      "source_sha256": "e9f589a0958f40d60f81b1a2e8428db86e00c05755caf44fb055827976c0efa2",
+      "windows_sha256": "81ed9261c0e6ee3fe01bfc0654ed7f3b67d59e1c0a0dabe3d109296cd26db449",
+      "audit_sha256": "c67fbb7c225023baefdf16dbb85e0f6533fbbadbffd7aaa42a74e741227ca908",
+      "policy_sha256": "1f1b078c61dd09e029859861f5023ed4b1169fcc8ddd4be3abce39c8b95640e8",
+      "split_manifest_sha256": "afbb1861c1e8363df0749152373c1b09e4e962341b95a163da8cb8ca7df0d6e7",
+      "directory": "forecasting/data/processed/ibm-v2",
+      "counts": {
+        "train": 53340,
+        "validation": 5915,
+        "test": 5520
+      }
+    },
+    "berka": {
+      "source_sha256": "affa4477572e9d8f2de6beff8a525d37c056d5d8e4a9670dd8c7636208c002ce",
+      "windows_sha256": "12d5dc488ddb0dac23d8c4e9354b6a2684d465f68d5611b83933fbec50034383",
+      "audit_sha256": "957bd02598f7d1f603aba1d8a4d14a58f6c84e8968a8c0b4a7dbf8e4b97e47ca",
+      "policy_sha256": "cf7c65f6e04c4004b54ab1c5074983b72a657c36f08c1acae99f59bbdbd9a400",
+      "split_manifest_sha256": "93f551c4f137974ff35159c855d809c05463968770122c6ee22540f95d9e66b9",
+      "directory": "forecasting/data/processed/berka-v2",
+      "counts": {
+        "test": 14959,
+        "train": 103116,
+        "validation": 14891
+      }
+    }
+  }
+}
