@@ -135,8 +135,21 @@ export interface PanelModel {
   todayLine: string | null
 }
 
-export function panelModel(account: ImportAccountResponse): PanelModel {
+export function panelModel(
+  account: ImportAccountResponse,
+  excluded: ReadonlySet<string> = new Set(),
+): PanelModel {
   const p = account.provenance
+  // The payday belongs to a stream the person can untick. Left unfiltered,
+  // the panel keeps promising "Next pay expected Sep 22" after the stream
+  // that pays it has been removed from the plan.
+  const payingStream = account.streams.find(
+    (s) =>
+      s.kind === 'income' &&
+      p.next_payday !== null &&
+      s.projected_ids.some((id) => account.scheduled.find((t) => t.id === id)?.date === p.next_payday),
+  )
+  const paydayCounted = p.next_payday !== null && (payingStream === undefined || !excluded.has(payingStream.id))
   const assumedDaily = account.scheduled.filter((t) => t.id.startsWith(ASSUMED_PREFIX))
   const total = assumedDaily.reduce((sum, t) => sum + Math.abs(t.amount_cents), 0)
   // Over every day of the horizon, not only the days that carry a row. A
@@ -169,7 +182,11 @@ export function panelModel(account: ImportAccountResponse): PanelModel {
         ? `, ${p.imputed_zero_days} days with none in the file, counted as no spending`
         : ''
     }.`,
-    paydayLine: p.next_payday ? `Next pay expected ${shortDate(p.next_payday)}, ${p.pay_cadence ? CADENCE_WORD[p.pay_cadence] : ''}.`.replace(' .', '.') : null,
+    paydayLine: !paydayCounted
+      ? p.next_payday
+        ? `Next pay would have been ${shortDate(p.next_payday)}, but that income is unticked and is not in the plan.`
+        : null
+      : `Next pay expected ${shortDate(p.next_payday as string)}, ${p.pay_cadence ? CADENCE_WORD[p.pay_cadence] : ''}.`.replace(' .', '.'),
     staleLine:
       p.stale_days > 7
         ? `This export ends ${p.stale_days} days ago. Download a fresh one for a plan that matches your balance.`

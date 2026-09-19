@@ -257,3 +257,20 @@ test('a stopped stream says it is not counted', () => {
   assert.match(streamLine(stream('s_009', { active: false })), /stopped, not counted/)
   assert.match(streamLine(stream('s_010')), /monthly on the 1st/)
 })
+
+test('unticking the income that pays next changes what the panel promises', () => {
+  const a = account({
+    scheduled: [
+      { id: 't_s_003_01', date: '2026-09-22', description: 'Income (weekly)', amount_cents: 47500, kind: 'income', recurring: true },
+      txn('t_s_001_01', '2026-10-01', -120000),
+    ],
+    streams: [
+      stream('s_003', { kind: 'income', label: 'Income (weekly)', category: 'unknown', cadence: 'weekly', anchor: 'Tuesday', amount_cents: 47500, projected_ids: ['t_s_003_01'] }),
+      stream('s_001'),
+    ],
+  })
+  assert.match(panelModel(a, new Set()).paydayLine ?? '', /Next pay expected/)
+  const off = panelModel(a, new Set(['s_003'])).paydayLine ?? ''
+  assert.match(off, /unticked and is not in the plan/)
+  assert.equal(/Next pay expected/.test(off), false)
+})

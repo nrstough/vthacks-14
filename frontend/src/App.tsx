@@ -299,10 +299,13 @@ export default function App() {
     if (!file) return
     setImportNote(null)
     const parsed = parseBankCsv(await file.text())
+    const detail = parsed.rejected.map((r) => `line ${r.line}: ${REJECT_TEXT[r.reason]}`)
     if (parsed.error !== null) {
       importedRows.current = []
       setPendingFile(null)
-      setRejected([])
+      // The refusal does not erase the per-row reasons; they are how the
+      // person finds the line their bank wrote oddly.
+      setRejected(detail)
       setImportNote(parsed.error)
       return
     }
@@ -316,7 +319,7 @@ export default function App() {
     )
     // Per row, by line number and reason — never the cell itself. A count
     // alone leaves someone unable to find the row their bank wrote oddly.
-    setRejected(parsed.rejected.map((r) => `line ${r.line}: ${REJECT_TEXT[r.reason]}`))
+    setRejected(detail)
     setImportNote(null)
   }
 

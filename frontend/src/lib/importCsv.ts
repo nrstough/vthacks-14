@@ -90,27 +90,50 @@ export function splitCsv(text: string): string[][] {
   return rows
 }
 
-/** Cents from a string, exactly. Returns null for anything it cannot read. */
+/**
+ * Cents from a string, exactly, or a reason it could not be read.
+ *
+ * The grammar is validated BEFORE anything is stripped. Stripping first and
+ * parsing what is left turns malformed money into usable money: `1,2` became
+ * twelve dollars, `1 2.00` became twelve, and `(-12.00)` — a minus sign
+ * inside accounting parentheses, which is two negatives — became a POSITIVE
+ * twelve dollars. An outflow silently entering the plan as an inflow is the
+ * worst failure this parser has, because every number downstream is then
+ * confidently wrong in the safe-looking direction.
+ */
 export function parseAmountCents(raw: string): number | 'bad' | 'decimals' {
   let text = raw.trim()
   if (text === '') return 'bad'
+
   let negative = false
-  // Accounting notation: (12.00) is minus twelve dollars.
   if (text.startsWith('(') && text.endsWith(')')) {
     negative = true
     text = text.slice(1, -1).trim()
+    // Parentheses ALREADY mean negative; a sign as well is malformed, not
+    // a double negative and not a positive.
+    if (/^[-+]/.test(text)) return 'bad'
+  } else if (text.startsWith('-') || text.startsWith('+')) {
+    negative = text.startsWith('-')
+    text = text.slice(1).trim()
+  } else if (text.includes('(') || text.includes(')')) {
+    return 'bad'
   }
-  text = text.replace(/[$ \s,]/g, '')
-  if (text.startsWith('-')) {
-    negative = !negative
-    text = text.slice(1)
-  } else if (text.startsWith('+')) {
-    text = text.slice(1)
-  }
-  if (!/^\d*(\.\d*)?$/.test(text) || text === '' || text === '.') return 'bad'
-  const [whole, fraction = ''] = text.split('.')
-  if (fraction.length > 2) return 'decimals'
-  const cents = Number(whole || '0') * 100 + Number(fraction.padEnd(2, '0') || '0')
+
+  if (text.startsWith('$')) text = text.slice(1).trim()
+  if (text.includes('$')) return 'bad'
+
+  // Reported apart from `bad` so the row can say WHY: a third decimal is a
+  // different mistake from a letter.
+  const dot = text.indexOf('.')
+  if (dot >= 0 && /^[\d,]*\.\d+$/.test(text) && text.length - dot - 1 > 2) return 'decimals'
+
+  // Either grouped in threes, or not grouped at all. `1,2` is neither.
+  if (!/^(?:\d{1,3}(?:,\d{3})+|\d*)(?:\.\d{1,2})?$/.test(text)) return 'bad'
+
+  const [whole = '', fraction = ''] = text.split('.')
+  const digits = whole.replace(/,/g, '')
+  if (digits === '' && fraction === '') return 'bad'
+  const cents = Number(digits || '0') * 100 + Number(fraction.padEnd(2, '0') || '0')
   if (!Number.isSafeInteger(cents)) return 'bad'
   return negative ? -cents : cents
 }
@@ -220,6 +243,9 @@ export function parseBankCsv(text: string): ParseResult {
   })
 
   if (rows.length < MIN_ROWS) {
+    // `rejected` and `notPosted` survive the refusal: a file with one good
+    // row and one bad amount must still say WHICH line was bad, or the
+    // person is told "not enough history" with no way to find the problem.
     return {
       ...empty,
       rejected,

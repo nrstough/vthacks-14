@@ -16,7 +16,7 @@ export default function ProvenancePanel({
   excluded: ReadonlySet<string>
   onToggle: (streamId: string) => void
 }) {
-  const model = panelModel(account)
+  const model = panelModel(account, excluded)
   const income = model.streams.filter((s) => s.kind === 'income')
   const outgoing = model.streams.filter((s) => s.kind !== 'income')
 

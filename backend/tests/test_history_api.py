@@ -470,3 +470,31 @@ def test_quiet_days_are_days_with_no_transaction_at_all(client):
     touched = {r["date"] for r in rows}
     assert p["imputed_zero_days"] == p["history_days"] - len(touched)
     assert p["imputed_zero_days"] < p["history_days"]
+
+
+@pytest.mark.parametrize("amount", [float("inf"), float("-inf"), float("nan")])
+def test_a_nonfinite_amount_is_a_422(client, amount):
+    # A6 names nonfinite amounts explicitly. JSON has no literal for them, so
+    # they arrive as the bare tokens a lax encoder emits.
+    import json
+
+    payload = json.dumps(
+        {"rows": [{"date": "2026-01-01", "description": "X", "amount_cents": amount}], "opening_balance_cents": 1}
+    )
+    r = client.post("/api/accounts/import", content=payload, headers={"Content-Type": "application/json"})
+    assert r.status_code == 422, r.status_code
+
+
+def test_the_lower_calendar_boundary(client):
+    rows = [H.row(datetime.date(1970, 1, 1), f"OLD CO {i}", -100) for i in range(12)]
+    r = client.post("/api/accounts/import", json=body(rows=rows, as_of="2026-09-21"))
+    # Valid dates, but three years is the lookback, so every row is rejected.
+    assert r.status_code == 422
+    assert "no usable history" in str(r.json()["detail"]).lower()
+
+    r = client.post(
+        "/api/accounts/import",
+        json=body(rows=[H.row(datetime.date(1969, 12, 31), "TOO OLD", -100)]),
+    )
+    assert r.status_code == 422
+    assert r.json()["detail"][0]["loc"][-1] == "date"

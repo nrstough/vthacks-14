@@ -194,3 +194,39 @@ test('a file with no status column keeps every row', () => {
   assert.equal(out.notPosted, 0)
   assert.equal(out.rows.length, MIN_ROWS + 1)
 })
+
+test('malformed money is refused, never silently turned into usable money', () => {
+  // Each of these used to parse. The last is the worst: parentheses already
+  // mean negative, so a sign inside them made an OUTFLOW into an INFLOW.
+  assert.equal(parseAmountCents('1,2'), 'bad')
+  assert.equal(parseAmountCents('12,34,56'), 'bad')
+  assert.equal(parseAmountCents('1 2.00'), 'bad')
+  assert.equal(parseAmountCents('(-12.00)'), 'bad')
+  assert.equal(parseAmountCents('-(12.00)'), 'bad')
+  assert.equal(parseAmountCents('12$'), 'bad')
+  assert.equal(parseAmountCents('1e5'), 'bad')
+  assert.equal(parseAmountCents('Infinity'), 'bad')
+  assert.equal(parseAmountCents('NaN'), 'bad')
+  assert.equal(parseAmountCents('-Infinity'), 'bad')
+  // And the well-formed ones still work, including both negative notations.
+  assert.equal(parseAmountCents('(12.00)'), -1200)
+  assert.equal(parseAmountCents('-12.00'), -1200)
+  assert.equal(parseAmountCents('1,234,567.89'), 123456789)
+})
+
+test('a refused file still says which line was wrong', () => {
+  // "not enough history" with no detail leaves the person unable to find the
+  // row their bank wrote oddly.
+  const out = parseBankCsv(
+    csv('"01/02/2026","KROGER","-25.00","","Posted"', '"01/03/2026","KROGER","banana","","Posted"'),
+  )
+  assert.match(out.error ?? '', /not enough history/)
+  assert.deepEqual(out.rejected, [{ line: 3, reason: 'bad_amount' }])
+})
+
+test('the lower calendar boundary is accepted and everything before it is not', () => {
+  assert.equal(parseDateIso('01/01/1970'), '1970-01-01')
+  assert.equal(parseDateIso('1970-01-01'), '1970-01-01')
+  assert.equal(parseDateIso('00/01/1970'), null)
+  assert.equal(parseDateIso('01/00/1970'), null)
+})
