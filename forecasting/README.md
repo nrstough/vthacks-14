@@ -4,7 +4,7 @@ This directory is owned by the Codex forecasting workstream on branch `codex/spe
 
 Read [the goal and acceptance criteria](../docs/forecasting/goal.md) before implementing changes.
 
-Status: public-source v1 benchmark complete. IBM synthetic card histories and MoneyData's single-person posted ledger were acquired, audited, and evaluated. Both selected neural candidates failed the promotion gate; saved defaults are the validation-selected baselines. All artifacts remain experimental. Nedbank download access is pending user verification/terms steps. A four-architecture v2 comparison, including the requested tiny Transformer, is designed but not implemented or run.
+Status: public-source v1 benchmark complete. IBM synthetic card histories and MoneyData's single-person posted ledger were acquired, audited, and evaluated. Both selected neural candidates failed the promotion gate; saved defaults are the validation-selected baselines. All artifacts remain experimental. The user verified Zindi and attempted final challenge acceptance, but reported that registration was refused because the challenge had ended. Nedbank access through this challenge remains blocked; another authorized source or organizer access is needed. A four-architecture v2 comparison, including the requested tiny Transformer, is designed but not implemented or run.
 
 The existing backend/frontend and frozen API remain dependencies. New implementation, tests, environment, and local data live here; workstream documentation lives in `docs/forecasting/`.
 

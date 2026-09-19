@@ -6,7 +6,7 @@
 
 Overdraft Guard is Nathan's solo VTHacks14 project. The existing exact solver and API are another workstream's responsibility. This branch acquired and audited IBM TabFormer synthetic card histories and MoneyData's real single-person ledger; compared recent/weekday/ridge controls with a three-seed 8,942-parameter MLP; saved reproducible models and forecasts; and tested a standalone adapter against the unchanged solver. Both neural candidates failed the promotion gate. Every saved artifact remains experimental.
 
-Nedbank's Zindi page was reached after the user signed in, but downloads remained locked with email verification and challenge “Accept terms” outstanding. The user was shown the page. No acceptance was performed by Codex and no Nedbank records were downloaded or trained. Recheck current access rather than assuming this remains blocked; use the authorized browser flow, keep authentication tokens out of documentation, and require fresh confirmation before accepting legal terms on the user's behalf.
+Nedbank access update after v1 packaging: the user verified Zindi, Codex observed that the verification banner disappeared, and the final rules dialog was identified. The user then clicked final acceptance and reported that Zindi refused joining because the challenge had ended. That rejection is user-reported; Codex did not independently capture its error dialog. No acceptance was performed by Codex and no Nedbank records were downloaded or trained. Do not repeatedly ask the user to verify or accept again. Obtain another authorized source or organizer-provided access, without bypassing the access restriction. Keep authentication tokens out of documentation.
 
 ## Working branch / worktree
 
@@ -49,7 +49,7 @@ PYTHONPATH="$PWD:$PWD/backend" forecasting/.venv/bin/python -m forecasting.examp
 - **At risk / Git-ignored:** `forecasting/data/raw/` contains the278.6MB IBM archive, both MoneyData originals, licenses and source metadata. `forecasting/data/processed/` contains NPZ windows and numeric audits/manifests. `forecasting/artifacts/{ibm,moneydata}-public-v1/` contains trained checkpoints, final predictions, exact policy, results and examples. Preserve them; do not clean before verifying the archive described in `retention.json`.
 - **Environment:** `forecasting/.venv/` is not archived; recreate using pinned requirements and available trusted wheels. The shared source `wheels/` directory is outside this branch and was not changed.
 - **Prior pilot:** `experiments/residual_forecast/` is preserved, with binaries ignored; its existing archive is `/Users/nathanstough/Documents/Codex/2026-09-18/i-x20/outputs/residual-forecast-pilot.zip`.
-- **In flight at packaging:** no training/download jobs, cloud runs, scheduled tasks or PRs from this workstream. Zindi user action is pending; all TCN/GRU/Transformer/SSL work remains design-only.
+- **In flight at packaging:** no training/download jobs, cloud runs, scheduled tasks or PRs from this workstream. Later access update: Zindi refused registration to the closed challenge after the user's verification/acceptance attempt; all TCN/GRU/Transformer/SSL work remains design-only.
 
 ## Analytical notes
 
