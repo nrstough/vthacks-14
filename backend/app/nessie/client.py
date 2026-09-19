@@ -114,7 +114,7 @@ def _redact(url: str) -> str:
     return url.split("?", 1)[0] + "?key=<redacted>"
 
 
-def _scrub(config: NessieConfig, text: str) -> str:
+def _scrub(config: NessieConfig, text: object) -> str:
     """Take the key out of anything the upstream or the socket layer wrote.
 
     `_redact` handles URLs we build. This handles strings we did not: Nessie
@@ -122,6 +122,10 @@ def _scrub(config: NessieConfig, text: str) -> str:
     `URLError.reason` can carry it too. Either one lands in an exception the
     route turns into a 502 body, so the key would leave the box.
     """
+    # Coerced: Nessie's `message` is whatever it sends, and a JSON number here
+    # made .replace() raise AttributeError — a 500, from the function whose job
+    # is keeping the key out of a 502.
+    text = text if isinstance(text, str) else str(text)
     key = (config.api_key or "").strip()
     if not key:
         return text

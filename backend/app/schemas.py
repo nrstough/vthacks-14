@@ -415,6 +415,7 @@ class NotRoundTripped(Strict):
         "no usable date",
         "outside the window",
         "amount rounds to zero dollars",
+        "returned without a usable id",
     ]
 
 

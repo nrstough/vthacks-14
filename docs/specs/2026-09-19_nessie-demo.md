@@ -425,3 +425,77 @@ reason is not one value, it is five places, and nothing compared them.
 
 Backend **2078 passed**, 2 skipped, 8 deselected. Frontend lint clean, build
 clean, **246 passed**. Golden hash unmoved.
+
+## Codex audit — dated note (2026-09-19, after commit `bd070fc`)
+
+Codex graded the change **Fail** on Plan adherence, Test coverage and
+Documentation, with four findings. Three were reproduced against `HEAD` before
+being fixed; the fourth is two documentation contradictions. All are closed.
+The scorecard is `docs/specs/2026-09-19_nessie-demo-audit.md`.
+
+The round-one and round-two notes above stand; nothing in them is rewritten.
+
+### 1. The configured key could still reach a 502 body
+
+Round two truncated the reflected upstream value but did not scrub it.
+`_upstream()` embeds the offending value verbatim, and that value comes from
+the sandbox — so a sandbox returning an amount equal to the key put the key
+straight into the response. Reproduced: `key in detail? True`.
+
+This is the third distinct path by which the key could leave the box, after the
+upstream `message` and the socket error found in planning. The lesson is not
+"scrub harder"; it is that **any upstream value reflected into an error is a
+carrier**, and the fix has to sit where the reflection happens, not where the
+value comes from.
+
+### 2. Malformed upstream data was still a 500, two ways
+
+- A row whose `_id` is `bad id` normalises fine and then fails the response
+  model on the way out — after the exception handlers, so a 500.
+- `_scrub()` assumed `message` was a string. A JSON number raised
+  `AttributeError` inside the function whose entire job is keeping the key out
+  of a 502.
+
+### 3. Read-only mode dropped rows silently, against D2
+
+`to_scheduled` skips records with no `_id` (`__init__.py:133`). In seeded mode
+the written-but-not-returned check catches them; in read-only mode there is no
+written list, so a row simply vanished with `not_round_tripped` empty. D2 says
+nothing is dropped silently, and it was.
+
+Both this and the bad-`_id` case are now the reason `returned without a usable
+id`, with a counted placeholder id, because a row with no id cannot be named by
+one. The two drift gates added in round two did their job here: adding the
+sixth reason forced the frontend union, the words, the order and both docs to
+move with it.
+
+### 4. Two documents contradicted the code
+
+- `.env.example` said an unreachable sandbox answers 503. It answers **502**;
+  503 is for no key or an unconfirmable one.
+- The demo script said the account "was just written", but the configuration
+  it recommends for judging (`NESSIE_ACCOUNT_ID`) only reads. The line is
+  mode-neutral now, with a note on which line to use when.
+
+### Not accepted
+
+Codex's Review-compliance note says no Codex findings section is embedded in
+the run spec. The plan review is a separate committed artifact
+(`docs/reports/2026-09-19_nessie-demo-plan-review.md`) and every finding is
+tagged `[codex N]` in the plan; this note is the audit record. No change made.
+
+Its Freeze-integrity note asks for P1/P2/P3 hashes, which this project's specs
+have never carried. No change made.
+
+### Gates
+
+Backend **2082 passed**, 2 skipped, 8 deselected. Frontend lint clean, build
+clean, **246 passed**. Golden hash unmoved.
+
+### The pattern across all three rounds
+
+Every round found the same class of defect in a different place: **a guard
+checked the shape of something and not its content.** List-ness but not the
+fields inside. Truncation but not scrubbing. An id's presence but not whether
+it was usable. Each time the tests asserted the guard rather than the failure,
+so each time they passed.

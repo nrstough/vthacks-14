@@ -73,6 +73,8 @@ class Sandbox:
         string_row=False,
         bad_amount=UNSET,
         bad_balance=UNSET,
+        drop_id_from=0,
+        hostile_id_on=None,
         html_body=False,
         nickname=None,
         balance=None,
@@ -92,6 +94,8 @@ class Sandbox:
         self.string_row = string_row
         self.bad_amount = bad_amount
         self.bad_balance = bad_balance
+        self.drop_id_from = drop_id_from
+        self.hostile_id_on = hostile_id_on
         self.html_body = html_body
         self.nickname = nickname
         self.balance = balance
@@ -163,8 +167,18 @@ class Sandbox:
             return FakeResponse(["just a string"])
 
         out = []
-        for row in self.rows[kind]:
+        for n, row in enumerate(self.rows[kind]):
             ident = f"n_{row['_id']}"
+            if self.drop_id_from and n < self.drop_id_from:
+                copy = dict(row)
+                copy.pop("_id", None)
+                out.append(copy)
+                continue
+            if self.hostile_id_on == kind and n == 0:
+                copy = dict(row)
+                copy["_id"] = "bad id"
+                out.append(copy)
+                continue
             if ident in self.drop_ids:
                 continue
             copy = dict(row)
@@ -626,6 +640,50 @@ def test_a_bad_base_url_does_not_leak_the_key(monkeypatch):
     with pytest.raises(NessieUpstreamError) as e:
         seed_and_read_back(seeded_account(seed=SEED), bad)
     assert "k" * 32 not in str(e.value)
+
+
+def test_an_upstream_value_that_looks_like_the_key_is_not_echoed(monkeypatch):
+    """The conversion error embeds the offending value verbatim, and that value
+    came from the sandbox. A sandbox echoing the key back as an amount would
+    otherwise put it straight into a 502 body."""
+    install(monkeypatch, Sandbox(bad_amount="k" * 32))
+    with pytest.raises(NessieUpstreamError) as e:
+        seed_and_read_back(seeded_account(seed=SEED, horizon_days=30), CFG)
+    assert "k" * 32 not in str(e.value)
+    assert "<redacted>" in str(e.value)
+
+
+def test_an_id_the_schema_would_refuse_never_reaches_the_response(monkeypatch):
+    """`n_bad id` passes normalisation and then fails the response model on the
+    way out, which is a 500 rather than anything the client can act on."""
+    install(monkeypatch, Sandbox(hostile_id_on="withdrawals"))
+    out = seed_and_read_back(seeded_account(seed=SEED, horizon_days=30), CFG)
+    NessieAccountResponse.model_validate(out)
+    assert any(p["reason"] == "returned without a usable id" for p in out["not_round_tripped"])
+
+
+def test_a_row_returned_without_an_id_is_counted_not_dropped(monkeypatch):
+    """`to_scheduled` drops these in silence. D2 says nothing is dropped
+    silently, and in read-only mode there is no written list to notice."""
+    box = install(monkeypatch, Sandbox(nickname="Demo Checking"))
+    seed_and_read_back(seeded_account(seed=SEED, horizon_days=30), CFG)
+    box.drop_id_from = 2
+    out = read_back("acc_0", CFG, as_of="2026-09-19", horizon_end="2026-10-18")
+    unlabelled = [p for p in out["not_round_tripped"] if p["reason"] == "returned without a usable id"]
+    assert len(unlabelled) == 6, out["not_round_tripped"]
+    NessieAccountResponse.model_validate(out)
+
+
+def test_a_non_string_upstream_message_does_not_crash_the_scrubber(monkeypatch):
+    """Nessie's `message` is whatever it sends. A JSON number made .replace()
+    raise inside the function whose job is keeping the key out of a 502."""
+    monkeypatch.setattr(
+        client.urllib.request,
+        "urlopen",
+        lambda *a, **k: (_ for _ in ()).throw(http_error(500, {"message": 123})),
+    )
+    with pytest.raises(NessieUpstreamError):
+        seed_and_read_back(seeded_account(seed=SEED), CFG)
 
 
 # ---- read-only mode ----

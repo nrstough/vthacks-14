@@ -35,6 +35,7 @@ from typing import Any
 from app.accounts.product import sample_account
 from app.nessie import NessieUnavailable, NessieUpstreamError, to_scheduled
 from app.nessie.client import (
+    _scrub,
     NessieConfig,
     NessieError,
     NessieNotConfigured,
@@ -42,7 +43,9 @@ from app.nessie.client import (
     post,
     to_cents,
 )
-from app.schemas import iso
+from app.schemas import ID_RE as _ID_PATTERN, iso
+
+ID_RE = re.compile(_ID_PATTERN)
 
 # product.py's own constant. Repeated rather than imported because it is a
 # property of the modelled account, not of Nessie, and the two should be free
@@ -161,7 +164,7 @@ def _rows(body: Any, what: str) -> list[dict[str, Any]]:
     return body
 
 
-def _upstream(what: str):
+def _upstream(what: str, config: NessieConfig):
     """Turn a transport-level NessieError into the one the route maps.
 
     `to_cents` raises `NessieError` for an amount that is a string, a boolean,
@@ -177,9 +180,11 @@ def _upstream(what: str):
 
         def __exit__(self, kind, value, tb) -> bool:
             if isinstance(value, NessieError):
-                # Truncated: the message embeds the offending value, which came
-                # from the sandbox, and it ends up in a response body.
-                detail = str(value)
+                # Scrubbed AND truncated: the message embeds the offending
+                # value verbatim, and that value came from the sandbox. A
+                # sandbox echoing the key back as an amount would otherwise
+                # put it straight into a 502 body. Reproduced before this.
+                detail = _scrub(config, value)
                 if len(detail) > 200:
                     detail = detail[:200] + "…"
                 raise NessieUpstreamError(f"Nessie sent an unusable {what}: {detail}") from value
@@ -224,14 +229,35 @@ def _usable(row: dict[str, Any], as_of: str, horizon_end: str) -> dict[str, Any]
     return row
 
 
+def _usable_id(row: dict[str, Any]) -> bool:
+    """Whether `to_scheduled` will keep this row, and whether the id it derives
+    will survive the response model.
+
+    Two ways a row is unreferenceable: no `_id` at all, which `to_scheduled`
+    drops in silence (`__init__.py:133`), and an `_id` carrying characters the
+    schema's id pattern refuses, which validates fine here and then fails on
+    the way out as a 500. Both have to be caught before either happens.
+    """
+    ident = row.get("_id")
+    return isinstance(ident, str) and bool(ID_RE.fullmatch(f"n_{ident[:40]}"))
+
+
 def _normalise(
-    lists: dict[str, list[dict[str, Any]]], as_of: str, horizon_end: str
+    lists: dict[str, list[dict[str, Any]]],
+    as_of: str,
+    horizon_end: str,
+    config: NessieConfig,
 ) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
-    scheduled: list[dict[str, Any]] = []
     problems: list[dict[str, str]] = []
+    scheduled: list[dict[str, Any]] = []
     for kind, (_, recurring) in KIND_PATHS.items():
-        with _upstream(f"{kind} amount"):
-            normalised = to_scheduled(lists[kind], kind, recurring)
+        keep = [r for r in lists[kind] if _usable_id(r)]
+        for i in range(len(lists[kind]) - len(keep)):
+            # D2: nothing is dropped silently. These have no id to name them
+            # by, which is the whole problem, so they are counted instead.
+            problems.append({"id": f"n_unidentified_{kind}_{i + 1}", "reason": "returned without a usable id"})
+        with _upstream(f"{kind} amount", config):
+            normalised = to_scheduled(keep, kind, recurring)
         for row in normalised:
             try:
                 scheduled.append(_usable(row, as_of, horizon_end))
@@ -318,7 +344,7 @@ def seed_and_read_back(account: dict[str, Any], config: NessieConfig) -> dict[st
             "kind": row["kind"],
         }
 
-    scheduled, problems = _normalise(_read_lists(config, account_id), as_of, horizon_end)
+    scheduled, problems = _normalise(_read_lists(config, account_id), as_of, horizon_end, config)
     reported = {p["id"] for p in problems}
 
     for ident, sent in written.items():
@@ -382,10 +408,10 @@ def read_back(
     else:
         seed = 0
 
-    with _upstream("account balance"):
+    with _upstream("account balance", config):
         opening = max(0, to_cents(body.get("balance", 0)))
 
-    scheduled, problems = _normalise(_read_lists(config, account_id), as_of, horizon_end)
+    scheduled, problems = _normalise(_read_lists(config, account_id), as_of, horizon_end, config)
     scheduled = _finish(scheduled)
     customer_id = body.get("customer_id")
     return {

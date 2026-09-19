@@ -86,6 +86,10 @@ export const REASON_TEXT: Record<NotRoundTrippedReason, [string, string]> = {
     'amount too small for the sandbox to hold',
     'amounts too small for the sandbox to hold',
   ],
+  'returned without a usable id': [
+    'row the sandbox returned unlabelled',
+    'rows the sandbox returned unlabelled',
+  ],
 }
 
 // Fixed, so the sentence reads the same way every time. A test pins that this
@@ -96,6 +100,7 @@ export const REASON_ORDER: NotRoundTrippedReason[] = [
   'amount rounds to zero dollars',
   'no usable date',
   'outside the window',
+  'returned without a usable id',
 ]
 
 export function provenanceLine(account: LoadedAccount | null, base: SolveRequest): string {

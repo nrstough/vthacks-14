@@ -150,8 +150,8 @@ Insert at 1:10, and cut fifteen seconds from the build section to pay for it.
 
 **[Click "Capital One sandbox".]**
 
-> "This isn't a file I uploaded. That account was just written into Capital
-> One's Nessie sandbox over their API and read back out.
+> "This isn't a file I uploaded. That account lives in Capital One's Nessie
+> sandbox, and it just came back out over their API.
 >
 > Whole dollars, because that's what the sandbox stores — it truncates cents on
 > write. So the line tells you how many rows came back and what changed. The
@@ -165,6 +165,13 @@ Two things to have ready if a judge pushes:
   a real constraint, found by writing to it, and it is worth saying out loud.
 - **"What if the sandbox is down?"** The button says so and the built-in
   accounts keep working. Same posture as the offline solver.
+
+**Say "lives in", not "was just written", unless you know which mode the box is
+in.** With `NESSIE_ACCOUNT_ID` set — the recommended setting for judging, because
+writes to that sandbox are permanent — the click only reads. The wording above is
+true either way. If you are demoing on a box without it set, the click does write
+the whole account first, and "watch it write twenty-odd rows and read them back"
+is the better line.
 
 If it is not live on Sunday, say nothing about it at all. Do not apologise for
 missing features; judges only know what you tell them.
