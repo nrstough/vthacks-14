@@ -88,10 +88,13 @@ export default function ChatPanel({
   return (
     <section className="panel chat-panel" aria-label="Ask about this plan">
       <div className="panel-head">
-        <h2>Ask about this plan</h2>
-        {state === 'off' && <span className="chat-off">Explainer off: no Gemini key on the server</span>}
-        {state === 'unreachable' && <span className="chat-off">Explainer unreachable</span>}
-        {state === 'ready' && model && <span className="chat-model num">Gemini · {model}</span>}
+        <div>
+          <p className="panel-kicker">Explainer</p>
+          <h2>Ask about this plan</h2>
+        </div>
+        {state === 'off' && <span className="panel-tag warn">Explainer off: no Gemini key</span>}
+        {state === 'unreachable' && <span className="panel-tag warn">Explainer unreachable</span>}
+        {state === 'ready' && model && <span className="panel-tag">Gemini · {model}</span>}
       </div>
 
       <div className="chat-log" ref={logRef} role="log" aria-live="polite">

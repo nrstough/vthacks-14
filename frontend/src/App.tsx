@@ -2,10 +2,9 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import BalanceChart from './components/BalanceChart'
 import ErrorBoundary from './components/ErrorBoundary.tsx'
 import ChatPanel from './components/ChatPanel'
-import KpiRow from './components/KpiRow'
 import PrescriptionList from './components/PrescriptionList'
-import Sidebar from './components/Sidebar'
-import Topbar from './components/Topbar'
+import Stats from './components/Stats'
+import TopNav from './components/TopNav'
 import VerdictBand from './components/VerdictBand'
 import { SCENARIOS } from './fixtures/scenarios'
 import { solveViaApi } from './lib/api'
@@ -173,27 +172,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <Sidebar
-        tab={tab}
-        onTab={setTab}
-        opening={opening}
-        buffer={buffer}
-        onScenario={preset}
-        res={res}
-        locked={locked}
-        onClearOverrides={() => setRuledOut(NONE)}
-      />
-
-      <Topbar
-        tab={tab}
-        onTab={setTab}
-        req={request}
-        opening={opening}
-        buffer={buffer}
-        onScenario={preset}
-        source={source}
-        notice={notice}
-      />
+      <TopNav tab={tab} onTab={setTab} res={res} source={source} notice={notice} />
 
       <main className={`main${settled ? '' : ' is-solving'}`}>
         {tab === 'wallet' ? (
@@ -219,23 +198,26 @@ export default function App() {
           </ErrorBoundary>
         ) : (
           <>
-            <KpiRow res={res} req={request} />
-
-            {/* Keyed on the tier, so a verdict that reverses meaning between two
-                solves fades in rather than swapping under the eye. */}
-            <section
-              className={`verdict-panel${res.tier === 2 ? ' t2' : ''}${res.tier === 3 ? ' t3' : ''}`}
-              key={`tier-${res.tier}`}
-            >
-              <VerdictBand res={res} req={request} />
+            {/* The one card that lifts off the gradient: the verdict on the
+                left, the figures it is made of on the right. Keyed on the tier
+                so a verdict that reverses meaning fades in rather than
+                swapping under the eye. */}
+            <section className="hero" key={`tier-${res.tier}`}>
+              <div className="hero-copy">
+                <VerdictBand res={res} req={request} />
+              </div>
+              <Stats res={res} />
             </section>
 
             <div className="duo">
               <section className="panel chart-panel">
                 <div className="panel-head">
-                  <h2>
-                    Daily balance, {shortDate(request.as_of)} to {shortDate(request.horizon_end)}
-                  </h2>
+                  <div>
+                    <p className="panel-kicker">
+                      Daily balance · {shortDate(request.as_of)} to {shortDate(request.horizon_end)}
+                    </p>
+                    <h2>Where the money actually goes</h2>
+                  </div>
                   <div className="legend">
                     <span>
                       <i className="l-base" />
@@ -261,10 +243,35 @@ export default function App() {
                 <BalanceChart res={res} req={request} describedBy="chart-text" />
               </section>
 
-              <section className="controls-panel" aria-label="What if">
+              <section className="panel controls-panel" aria-label="What if">
                 <div className="panel-head">
-                  <h2>What if</h2>
+                  <div>
+                    <p className="panel-kicker">What if</p>
+                    <h2>Move the inputs</h2>
+                  </div>
                 </div>
+
+                {/* One scenario control, not two. The presets that used to sit
+                    under the balance slider said the same thing as this. */}
+                <div className="switcher" role="group" aria-label="Starting position">
+                  {SCENARIOS.map((s) => (
+                    <button
+                      key={s.key}
+                      type="button"
+                      title={s.blurb}
+                      aria-pressed={
+                        s.request.opening_balance_cents === opening &&
+                        s.request.buffer_cents === buffer
+                      }
+                      onClick={() =>
+                        preset(s.request.opening_balance_cents, s.request.buffer_cents)
+                      }
+                    >
+                      {money(s.request.opening_balance_cents)}
+                    </button>
+                  ))}
+                </div>
+
                 <div className="controls">
                   <label className="ctl">
                     <span className="ctl-head">
@@ -279,26 +286,7 @@ export default function App() {
                       value={opening}
                       onChange={(e) => setOpening(Number(e.target.value))}
                     />
-                    <span className="ctl-presets">
-                      {SCENARIOS.map((s) => (
-                        <button
-                          key={s.key}
-                          type="button"
-                          title={`${money(s.request.opening_balance_cents)} to start, ${money(
-                            s.request.buffer_cents,
-                          )} cushion`}
-                          aria-pressed={
-                            s.request.opening_balance_cents === opening &&
-                            s.request.buffer_cents === buffer
-                          }
-                          onClick={() =>
-                            preset(s.request.opening_balance_cents, s.request.buffer_cents)
-                          }
-                        >
-                          {money(s.request.opening_balance_cents)}
-                        </button>
-                      ))}
-                    </span>
+                    <span className="ctl-note">What is in the account this morning.</span>
                   </label>
 
                   <label className="ctl">
@@ -323,11 +311,14 @@ export default function App() {
             <div className="duo duo-start">
               <section className="panel rx-panel">
                 <div className="panel-head">
-                  <h2>
-                    {res.plan.length === 0
-                      ? emptyPlanText(res).heading
-                      : `${res.plan.length} change${res.plan.length === 1 ? '' : 's'}, in the order they take effect`}
-                  </h2>
+                  <div>
+                    <p className="panel-kicker">The plan</p>
+                    <h2>
+                      {res.plan.length === 0
+                        ? emptyPlanText(res).heading
+                        : `${res.plan.length} change${res.plan.length === 1 ? '' : 's'}, in the order they take effect`}
+                    </h2>
+                  </div>
                   {locked > 0 && (
                     <div className="panel-actions">
                       <button type="button" className="reset" onClick={() => setRuledOut(NONE)}>
@@ -352,7 +343,7 @@ export default function App() {
           </>
         )}
 
-        <footer className="meta num">
+        <footer className="meta">
           {footerLines(res).map((line) => (
             <span key={line}>{line}</span>
           ))}

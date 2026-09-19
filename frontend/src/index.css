@@ -35,30 +35,42 @@
 
 
 :root {
+  /* Values come from tailwind.config.ts, which is the design system Hrushi
+     shipped: a cool #f0f4f9 page, a warm brand ramp for anything going wrong,
+     an 18/24/32px radius scale, and a glass shadow so cards float off the
+     page rather than sitting in it. The variable NAMES are unchanged from the
+     previous generation on purpose, so every component rule in this file
+     retunes itself rather than being rewritten. */
+
   --bg: #ffffff;
-  --panel: #f6f9fc;
-  --panel-2: #eef2f7;
-  --line: #e3e8ee;
-  --line-strong: #cdd3e0;
+  --panel: #f0f4f9;
+  --panel-2: #e6edf6;
+  --canvas: #faf6f0;
+  --line: #e4eaf3;
+  --line-strong: #cbd6e6;
 
-  --ink: #0d253d;
-  --ink-2: #273951;
-  --ink-3: #64748d;
-  --ink-dim: #94a0b4;
+  --ink: #111827;
+  --ink-2: #374151;
+  --ink-3: #6b7280;
+  --ink-dim: #9ca3af;
 
-  --accent: #533afd;
-  --accent-ink: #4434d4;
-  --accent-press: #2e2b8c;
-  --accent-wash: #eef0fb;
-  --accent-soft: #b9b9f9;
+  /* The blue is the product's own: the config carries the cool background and
+     the warm ramp, and leaves the primary to the app. */
+  --accent: #2563eb;
+  --accent-ink: #1d4ed8;
+  --accent-press: #1e3a8a;
+  --accent-wash: #e8effd;
+  --accent-soft: #bfd4fb;
 
-  --neg: #d0342c;
-  --neg-wash: #fdf0ef;
-  --warn: #9a6400;
-  --warn-wash: #fdf6e8;
+  /* brand.burnt / brand.peach. Red on this page is always the warm one. */
+  --neg: #c63205;
+  --neg-wash: #fcefe6;
+  /* brand.amber, darkened to hold contrast as text. */
+  --warn: #a34405;
+  --warn-wash: #fdf1e7;
 
-  --good: #1f9d55;
-  --good-wash: #e7f6ee;
+  --good: #15803d;
+  --good-wash: #e9f6ed;
 
   --s1: 8px;
   --s2: 16px;
@@ -67,27 +79,37 @@
   --s5: 48px;
   --s6: 64px;
 
-  --radius: 12px;
-  --radius-sm: 6px;
-  --radius-xs: 4px;
+  /* 4xl / 3xl / 2xl from the config, plus one step below it for chips. */
+  --radius-lg: 32px;
+  --radius: 24px;
+  --radius-sm: 18px;
+  --radius-xs: 12px;
   --radius-pill: 9999px;
 
-  --sidebar-w: 232px;
-  --topbar-h: 64px;
+  --topbar-h: 76px;
+  --page-max: 1360px;
 
-  /* Body copy, every control and every figure. Arial GT first so a machine
-     that has it licensed uses it; Arial is the metric-compatible fallback
-     everywhere else, so the layout is identical either way. */
+  /* The gradient the nav and the hero sit on. */
+  --grad: linear-gradient(135deg, #1e3a8a 0%, #2563eb 55%, #3b82f6 100%);
+
+  /* Body copy and every sentence a person reads. Arial GT first so a machine
+     that has it licensed uses it; Arial is metrically compatible, so the
+     layout is identical either way. */
   --sans: 'Arial GT', Arial, 'Helvetica Neue', Helvetica, sans-serif;
-  /* Headings, wordmark and KPI figures. */
+  /* Headings and the wordmark. */
   --display: 'Clash Display', 'Clash Display Static', var(--sans);
-  --dotted: 'Doto', var(--sans);
+  /* Eyebrows, labels and figures. The config points `numbers` and `dotted` at
+     Doto with a `monospace` fallback; Doto is a dot-matrix face and is kept
+     out of anything a judge has to read off a balance. `--dotted` below is
+     Doto itself, for decoration only. */
+  --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+  --dotted: 'Doto', var(--mono);
 
   font-family: var(--sans);
   font-size: 16px;
   line-height: 1.5;
   color: var(--ink);
-  background: var(--bg);
+  background: var(--panel);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -129,11 +151,9 @@ h1, h2, h3 {
   font-feature-settings: 'tnum' 1;
 }
 
-/* ---------- shell: dashboard layout ---------- */
+/* ---------- shell: gradient nav over a floating page ---------- */
 
-html, body {
-  height: 100%;
-}
+html, body { height: 100%; }
 
 body {
   margin: 0;
@@ -141,355 +161,273 @@ body {
 }
 
 .app {
-  display: grid;
-  grid-template-columns: var(--sidebar-w) 1fr;
-  grid-template-rows: var(--topbar-h) 1fr;
-  grid-template-areas:
-    "sidebar topbar"
-    "sidebar main";
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden;
-}
-
-/* ---------- sidebar ---------- */
-
-.sidebar {
-  grid-area: sidebar;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--bg);
-  border-right: 1px solid var(--line);
-  padding: var(--s3) 0;
-  overflow-y: auto;
+  /* The gradient belongs to the page, not to the bar: the nav sits on it, and
+     the hero card lifts off the last of it. Below that it resolves into the
+     cool background the cards float on. */
+  background:
+    linear-gradient(180deg, #1e3a8a 0%, #2563eb 46%, rgba(59, 130, 246, 0) 100%)
+      no-repeat top center / 100% 420px,
+    var(--panel);
 }
 
-.sidebar-brand {
+/* ---------- nav ---------- */
+
+.navbar {
+  height: var(--topbar-h);
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: 0 var(--s4);
+  color: #fff;
+}
+
+.navbar .brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 var(--s3) var(--s4);
-  font-size: 15px;
+  font-family: var(--display);
+  font-size: 17px;
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: var(--ink);
+  color: #fff;
+  white-space: nowrap;
 }
 
-.sidebar-brand .mark {
+.navbar .brand .mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.28);
   font-size: 13px;
   font-weight: 700;
+  flex: none;
 }
 
-.sidebar-section {
-  margin: var(--s4) 0;
-}
-
-.sidebar-section:first-of-type {
-  margin-top: 0;
-}
-
-.sidebar-section-title {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-  padding: 0 var(--s3) var(--s2);
-}
-
-.sidebar-item {
+/* The pill rail. One track, one lit pill — the shape the design system uses
+   for "which of these am I looking at". */
+.pillnav {
   display: flex;
   align-items: center;
-  gap: 10px;
-  width: 100%;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.pillnav button {
   border: 0;
   background: transparent;
   font: inherit;
   font-size: 14px;
-  color: var(--ink-2);
-  padding: 9px var(--s3);
-  border-radius: var(--radius-sm);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.78);
+  padding: 7px 18px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
-  text-align: left;
   white-space: nowrap;
 }
 
-.sidebar-item:hover { background: var(--panel-2); color: var(--ink); }
+.pillnav button:hover { color: #fff; }
 
-.sidebar-item.on {
-  background: var(--accent-wash);
-  color: var(--accent-ink);
+.pillnav button.on {
+  background: #fff;
+  color: var(--accent-press);
   font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 
-.sidebar-item .badge {
-  margin-left: auto;
-  background: var(--neg);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  min-width: 18px;
-  height: 18px;
-  border-radius: var(--radius-pill);
-  padding: 0 5px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.pillnav button .dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warn);
+  margin-left: 7px;
+  vertical-align: middle;
 }
 
-.sidebar-footer {
-  margin-top: auto;
-  padding: var(--s3);
-}
-
-.sidebar-promo {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: var(--s3);
-  background: var(--accent-wash);
-}
-
-.sidebar-promo .p-title {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--accent-ink);
-  margin: 0 0 4px;
-}
-
-.sidebar-promo .p-body {
-  font-size: 13px;
-  color: var(--ink-2);
-  margin: 0 0 var(--s2);
-  line-height: 1.4;
-}
-
-.sidebar-promo button {
-  border: 0;
-  background: var(--accent);
-  color: #fff;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 6px 12px;
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-}
-
-/* ---------- topbar ---------- */
-
-.topbar {
-  grid-area: topbar;
-  display: flex;
-  align-items: center;
-  gap: var(--s3);
-  padding: 0 var(--s4);
-  background: var(--bg);
-  border-bottom: 1px solid var(--line);
-}
-
-.topbar h1 {
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: -0.015em;
-  color: var(--ink);
-  margin: 0;
-  white-space: nowrap;
-}
-
-.topbar-search {
-  flex: 1;
-  max-width: 420px;
-  position: relative;
-}
-
-.topbar-search input {
-  width: 100%;
-  font: inherit;
-  font-size: 14px;
-  padding: 8px 12px 8px 36px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-pill);
-  background: var(--panel);
-  color: var(--ink);
-}
-
-.topbar-search input:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-  border-color: var(--accent);
-}
-
-.topbar-search .search-ic {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
-  color: var(--ink-3);
-}
-
-.topbar-actions {
+.nav-right {
   display: flex;
   align-items: center;
   gap: var(--s2);
   margin-left: auto;
 }
 
-.icon-btn {
+.nav-chip {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--radius-pill);
+  padding: 5px 12px;
+  white-space: nowrap;
+}
+
+.nav-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--bg);
-  color: var(--ink-2);
-  cursor: pointer;
-}
-
-.icon-btn:hover { background: var(--panel-2); color: var(--ink); }
-
-.topbar-user {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 4px 12px 4px 4px;
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-}
-
-.topbar-user:hover { background: var(--panel-2); }
-
-.topbar-user .avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent-ink);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--accent-press);
   font-size: 12px;
   font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.topbar-user .name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink);
 }
 
 /* ---------- main ---------- */
 
 .main {
-  grid-area: main;
-  overflow-y: auto;
-  padding: var(--s4);
+  flex: 1;
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--s2) var(--s4) var(--s5);
   display: flex;
   flex-direction: column;
-  gap: var(--s4);
-}
-
-/* ---------- dashboard: KPI cards ---------- */
-
-.kpi-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
   gap: var(--s3);
 }
 
-.kpi-card {
+/* ---------- hero ---------- */
+
+/* The one card that lifts off the gradient. It carries the verdict on the left
+   and the figures on the right, which is the same split the rest of the
+   product already makes: what happened, then what it measures. */
+.hero {
   background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: var(--s3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--s2);
-  min-height: 132px;
-  position: relative;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-glass);
+  padding: var(--s4) var(--s4) var(--s4);
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: var(--s4);
+  align-items: start;
 }
 
-.kpi-card.accent {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
+.hero-copy { min-width: 0; }
 
-.kpi-card .kpi-label {
-  font-size: 13px;
-  color: var(--ink-2);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s2);
-}
-
-.kpi-card.accent .kpi-label { color: rgba(255, 255, 255, 0.85); }
-
-.kpi-card .kpi-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--accent-wash);
-  color: var(--accent-ink);
+.eyebrow {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  flex: none;
-}
-
-.kpi-card.accent .kpi-icon {
-  background: rgba(255, 255, 255, 0.15);
-  color: #fff;
-}
-
-.kpi-card .kpi-value {
-  font-size: 28px;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-wash);
+  color: var(--accent-ink);
+  margin-bottom: var(--s3);
 }
 
-.kpi-card.accent .kpi-value { color: #fff; }
+.eyebrow::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
 
-.kpi-card .kpi-sub {
+.eyebrow.t2 { background: var(--warn-wash); color: var(--warn); }
+.eyebrow.t3 { background: var(--neg-wash); color: var(--neg); }
+
+.eyebrow-note {
+  font-family: var(--mono);
   font-size: 12px;
   color: var(--ink-3);
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  margin-left: var(--s2);
+  letter-spacing: 0.01em;
 }
 
-.kpi-card.accent .kpi-sub { color: rgba(255, 255, 255, 0.75); }
+/* ---------- stat boxes ---------- */
 
-.kpi-sub .delta {
+/* Three to a row in the hero, in the recessed warm canvas the config carries,
+   so figures read as instrument panel rather than as more card. */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s2);
+}
+
+.stat {
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 14px 10px 13px;
+  min-width: 0;
+  text-align: center;
+}
+
+.stat .stat-label {
+  font-family: var(--mono);
+  font-size: 10px;
   font-weight: 600;
-  padding: 2px 6px;
-  border-radius: var(--radius-pill);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  display: block;
+  margin-bottom: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.kpi-sub .delta.up { background: var(--good-wash); color: var(--good); }
-.kpi-sub .delta.down { background: var(--neg-wash); color: var(--neg); }
+/* A monospace figure has a fixed advance width, so the longest value a tile
+   can hold is knowable: eight or nine characters for money. It is sized off
+   the viewport rather than fixed, because three tiles share one hero column
+   and -$120.05 at 26px does not fit that column below about 1200px. */
+.stat .stat-value {
+  font-family: var(--mono);
+  font-size: clamp(17px, 1.5vw, 25px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--ink);
+  display: block;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.stat .stat-value.pos { color: var(--good); }
+.stat .stat-value.neg { color: var(--neg); }
+
+.stat .stat-sub {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: var(--ink-3);
+  display: block;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+.stat .stat-sub.pos { color: var(--good); }
+.stat .stat-sub.neg { color: var(--neg); }
 
 /* ---------- dashboard: two-column row ---------- */
 
 .duo {
   display: grid;
-  grid-template-columns: 1.6fr 1fr;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
   gap: var(--s3);
   align-items: stretch;
 }
@@ -500,26 +438,64 @@ body {
   background: var(--bg);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: var(--s3);
+  padding: var(--s4);
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 
+/* An uppercase mono eyebrow above the real heading, which is the pattern the
+   design system uses everywhere: the small line says what kind of thing this
+   is, the big line says what it says. */
+.panel-kicker {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 6px;
+}
+
 .panel-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--s2);
   margin-bottom: var(--s3);
+  flex-wrap: wrap;
 }
 
 .panel-head h2 {
-  font-size: 15px;
+  font-size: 20px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
   color: var(--ink);
   margin: 0;
+}
+
+/* The counter-weight on the right of a panel head: a figure, a state, a goal. */
+.panel-tag {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 6px 13px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-wash);
+  color: var(--accent-ink);
+  white-space: nowrap;
+}
+
+.panel-tag.good { background: var(--good-wash); color: var(--good); }
+.panel-tag.warn { background: var(--warn-wash); color: var(--warn); }
+.panel-tag.neg { background: var(--neg-wash); color: var(--neg); }
+
+.panel-lede {
+  font-size: 14px;
+  color: var(--ink-2);
+  margin: 0 0 var(--s3);
+  max-width: 72ch;
 }
 
 .panel-head .panel-actions { display: flex; align-items: center; gap: var(--s1); }
@@ -880,19 +856,22 @@ body {
 
 /* ---------- band 1: verdict ---------- */
 
-.verdict { margin-bottom: var(--s5); }
+.verdict { margin-bottom: 0; }
 
+/* Same shape as .eyebrow: this IS the hero's eyebrow, it just happens to be
+   rendered by the verdict component. */
 .pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 4px 10px;
-  border-radius: 999px;
-  margin-bottom: var(--s2);
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  margin-bottom: var(--s3);
 }
 
 .pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
@@ -902,36 +881,38 @@ body {
 .pill.t3 { background: var(--neg-wash); color: var(--neg); }
 
 .verdict h1 {
-  font-size: 38px;
-  line-height: 1.18;
-  letter-spacing: -0.022em;
+  font-size: 40px;
+  line-height: 1.14;
+  letter-spacing: -0.025em;
   font-weight: 600;
   margin: 0 0 var(--s2);
-  max-width: 24ch;
+  max-width: 22ch;
 }
 
 .qualifier {
   font-size: 15px;
   color: var(--ink-2);
   margin: 0;
-  max-width: 68ch;
+  max-width: 60ch;
 }
 
 .certificate {
   margin-top: var(--s3);
-  padding: var(--s2) var(--s2) var(--s2) calc(var(--s2) - 3px);
+  padding: var(--s3);
+  border: 0;
   border-left: 3px solid var(--accent);
   background: var(--panel);
-  border-radius: 0 var(--radius) var(--radius) 0;
+  border-radius: var(--radius-xs) var(--radius-sm) var(--radius-sm) var(--radius-xs);
   font-size: 14px;
   color: var(--ink-2);
-  max-width: 68ch;
+  max-width: 60ch;
 }
 
 .certificate strong { color: var(--ink); font-weight: 600; }
 
 .unproven {
   display: block;
+  font-family: var(--mono);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -942,14 +923,20 @@ body {
 
 .cash-callout {
   margin-top: var(--s3);
-  padding: var(--s2);
-  border: 1px solid var(--neg);
+  padding: var(--s3);
+  border: 1px solid rgba(198, 50, 5, 0.35);
   background: var(--neg-wash);
-  border-radius: var(--radius);
-  max-width: 68ch;
+  border-radius: var(--radius-sm);
+  max-width: 60ch;
 }
 
-.cash-callout .amount { font-size: 26px; font-weight: 600; color: var(--neg); letter-spacing: -0.02em; }
+.cash-callout .amount {
+  font-family: var(--mono);
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--neg);
+  letter-spacing: -0.02em;
+}
 .cash-callout p { margin: 4px 0 0; font-size: 14px; color: var(--ink-2); }
 
 /* ---------- band 2: chart ---------- */
@@ -1460,39 +1447,6 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 
 /* ---------- markup the rewrite introduced ---------- */
 
-/* The window the whole page is about, parked next to the title. */
-.topbar-horizon {
-  margin: 0;
-  font-size: 13px;
-  color: var(--ink-3);
-  white-space: nowrap;
-}
-
-/* The sidebar is hidden below 900px. Anything carrying this class is the
-   replacement for something that lives there, and appears only at that width. */
-.only-narrow { display: none; }
-
-/* The topbar packs a title, the scenario switch, the disclosure chip and the
-   account into 64px. Nothing in it may wrap: the bar has a fixed height, so a
-   second line escapes the bar rather than growing it. */
-.topbar h1,
-.topbar .switcher,
-.topbar .tabs,
-.topbar-user { flex: none; }
-
-.topbar .meta-local {
-  white-space: nowrap;
-  margin: 0;
-  padding: 3px 12px;
-  border: 0;
-}
-
-/* The horizon is the first thing to go when the bar gets tight — the chart
-   heading names the same window a few hundred pixels below. */
-@media (max-width: 1200px) {
-  .topbar-horizon { display: none; }
-}
-
 /* The controls sit in the narrow column of a .duo, so the two sliders stack
    rather than being squeezed side by side. */
 .controls-panel .controls { grid-template-columns: 1fr; }
@@ -1510,24 +1464,9 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 @media (min-width: 1281px) {
   .duo-start > .chat-panel {
     position: sticky;
-    top: 0;
+    top: var(--s2);
   }
 }
-
-/* The denominator in "2 of 5 days": same line, quieter, so the figure that
-   matters still reads at a glance. */
-.kpi-of {
-  font-size: 15px;
-  font-weight: 400;
-  color: var(--ink-3);
-  letter-spacing: 0;
-}
-
-.kpi-card.accent .kpi-of { color: rgba(255, 255, 255, 0.7); }
-
-/* A .kpi-sub holds an optional delta pill and then a phrase; without a wrap
-   rule a long phrase pushes the pill off the card at narrow widths. */
-.kpi-sub { flex-wrap: wrap; }
 
 /* The one-column page behind the crash card, replacing the old `.shell`. */
 .crash-shell {
@@ -1537,56 +1476,40 @@ details.considered[open] summary { margin-bottom: var(--s1); }
   padding: var(--s4) var(--s3) var(--s5);
 }
 
-/* The verdict is a panel of its own, so the band's own bottom margin would
-   double the 32px gap `.main` already applies between sections. */
-.verdict-panel .verdict { margin-bottom: 0; }
-
 /* The chart's ResponsiveContainer resolves its height against this box. In a
    flex column a child will not shrink below its content without this, which is
    what turns a chart resize into a growth loop. */
 .chart-panel .chart-wrap { min-height: 0; }
 
+/* The scenario control, in the what-if panel head. */
+.controls-panel .switcher { margin-bottom: var(--s3); }
+
 /* ---------- gaps the imported sheet left open ---------- */
-
-/* The rail avatar had size and weight but no fill, so it rendered as a
-   transparent circle. It carries a date, so it takes the accent wash. */
-.rail-item .avatar {
-  background: var(--accent-wash);
-  color: var(--accent-ink);
-}
-
-/* A pale green or red wash pill on the indigo accent card is unreadable.
-   On that card the delta borrows the card's own light. */
-.kpi-card.accent .kpi-sub .delta.up,
-.kpi-card.accent .kpi-sub .delta.down {
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
-}
 
 /* The sheet removes borders from most controls but defined :focus-visible on
    only four of them. One ring, everywhere, so keyboard use is never invisible. */
-.sidebar-item:focus-visible,
-.sidebar-promo button:focus-visible,
-.icon-btn:focus-visible,
-.panel-menu:focus-visible,
-.topbar-user:focus-visible,
-.rail-btn:focus-visible,
-.t-action:focus-visible,
+.pillnav button:focus-visible,
 .switcher button:focus-visible,
 .ctl-presets button:focus-visible,
 .chips button:focus-visible,
 .reset:focus-visible,
 .crash button:focus-visible,
+.tabs button:focus-visible,
 .ctl input[type='range']:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
+}
+
+/* On the gradient an indigo ring disappears. There it is white. */
+.pillnav button:focus-visible {
+  outline-color: #fff;
 }
 
 /* ---------- motion ---------- */
 
 /* One easing curve and three durations. The curve decelerates hard at the end,
-   so a panel settles rather than stopping dead. Everything below is a
+   so a card settles rather than stopping dead. Everything below animates a
    compositor-only property — transform, opacity, colour — so a re-solve never
    competes with the solver for the main thread. */
 :root {
@@ -1595,74 +1518,44 @@ details.considered[open] summary { margin-bottom: var(--s1); }
   --dur-2: 200ms;
   --dur-3: 340ms;
 
-  /* Matches the boxShadow scale in tailwind.config.ts, so the two files agree. */
-  --shadow-card: 0 2px 12px -2px rgba(13, 37, 61, 0.05), 0 1px 3px rgba(13, 37, 61, 0.03);
-  --shadow-card-hover: 0 8px 24px -4px rgba(13, 37, 61, 0.09), 0 2px 6px rgba(13, 37, 61, 0.04);
-  --shadow-popover: 0 12px 32px -8px rgba(13, 37, 61, 0.24);
+  /* The boxShadow scale from tailwind.config.ts, verbatim. */
+  --shadow-card: 0 2px 12px -2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+  --shadow-card-hover: 0 8px 24px -4px rgba(0, 0, 0, 0.07), 0 2px 6px rgba(0, 0, 0, 0.03);
+  --shadow-glass: 0 20px 40px -15px rgba(0, 0, 0, 0.2);
+  --shadow-popover: 0 12px 32px -8px rgba(0, 0, 0, 0.24);
 }
 
-/* Every ghost control answers a pointer at the same speed. */
-.sidebar-item,
-.icon-btn,
-.panel-menu,
-.t-action,
-.rail-btn,
+/* Every control answers a pointer at the same speed. */
+.pillnav button,
 .chips button,
 .ctl-presets button,
 .switcher button,
 .reset,
 .tabs button,
-.topbar-user,
-.sidebar-promo button,
 .chat-form button,
-.crash button {
+.crash button,
+.wallet-sign {
   transition:
     background var(--dur-1) var(--ease),
     color var(--dur-1) var(--ease),
     border-color var(--dur-1) var(--ease),
+    box-shadow var(--dur-1) var(--ease),
     transform var(--dur-1) var(--ease);
 }
 
 .chips button:hover:not(:disabled),
 .ctl-presets button:hover,
-.rail-btn:hover,
 .reset:hover { transform: translateY(-1px); }
 
-.sidebar-item:active,
-.icon-btn:active,
+.pillnav button:active,
+.switcher button:active,
 .chips button:active:not(:disabled),
 .ctl-presets button:active,
-.rail-btn:active,
-.tabs button:active { transform: translateY(0) scale(0.985); }
+.tabs button:active { transform: scale(0.97); }
 
-/* The active nav item grows a rule rather than appearing with one. */
-.sidebar-item {
-  position: relative;
-  overflow: hidden;
-}
-
-.sidebar-item::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: var(--accent);
-  transform: scaleY(0);
-  transform-origin: center;
-  transition: transform var(--dur-2) var(--ease);
-}
-
-.sidebar-item.on::before { transform: scaleY(1); }
-
-/* Cards lift towards the pointer. The border darkens with the shadow so the
-   edge does not wash out as the card rises. */
-.kpi-card,
-.panel,
-.verdict-panel,
-.controls-panel {
+/* Cards lift towards the pointer. The border lightens as the shadow deepens,
+   so the edge does not double up as the card rises. */
+.panel {
   box-shadow: var(--shadow-card);
   transition:
     box-shadow var(--dur-2) var(--ease),
@@ -1670,49 +1563,43 @@ details.considered[open] summary { margin-bottom: var(--s1); }
     transform var(--dur-2) var(--ease);
 }
 
-.kpi-card:hover,
 .panel:hover {
   box-shadow: var(--shadow-card-hover);
   border-color: var(--line-strong);
   transform: translateY(-2px);
 }
 
-.kpi-card.accent:hover { border-color: var(--accent); }
+.hero { transition: box-shadow var(--dur-2) var(--ease); }
 
 .tip { box-shadow: var(--shadow-popover); }
 
-/* The whole dashboard arrives in one pass: each section of `.main` rises a few
-   pixels into place, staggered, so the eye is walked down the page instead of
-   being handed all of it at once. It runs on mount only — a re-solve replaces
-   text inside these sections, not the sections themselves. */
+/* The page arrives in one pass: each section rises a few pixels into place,
+   staggered, so the eye is walked down it instead of being handed all of it at
+   once. It runs on mount only — a re-solve replaces text inside these
+   sections, not the sections themselves. */
 @keyframes rise {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: none; }
 }
 
 .main > * {
-  /* `.main` is a flex column inside a 100vh grid that does not scroll, so its
-     children shrink below their own content by default. The verdict panel has
-     no min-height of its own and was being crushed to 66px and then clipped by
-     its own overflow:hidden. Nothing in this column may shrink; the column
-     scrolls instead. */
+  /* `.main` is a flex column, so its children would otherwise shrink below
+     their own content; the hero has no min-height and was being crushed and
+     then clipped. Nothing in this column shrinks. */
   flex: none;
   animation: rise var(--dur-3) var(--ease) both;
 }
 
 .main > *:nth-child(1) { animation-delay: 0ms; }
-.main > *:nth-child(2) { animation-delay: 45ms; }
-.main > *:nth-child(3) { animation-delay: 90ms; }
-.main > *:nth-child(4) { animation-delay: 135ms; }
-.main > *:nth-child(5) { animation-delay: 180ms; }
-.main > *:nth-child(6) { animation-delay: 225ms; }
+.main > *:nth-child(2) { animation-delay: 60ms; }
+.main > *:nth-child(3) { animation-delay: 120ms; }
+.main > *:nth-child(4) { animation-delay: 180ms; }
 
-/* The KPI tiles land in their own left-to-right sweep inside the first row. */
-.kpi-row .kpi-card { animation: rise var(--dur-3) var(--ease) both; }
-.kpi-row .kpi-card:nth-child(1) { animation-delay: 60ms; }
-.kpi-row .kpi-card:nth-child(2) { animation-delay: 110ms; }
-.kpi-row .kpi-card:nth-child(3) { animation-delay: 160ms; }
-.kpi-row .kpi-card:nth-child(4) { animation-delay: 210ms; }
+/* The figures land in their own left-to-right sweep inside the hero. */
+.stats .stat { animation: rise var(--dur-3) var(--ease) both; }
+.stats .stat:nth-child(1) { animation-delay: 90ms; }
+.stats .stat:nth-child(2) { animation-delay: 140ms; }
+.stats .stat:nth-child(3) { animation-delay: 190ms; }
 
 /* A figure that has just been re-solved ticks over rather than swapping. The
    element is keyed on its own text in the JSX, so React remounts it and the
@@ -1722,79 +1609,68 @@ details.considered[open] summary { margin-bottom: var(--s1); }
   to { opacity: 1; transform: none; }
 }
 
-.kpi-card .kpi-value { animation: tick var(--dur-2) var(--ease) both; }
+.stat .stat-value { animation: tick var(--dur-2) var(--ease) both; }
 
 /* The verdict is the one thing on screen that can reverse meaning between two
    solves, so it fades rather than snapping. Keyed on the tier in the JSX. */
-.verdict-panel .verdict { animation: rise var(--dur-3) var(--ease) both; }
+.hero .verdict { animation: rise var(--dur-3) var(--ease) both; }
 
 /* Panels dim slightly while a solve is in flight. It reads as the page
    thinking, and it is the only cue that the number under a moving slider is
    not the answer yet. */
 .main.is-solving .panel,
-.main.is-solving .verdict-panel {
-  opacity: 0.82;
+.main.is-solving .hero {
+  opacity: 0.85;
   transition: opacity var(--dur-2) var(--ease);
 }
 
 /* ---------- responsive ---------- */
 
 @media (max-width: 1280px) {
-  .duo { grid-template-columns: 1fr; }
-  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .duo { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* The hero's two columns stop earning their keep once the verdict headline is
+   down to a few words a line. Below this the figures move under the copy and
+   spread across the full width, which reads better than three narrow tiles. */
+@media (max-width: 1100px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s3);
+  }
+  .verdict h1 { font-size: 34px; max-width: none; }
+  .stat .stat-value { font-size: clamp(19px, 3.4vw, 26px); }
 }
 
 @media (max-width: 900px) {
-  .only-narrow { display: flex; }
-  /* The bar cannot hold the title, the scenario switch, the disclosure chip,
-     the view tabs and the account at once. The scenario switch is the one that
-     goes: the three presets under "Starting balance" are the same control, and
-     they are a short scroll away in the page itself. Nothing is lost, and the
-     view tabs stay reachable without a sideways scroll. */
-  .topbar { gap: var(--s2); padding: 0 var(--s3); }
-  .topbar .switcher { display: none; }
-  .topbar-horizon { display: none; }
-  .topbar h1 { font-size: 16px; overflow: hidden; text-overflow: ellipsis; }
-  .app {
-    /* minmax(0, 1fr) rather than 1fr: a grid track's automatic minimum is its
-       content, so the topbar's nowrap row was widening the only column past
-       the viewport and pushing the view tabs off the right edge. */
-    grid-template-columns: minmax(0, 1fr);
-    /* And the bar is allowed a second line here, because the disclosure chip
-       is not optional and does not fit beside the tabs at phone width. */
-    grid-template-rows: auto 1fr;
-    grid-template-areas: "topbar" "main";
-  }
-
-  .topbar {
+  .navbar {
     height: auto;
-    min-height: var(--topbar-h);
     flex-wrap: wrap;
+    gap: var(--s2);
+    row-gap: 10px;
     padding: var(--s2) var(--s3);
-    row-gap: var(--s1);
   }
-
-  /* The actions group is itself a nowrap flex row, so wrapping the bar alone
-     still clipped the Wallet tab off the right edge. */
-  .topbar-actions {
+  /* The nav-right group is its own nowrap row, so wrapping the bar alone still
+     pushed the account off the right edge. */
+  .nav-right {
     margin-left: 0;
     flex-wrap: wrap;
-    row-gap: var(--s1);
+    row-gap: 10px;
   }
-  .sidebar { display: none; }
-  .main { padding: var(--s3); gap: var(--s3); }
-  .topbar-search { display: none; }
-  .topbar-user .name { display: none; }
-  .verdict-panel .verdict h1 { font-size: 24px; }
-  .kpi-card { min-height: 112px; }
-  .kpi-card .kpi-value { font-size: 22px; }
+  .pillnav button { padding: 7px 14px; font-size: 13px; }
+  .main { padding: var(--s2) var(--s3) var(--s4); gap: var(--s2); }
+  .hero { padding: var(--s3); border-radius: var(--radius); }
+  .verdict h1 { font-size: 28px; }
+  .panel { padding: var(--s3); }
+  .panel-head h2 { font-size: 17px; }
 }
 
 @media (max-width: 640px) {
-  .kpi-row { grid-template-columns: 1fr; }
+  .stats { grid-template-columns: minmax(0, 1fr); }
+  .stat { text-align: left; }
+  .stat .stat-value { font-size: 24px; }
   .controls { grid-template-columns: 1fr; }
-  .verdict h1 { font-size: 22px; }
-  .verdict-panel .verdict h1 { font-size: 22px; }
+  .verdict h1 { font-size: 24px; }
   .rx-row { grid-template-columns: 1fr; }
   .rx-panel .rx-row { grid-template-columns: 1fr; }
   /* The 720px rules pin these to column 2. At one column that placement
@@ -1804,6 +1680,7 @@ details.considered[open] summary { margin-bottom: var(--s1); }
   .rx-amount, .rx-pain { text-align: left; }
   .cant { justify-self: start; }
   .panel { padding: var(--s2); }
+  .hero { padding: var(--s2); }
   .main { padding: var(--s2); }
 }
 
@@ -1811,27 +1688,20 @@ details.considered[open] summary { margin-bottom: var(--s1); }
   .rx-row.is-new { animation: none; }
   .msg-pending span { animation: none; }
   .main > *,
-  .kpi-row .kpi-card,
-  .kpi-card .kpi-value,
-  .verdict-panel .verdict { animation: none; }
-  .sidebar-item::before { transition: none; }
-  .kpi-card:hover,
+  .stats .stat,
+  .stat .stat-value,
+  .hero .verdict { animation: none; }
   .panel:hover { transform: none; }
   .chips button:hover:not(:disabled),
   .ctl-presets button:hover,
-  .rail-btn:hover,
   .reset:hover,
-  .sidebar-item:active,
-  .icon-btn:active,
+  .pillnav button:active,
   .chips button:active:not(:disabled),
   .ctl-presets button:active,
-  .rail-btn:active,
-  .tabs button:active { transform: none; }
+  .switcher button:active { transform: none; }
   /* Including the one the imported sheet already had, which the old
      reduced-motion block never covered. */
   .rx-row,
-  .kpi-card,
   .panel,
-  .verdict-panel,
-  .controls-panel { transition: none; }
+  .hero { transition: none; }
 }
