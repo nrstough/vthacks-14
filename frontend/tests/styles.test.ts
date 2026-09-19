@@ -19,7 +19,8 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readdirSync, readFileSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 // fileURLToPath, not .pathname: the canonical checkout is "…/Desktop/VT Hacks",
@@ -36,14 +37,39 @@ const FONTS = readdirSync(fileURLToPath(new URL('../public/fonts/', import.meta.
 // arrived with the imported config and was referenced by nothing while being
 // 7.0 MB of an 8.0 MB font payload. All three are out; this is the pin that
 // keeps a half-finished revert from bringing one back.
-test('no Doto, Clash or Array survives in the stylesheet or the config', () => {
+// A3 names four places: the stylesheet, the config, every source file, and the
+// built CSS. The built CSS is what ships; `src/` is where a stray import or a
+// hard-coded font-family in a component would hide from the stylesheet pin.
+function walk(dir: string): string[] {
+  return readdirSync(dir).flatMap((f) => {
+    const full = join(dir, f)
+    return statSync(full).isDirectory() ? walk(full) : [full]
+  })
+}
+const SRC_DIR = fileURLToPath(new URL('../src/', import.meta.url))
+const DIST_ASSETS = fileURLToPath(new URL('../dist/assets/', import.meta.url))
+const SRC_FILES: [string, string][] = walk(SRC_DIR)
+  .filter((f) => /\.(tsx?|css|html)$/.test(f))
+  .map((f) => [f.slice(SRC_DIR.length), readFileSync(f, 'utf8')])
+const BUILT_CSS: [string, string][] = readdirSync(DIST_ASSETS)
+  .filter((f) => f.endsWith('.css'))
+  .map((f) => [`dist/assets/${f}`, readFileSync(join(DIST_ASSETS, f), 'utf8')])
+
+test('no Doto, Clash or Array survives in the stylesheet, the config, src/, or the built CSS', () => {
+  assert.ok(SRC_FILES.length > 10, 'src/ walk found nothing')
+  assert.ok(BUILT_CSS.length > 0, 'no built CSS in dist/assets — run `npm run build` first')
   for (const [name, text] of [
     ['index.css', CSS],
     ['tailwind.config.ts', CONFIG],
+    ...SRC_FILES,
+    ...BUILT_CSS,
   ] as const) {
     assert.doesNotMatch(text, /Doto/i, `${name} still mentions Doto`)
-    assert.doesNotMatch(text, /Clash/i, `${name} still mentions Clash Display`)
-    assert.doesNotMatch(text, /Array/i, `${name} still mentions Array`)
+    // The font's name, not the English word: reasons.ts has a "clash" reason.
+    assert.doesNotMatch(text, /Clash ?Display/i, `${name} still mentions Clash Display`)
+    // The font, not the JavaScript type: `Array.isArray` and `Array<T>` are
+    // fine, a quoted family name or a font file is not.
+    assert.doesNotMatch(text, /['"]Array['"]|Array-(Regular|Bold|Semibold|Wide)|font-family:[^;]*\bArray\b/, `${name} still mentions the Array font`)
   }
 })
 

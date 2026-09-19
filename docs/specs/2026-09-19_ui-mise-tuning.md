@@ -353,9 +353,10 @@ this spec instead of recording them here, and the body has since been restored.
    requiring at least two `rel="preload" as="font"` hrefs, each resolving to a file in
    `dist/fonts/` over 1 KB — the preloads were previously untested, and a renamed font file
    leaves a `<link>` pointing at a 404 that `font-display: swap` then hides.
-9. **Both frozen `Expected:` lines were low.** The frozen frontend line reads "253 + new ≈ 284";
-   the run measured **288**, the extra four being additional style and bundle pins written during
-   the run. The frozen backend line reads "baseline + 2"; the run measured **2165**, the
+9. **Both frozen `Expected:` lines were low.** The frozen frontend line reads "253 after the
+   merge … plus the new tests" (the plan projected 31 new, 284); the run measured **288**, the
+   extra four being additional style and bundle pins written during the run. The frozen backend
+   line reads "the post-merge baseline … plus 1"; the run measured **2165**, the
    post-merge baseline of 2150 plus 15 — three tests written by hand and twelve parametrisations
    the new `TIER3_CUSHION_ONLY` fixture is picked up by automatically across the parity, wording
    and objective suites. The audit round adds four more frontend tests, taking that figure to
@@ -461,5 +462,10 @@ feature doc's shadow sentence corrected; the six screenshots re-captured from th
 revision (they had predated the relocated re-solve line). Full text in
 `docs/specs/2026-09-19_ui-mise-tuning-audit.md`.
 
-**Round 2** — recorded below after the confirmation run.
+**Round 2 (~19:55) — Acceptable overall, freeze integrity Excellent, no blocking defects.**
+Two cosmetic notes, fixed in the commit after `740ecb6`: the retired-font pin now also walks
+`src/` and the built CSS, as A3 literally says; deviation 9 now quotes the frozen lines
+verbatim. A third run was not made: both notes were cosmetic and the auditor recorded no
+blocking defect. Codex could not run a fresh Vite build or the four backend tests that need
+temp files in its read-only sandbox; the unrestricted runs in the Commands table cover those.
 
