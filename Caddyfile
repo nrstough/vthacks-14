@@ -1,10 +1,19 @@
 # HTTPS in front of the one uvicorn process. Caddy gets a certificate on its
 # own the first time it starts with a real domain, so nothing here holds a key.
 #
-# deploy.sh substitutes __DOMAIN__ when DOMAIN is set. Left as-is, the site
-# answers on the box's IP over plain HTTP, which is fine for a first smoke test
-# and not fine for anything shown to a judge — a domain costs fifteen minutes
-# and is its own MLH entry.
+# deploy.sh ALWAYS substitutes __DOMAIN__: the real domain when DOMAIN is set,
+# and `:80` when it is not. The substitution is not optional, and this comment
+# used to say it was.
+#
+# Left literal, Caddy reads `__DOMAIN__` as a hostname matcher and serves only
+# requests carrying `Host: __DOMAIN__`, so the box's own IP gets nothing — the
+# opposite of the "answers on the box's IP over plain HTTP" that used to be
+# promised here. And deploy.sh's health check polls 127.0.0.1:8000 over ssh,
+# which never touches Caddy, so it passed happily while the public URL served
+# nothing at all.
+#
+# :80 is fine for a smoke test and not fine for a judge — a domain costs fifteen
+# minutes and is its own MLH entry.
 
 __DOMAIN__ {
 	encode gzip

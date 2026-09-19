@@ -8,6 +8,7 @@ there is no store of anyone's transactions to breach.
 
 from __future__ import annotations
 
+import os
 from datetime import date
 from pathlib import Path
 
@@ -33,7 +34,35 @@ from app.schemas import (
 from app.solver.errors import EngineUnavailable
 from app.solver.solve import solve
 
-DEFAULT_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+
+def _default_dist() -> Path:
+    """Where the built frontend lives, on a laptop and on the box alike.
+
+    This was `parents[2] / "frontend" / "dist"`, which is right here and wrong in
+    production. deploy.sh rsyncs `backend/app/` to `$APP_DIR/app/`, so `backend/`
+    is never recreated on the server: `__file__` is
+    /opt/overdraft-guard/app/main.py, parents[2] is /opt, and the app looked for
+    /opt/frontend/dist while the bundle sat in /opt/overdraft-guard/frontend/dist.
+
+    The mount below is guarded by `is_dir()`, so it failed SILENTLY — the API
+    answered, /health returned 200, deploy.sh printed "deployed", and the site
+    was a 404. A green deploy you only discover on stage.
+
+    The layout is decided by the directory name, not by whether `dist/` happens
+    to exist: `dist/` is gitignored and absent from a fresh checkout, so probing
+    for it would make the answer depend on whether anyone had run a build.
+    """
+    override = os.environ.get("OVERDRAFT_DIST")
+    if override:
+        return Path(override)
+    here = Path(__file__).resolve()
+    root = here.parents[1]  # <repo>/backend on a laptop, $APP_DIR on the box
+    if root.name == "backend":
+        root = root.parent
+    return root / "frontend" / "dist"
+
+
+DEFAULT_DIST = _default_dist()
 
 
 def create_app(dist_dir: Path | None = DEFAULT_DIST) -> FastAPI:
