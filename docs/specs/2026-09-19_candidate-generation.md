@@ -380,3 +380,24 @@ fixtures, not failures. It measured the gate at 1,160 rather than 1,162 for the 
 Scorecard as returned: Plan adherence Fail, Scope discipline **Excellent**, Test coverage
 Fail, Review compliance **Excellent**, Freeze integrity Acceptable, Regression check
 Acceptable, Documentation Acceptable. **Overall: Fail** — on AC10 coverage alone.
+
+### Codex re-audit (~05:05) — **Acceptable**, no blocking findings
+
+Scorecard: Plan adherence Acceptable, Scope discipline **Excellent**, Test coverage
+Acceptable, Review compliance Acceptable, Freeze integrity Acceptable, Regression check
+**Excellent**, Documentation Acceptable. **Overall: Acceptable.** AC10 confirmed corrected;
+1,165 collected, 188 above the 977 baseline; all eight perf cases pass, including the 300
+engine comparisons.
+
+Three non-blocking findings, two fixed rather than banked:
+
+- **The longest-phrase test was still ineffective** — the third time this one test has been
+  caught. It never put two phrases of different length at equal priority in one
+  description, so both length terms could be deleted with all 71 classification tests still
+  passing, while `ADOBE WASHINGTON POST` silently changed from "the Post" to "Adobe". Now
+  probed directly; removing the length terms fails tests.
+- **The contract implied both fallback ceilings were 18.** The browser's stand-in refuses
+  above 20 and this server's exhaustive engine above 18; 18 is the lower of two different
+  numbers, not one shared one. Corrected in `docs/api-contract.md`; the same conflation was
+  already fixed in the schema docstring in the previous round.
+- Spec provenance: recorded above under "Recorded, not resolved". Not fixable in this run.

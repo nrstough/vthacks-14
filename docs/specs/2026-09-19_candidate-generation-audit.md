@@ -2,21 +2,25 @@
 
 | Dimension | Grade | Notes |
 |-----------|-------|-------|
-| Plan adherence | Fail | AC10’s required gate comparisons are incomplete. |
-| Scope discipline | Excellent | Changes remain within the candidate-generation scope. |
-| Test coverage | Fail | Only 29 of the required 50 gate windows compared; generated demo engine comparisons missing. |
-| Review compliance | Excellent | Recorded Codex findings addressed. |
-| Freeze integrity | Acceptable | Hash checks skipped: none recorded. AC11’s frozen files and contract region verified. |
-| Regression check | Acceptable | 1,160 passed; two environmental setup errors. All eight perf tests passed. |
-| Documentation | Acceptable | Minor docstring inaccuracies; endpoint and client rules documented. |
-| **Overall** | **Fail** | **Incomplete AC10 coverage.** |
+| Plan adherence | Acceptable | Implementation matches the spec; planning chronology cannot be verified. |
+| Scope discipline | Excellent | Changes remain within the declared scope. |
+| Test coverage | Acceptable | AC10 corrected; one narrower classification test remains ineffective. |
+| Review compliance | Acceptable | Previous blockers addressed; longest-phrase coverage remains incomplete. |
+| Freeze integrity | Acceptable | No hashes to check. Frozen solve contract and protected paths unchanged. |
+| Regression check | Excellent | No test failures; 1,163 gate passes, two environmental setup errors; all eight perf tests passed. |
+| Documentation | Acceptable | Minor fallback-ceiling wording error. |
+| **Overall** | **Acceptable** | **No blocking findings.** |
 
 ### Commentary
 
-1. **Plan adherence / Test coverage — downgrade to Fail.** [The engine-comparison test](</Users/nathanstough/Desktop/VT Hacks/backend/tests/test_candidates_roundtrip.py:78>) filters the first 50 windows down to **29**, then requires only 20. AC10 requires **50 qualifying windows plus all three generated demo presets** in the gate. The demo tests exercise the default engine and TypeScript oracle, without explicitly comparing CP-SAT against Python brute force. Select 50 qualifying windows before comparison, assert that count, and add the three demo comparisons. The passing 300-window perf sweep does not replace the specified gate coverage.
+1. **Test coverage / Review compliance — downgrade to Acceptable.** [The longest-phrase test](</Users/nathanstough/Desktop/VT Hacks/backend/tests/test_candidates_classify.py:122>) never supplies competing phrases at equal priority. Removing both length-precedence terms in memory still passes all 71 classification tests, despite changing `"ADOBE WASHINGTON POST"` from `"the Post"` to `"Adobe"`. Add a competing-phrase assertion to make the claimed review fix effective.
 
-2. **Regression check — Acceptable because verification was environmentally limited.** Using Python 3.14.7 on branch `backend` in `/Users/nathanstough/Desktop/VT Hacks`, the gate returned **1,160 passed, two setup errors, eight deselected**. Both errors arise from static-site fixtures attempting temporary-directory creation in the read-only sandbox; neither demonstrates a regression. The candidate-only run returned **184 passed, one identical setup error**. Commands followed the spec, with `PYTHONDONTWRITEBYTECODE=1`, `-p no:cacheprovider`, and `--capture=sys` added for read-only execution. Perf returned **eight passed**, including all 300 engine comparisons and the 2,000-row case at **271 ms**.
+2. **Plan adherence — downgrade to Acceptable.** The run spec first appears after implementation commits, so history cannot establish that it preceded the code. Commit future specs before execution. The design and acceptance criteria have remained unchanged since their initial commit; the subsequent command correction is documented.
 
-3. **Freeze integrity — Acceptable; provenance limitation.** The solve-contract lines 8–160 are byte-identical against `af65052`; existing tests, frontend files, and requirements are unchanged. No P1/P2/P3 hashes exist. The spec first entered history after implementation, and its command section was subsequently corrected, so it cannot establish a pre-implementation freeze.
+3. **Documentation — downgrade to Acceptable, low impact.** [The API contract](</Users/nathanstough/Desktop/VT Hacks/docs/api-contract.md:178>) implies both fallbacks refuse above 18. The browser ceiling is 20; the server ceiling is 18. Clarify the distinction. The documented default and operational advice remain correct.
 
-4. **Documentation — downgrade to Acceptable only.** [CandidatesMeta’s docstring](</Users/nathanstough/Desktop/VT Hacks/backend/app/schemas.py:324>) states an unconditional partition but omits the truncation exception correctly documented in the API contract. [CandidatesRequest’s docstring](</Users/nathanstough/Desktop/VT Hacks/backend/app/schemas.py:223>) also conflates the browser’s 20-candidate ceiling with the server’s 18. Clarify both; these do not change the documented safe default or client workflow.
+4. **Regression check — no downgrade; verification limitation.** On branch `backend`, Python 3.14.7, in the supplied workspace:
+   - `.venv/bin/pytest backend/ -q -s -m 'not perf' -p no:cacheprovider`: **1,163 passed, two setup errors**, both from temporary-directory creation blocked by the read-only sandbox.
+   - `.venv/bin/pytest backend/ -m perf -q -s -p no:cacheprovider`: **8 passed**, including all 300 engine comparisons.
+   
+   The gate collects 1,165 tests, 188 above the 977 baseline. A separate read-only check against the existing frontend build confirmed successful static-site and candidate routing.

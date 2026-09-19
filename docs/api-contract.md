@@ -175,9 +175,10 @@ builds its own candidates never has to call it.
 }
 ```
 
-`limit` defaults to 18 rather than the 60-candidate maximum because 18 is the largest set
-every fallback still answers: the server's exhaustive engine refuses above it, and so does
-the browser's stand-in solver. Raise it only if you know CP-SAT is available.
+`limit` defaults to 18 rather than the 60-candidate maximum because it is the lower of two
+different ceilings: this server's exhaustive engine refuses above **18**, and the browser's
+stand-in solver refuses above **20**. Eighteen is therefore the largest set every fallback
+still answers. Raise it only if you know CP-SAT is available.
 
 ```jsonc
 {

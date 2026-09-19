@@ -120,13 +120,19 @@ def test_a_three_letter_word_does_not_match_a_longer_one():
 
 
 def test_the_longest_phrase_wins_at_equal_priority():
-    # Checked on the display, not the category: APPLE COM BILL and APPLE MUSIC
-    # are both streaming, so comparing categories would pass whichever won and
-    # prove nothing about which phrase the matcher actually chose.
-    assert classify("APPLE.COM/BILL").display == "Apple"
-    assert classify("APPLE MUSIC 4412").display == "Apple Music"
+    # Two software phrases of different lengths in one description, which is the
+    # only shape that exercises length precedence: ADOBE is one token and
+    # WASHINGTON POST is two, both rank equally, and the longer must win. A
+    # constructed probe rather than a real descriptor — the earlier version of
+    # this test used phrases that could not compete, and deleting both length
+    # terms left every classification test passing.
+    assert classify("ADOBE WASHINGTON POST").display == "the Post"
+    assert classify("MICROSOFT NY TIMES").display == "the Times"
+    # Priority still beats length: UBER EATS is longer than UBER and also ranks
+    # higher, while APPLE CARD (protected) beats the longer APPLE COM BILL.
     assert classify("UBER EATS").display == "Uber Eats"
     assert classify("UBER TRIP").display == "Uber"
+    assert classify("APPLE CARD COM BILL").category == "card_payment"
 
 
 def test_an_accented_name_classifies_the_same_in_either_unicode_form():
