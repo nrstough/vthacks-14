@@ -177,7 +177,12 @@ def _upstream(what: str):
 
         def __exit__(self, kind, value, tb) -> bool:
             if isinstance(value, NessieError):
-                raise NessieUpstreamError(f"Nessie sent an unusable {what}: {value}") from value
+                # Truncated: the message embeds the offending value, which came
+                # from the sandbox, and it ends up in a response body.
+                detail = str(value)
+                if len(detail) > 200:
+                    detail = detail[:200] + "…"
+                raise NessieUpstreamError(f"Nessie sent an unusable {what}: {detail}") from value
             return False
 
     return _Wrap()

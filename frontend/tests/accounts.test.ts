@@ -290,16 +290,27 @@ test('more than twenty actionable changes is what the limit exists to prevent', 
 test('every reason the server can send has words and a place in the order', () => {
   // The backend gained a fifth reason and this file did not, so the clause was
   // dropped from the sentence in silence — the exact failure not_round_tripped
-  // exists to prevent. REASON_TEXT is a Record now, so the compiler catches a
-  // missing word; this catches a missing position in the order.
+  // exists to prevent.
+  //
+  // REASON_TEXT is a Record, so the compiler catches a reason with no words.
+  // Nothing but this catches one missing from the ORDER, and the first version
+  // of this test could not: it built its fixture from REASON_ORDER and then
+  // asserted over REASON_ORDER, so a reason absent from the order was absent
+  // from the fixture too and the test passed while the clause vanished. Drive
+  // it from REASON_TEXT, which is the exhaustive one.
+  const every = Object.keys(REASON_TEXT) as (keyof typeof REASON_TEXT)[]
+  assert.deepEqual(
+    [...REASON_ORDER].sort(),
+    [...every].sort(),
+    'REASON_ORDER must list every reason REASON_TEXT has words for',
+  )
+
   const account = nessie({
-    not_round_tripped: REASON_ORDER.map((reason, i) => ({ id: `n_${i}`, reason })),
+    not_round_tripped: every.map((reason, i) => ({ id: `n_${i}`, reason })),
   })
   const line = provenanceLine(account, toBase(account, []))
-  // One of each, so each reason contributes exactly one singular clause.
-  for (const reason of REASON_ORDER) {
+  for (const reason of every) {
     const [singular] = REASON_TEXT[reason]
     assert.ok(line.includes(`1 ${singular}`), `${reason} is missing from: ${line}`)
   }
-  assert.match(line, /too small for the sandbox to hold/)
 })

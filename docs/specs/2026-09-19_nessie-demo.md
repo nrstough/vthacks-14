@@ -364,3 +364,64 @@ two sides disagree.** The reducer's tests invented their own sequence numbers
 and missed the counter drift; the transport's tests asserted the shape guard
 and missed the content failure behind it. Both were found by exercising the
 real composition — the browser in one case, a route-level test in the other.
+
+## Audit round two — dated note (2026-09-19, after commit `5466974`)
+
+The re-audit graded the change **Acceptable**, up from Fail, and confirmed the
+critical 502 fix independently at the route. It also found that the previous
+note was already wrong in two ways, and that one of the fixes in it had shipped
+broken.
+
+### The correction that matters
+
+**Finding 3 of round one was fixed in two commits, not one, and the first was
+incomplete.** `c649139` added the `amount rounds to zero dollars` reason to the
+backend and the schema and stopped there: the frontend union did not know it,
+the renderer had no words for it, and neither doc listed it. A row whose entire
+value had been erased would have been counted and then dropped out of the
+provenance sentence in silence — the exact failure the field exists to prevent,
+reintroduced by the fix for it. Closed in `5466974`.
+
+That is the more useful half of the lesson and the previous note omitted it: a
+reason is not one value, it is five places, and nothing compared them.
+
+### Also corrected
+
+- The previous note says "Frontend 245 passed". It was **246** at the time.
+- `5466974` is not mentioned above at all. It is the commit that finished
+  finding 3.
+
+### Findings from round two, all fixed here
+
+- **The test written to close the reason-drift gap could not fail.** It built
+  its fixture from `REASON_ORDER` and then asserted over `REASON_ORDER`, so a
+  reason missing from the order was missing from the fixture too and the test
+  passed while the clause vanished. It is driven from `REASON_TEXT` now, which
+  the compiler keeps exhaustive, and it fails when a reason is dropped from the
+  order. Verified both ways.
+- **Nothing pinned the backend's reason literal to the frontend's union.** They
+  agreed by hand, which is precisely how they came apart. A backend test now
+  reads `frontend/src/types.ts` and asserts every member appears, in the style
+  of the frontend's bundle greps. Verified it fails when a reason is removed.
+- **Upstream content was reflected into a 502 body untruncated.** No key can
+  reach it and React escapes it, but it is unbounded sandbox-supplied data in a
+  user-visible string. Truncated at 200 characters.
+- **`NESSIE_TIMEOUT_S=soon` was a 500**, pre-existing and strictly out of D11's
+  scope, but it is a 500 on the route this change added and the same shape as
+  the bug round one was about: a bad input reaching the user as a stack trace
+  rather than a stated problem. It is a configuration error now.
+
+### Left open, deliberately
+
+- **Acceptance 7 remains self-report.** The re-audit's judgement, which is
+  accepted: withdrawing the screenshot claim was right and is still not a
+  verification. The browser evidence is the observed strings recorded above,
+  and nobody but the author can check them.
+- **The component-side `adopt` guard has no regression test.** The reducer half
+  is well covered; the half that actually wrote the wrong balances is verified
+  by reading the code, because nothing in `frontend/tests/` mounts a component.
+
+### Gates
+
+Backend **2078 passed**, 2 skipped, 8 deselected. Frontend lint clean, build
+clean, **246 passed**. Golden hash unmoved.

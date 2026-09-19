@@ -332,3 +332,21 @@ def test_a_body_that_is_not_json_is_a_transport_error_not_a_crash(monkeypatch):
     with pytest.raises(NessieError) as e:
         client.get(CFG, "/customers")
     assert "other than JSON" in str(e.value)
+
+
+def test_a_garbage_timeout_is_a_configuration_error_not_a_crash(monkeypatch):
+    """Bare float() on an env var throws out of from_env() before any handler
+    can see it, so this was a 500 on every Nessie route."""
+    import app.chat.gemini as gemini
+
+    monkeypatch.setattr(gemini, "_env_loaded", True)
+    monkeypatch.setenv("NESSIE_API_KEY", "k" * 32)
+    for bad in ("soon", "", "   ", "-1", "0"):
+        monkeypatch.setenv("NESSIE_TIMEOUT_S", bad)
+        if bad.strip() == "":
+            assert NessieConfig.from_env().timeout_s == 20.0
+        else:
+            with pytest.raises(NessieError):
+                NessieConfig.from_env()
+    monkeypatch.setenv("NESSIE_TIMEOUT_S", "7.5")
+    assert NessieConfig.from_env().timeout_s == 7.5

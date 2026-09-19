@@ -58,6 +58,27 @@ class NessieNotConfigured(NessieError):
     """The key is absent, or present and provably not working."""
 
 
+def _timeout(raw: str | None) -> float:
+    """A misconfigured timeout is an operator error, not a crash.
+
+    Bare float() on an env var throws out of from_env() before any handler can
+    see it, so `NESSIE_TIMEOUT_S=soon` was a 500 on every Nessie route — the
+    same shape as the malformed-amount bug: a bad input reaching the user as a
+    stack trace instead of a stated problem.
+    """
+    if raw is None or not raw.strip():
+        return DEFAULT_TIMEOUT_S
+    try:
+        value = float(raw)
+    except ValueError:
+        raise NessieNotConfigured(
+            f"NESSIE_TIMEOUT_S is not a number: {raw!r}"
+        ) from None
+    if not value > 0:
+        raise NessieNotConfigured(f"NESSIE_TIMEOUT_S must be positive, not {value}")
+    return value
+
+
 @dataclass(frozen=True)
 class NessieConfig:
     api_key: str | None
@@ -77,7 +98,7 @@ class NessieConfig:
         return cls(
             api_key=key.strip() if key else None,
             base_url=(os.environ.get("NESSIE_BASE_URL") or DEFAULT_BASE_URL).rstrip("/"),
-            timeout_s=float(os.environ.get("NESSIE_TIMEOUT_S", DEFAULT_TIMEOUT_S)),
+            timeout_s=_timeout(os.environ.get("NESSIE_TIMEOUT_S")),
             account_id=(os.environ.get("NESSIE_ACCOUNT_ID") or "").strip() or None,
         )
 

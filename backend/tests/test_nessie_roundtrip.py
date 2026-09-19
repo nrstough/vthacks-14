@@ -848,3 +848,27 @@ def test_the_live_sandbox_round_trips_an_account():
         f"written={out['written']} returned={out['returned']} lost={out['not_round_tripped']}"
     )
     assert out["not_round_tripped"] == []
+
+
+def test_the_frontend_knows_every_reason_this_server_can_send():
+    """The two lists agree by hand, and once they did not.
+
+    The fifth reason shipped in the schema and not in the client, so a row
+    whose whole value was erased would have been counted and then dropped from
+    the sentence in silence. Nothing compared them; this does. Same shape as
+    the frontend's bundle greps: a cheap gate across a boundary no type system
+    spans.
+    """
+    import pathlib
+    import typing
+
+    from app.schemas import NotRoundTripped
+
+    reasons = typing.get_args(NotRoundTripped.model_fields["reason"].annotation)
+    assert len(reasons) >= 4
+
+    types_ts = pathlib.Path(__file__).resolve().parents[2] / "frontend" / "src" / "types.ts"
+    text = types_ts.read_text()
+    union = text[text.index("export interface NotRoundTripped") :].split("}", 1)[0]
+    for reason in reasons:
+        assert f"'{reason}'" in union, f"frontend/src/types.ts is missing the reason {reason!r}"
