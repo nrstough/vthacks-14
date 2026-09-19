@@ -24,7 +24,7 @@ from app.schemas import CENTS_ABS
 from .errors import ImportRefused
 from .labels import stream_label
 from .money import coefficient_of_variation, trimmed_mean_cents
-from .workdays import WEEKDAY_NAMES
+from .workdays import weekday_name
 from .payee import payee_key
 
 MIN_OCCURRENCES = 3
@@ -104,6 +104,11 @@ class Stream:
     @property
     def interval_days(self) -> int:
         return {"weekly": 7, "biweekly": 14, "semimonthly": 15, "monthly": 30}[self.cadence]
+
+
+def weekday_name_of(index: int) -> str:
+    """Monday is 0, the same convention `date.weekday()` uses."""
+    return weekday_name(datetime.date(2024, 1, 1) + datetime.timedelta(days=index))
 
 
 def _ordinal(day: int) -> str:
@@ -288,7 +293,7 @@ def detect_streams(rows: list[Row], history_end: datetime.date) -> tuple[list[St
             anchor_doms: tuple[int, ...] = ()
             if cadence in ("weekly", "biweekly"):
                 anchor_weekday = Counter(d.weekday() for d in recent_dates).most_common(1)[0][0]
-                anchor = WEEKDAY_NAMES[anchor_weekday]
+                anchor = weekday_name_of(anchor_weekday)
             elif cadence == "semimonthly":
                 anchor_doms = doms or ()
                 anchor = f"the {_ordinal(anchor_doms[0])} and {_ordinal(anchor_doms[1])}"
@@ -297,8 +302,12 @@ def detect_streams(rows: list[Row], history_end: datetime.date) -> tuple[list[St
                 anchor = f"the {_ordinal(anchor_doms[0])}"
 
             amount = trimmed_mean_cents(recent_amounts)
-            # Same reason as the assumed rows: same-day rows are summed, and
-            # only the individual rows are capped on the way in.
+            # Ballast, not a live guard: no input reaches it today, because a
+            # cluster with two rows on one day is already rejected above, so
+            # every value here is a single row capped three orders of
+            # magnitude below this bound. It exists because the day-sum path
+            # in residual.py DID overflow and this is the same shape; if the
+            # same-day rule is ever relaxed, this is what stops a 500.
             if abs(amount) > CENTS_ABS:
                 raise ImportRefused(
                     "One recurring charge in this history is too large to plan over. "

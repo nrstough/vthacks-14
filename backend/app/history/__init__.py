@@ -66,6 +66,12 @@ def is_assumed(txn_id: str) -> bool:
 
     Named rather than inlined so a test can take it away and prove the
     generator really would offer to cancel spending that does not exist.
+
+    The second guard, the label-map equality below, is a bare `assert` and is
+    therefore removed by `python -O`. The service is not run that way today
+    (`deploy/overdraft-guard.service` starts plain uvicorn), and it must not
+    be: with both guards gone, an assumed row reaching the generator is
+    silent rather than loud.
     """
     return txn_id.startswith(ASSUMED_PREFIX)
 

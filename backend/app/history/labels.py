@@ -68,7 +68,6 @@ def stream_label(kind: str, category: str, cadence: str) -> str:
     return f"{CATEGORY_DISPLAY[category].capitalize()} ({CADENCE_WORDS[cadence]})"
 
 
-
 def candidate_label(action: str, category: str) -> str:
     noun = CATEGORY_DISPLAY[category]
     return {

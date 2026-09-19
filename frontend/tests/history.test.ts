@@ -19,6 +19,8 @@ import {
   toBase,
 } from '../src/lib/history.ts'
 import type { Candidate, ImportAccountResponse, ScheduledTxn, Stream } from '../src/types.ts'
+import { SCENARIOS } from '../src/fixtures/scenarios.ts'
+import { solve } from '../src/solver/mockSolver.ts'
 
 function txn(id: string, date: string, cents: number, kind: ScheduledTxn['kind'] = 'bill'): ScheduledTxn {
   return { id, date, description: id.startsWith('f_') ? 'Everyday spending (assumed from your last 8 weeks)' : 'Rent or mortgage (monthly)', amount_cents: cents, kind, recurring: !id.startsWith('f_') }
@@ -154,14 +156,18 @@ test('the note is a standalone sentence, so it reads on every tier', () => {
   assert.ok(note !== undefined)
   assert.match(note, /^Everyday spending here is an assumption/)
   assert.match(note, /\.$/)
-  for (const qualifier of [
-    'Sufficient under the schedule shown.',
-    'One surprise charge puts you over.',
-    'This does not clear on its own.',
-  ]) {
-    const composed: string = `${qualifier} ${note}`
+  // Real qualifiers from the built-in solver, not invented strings: the
+  // whole point is that tiers 2 and 3 do NOT end in "Sufficient under the
+  // schedule shown", so an appended clause would read as "...over., where".
+  const tiers = new Set<number>()
+  for (const scenario of SCENARIOS) {
+    const result = solve(scenario.request, [])
+    tiers.add(result.tier)
+    const composed: string = `${result.qualifier} ${note}`
     assert.equal(composed.includes('., '), false, `reads badly: ${composed}`)
+    assert.equal(/[.!?]$/.test(result.qualifier.trim()), true, result.qualifier)
   }
+  assert.ok(tiers.size >= 2, `the scenarios must span tiers, saw ${[...tiers].join()}`)
 })
 
 test('no note when the plan assumed nothing', () => {

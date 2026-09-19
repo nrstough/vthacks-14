@@ -282,6 +282,48 @@ def test_a_daily_total_too_large_to_plan_is_refused_not_a_500(client):
     assert "too large to plan" in str(r.json()["detail"])
 
 
+def test_a_raw_string_row_and_broken_json_are_both_422(client):
+    # Two FastAPI error shapes the privacy handler has to survive:
+    # model_attributes_type echoes the row, and json_invalid carries a `ctx`
+    # holding an exception object that a naive re-encode turns into a 500.
+    r = client.post("/api/accounts/import", json=body(rows=["a string"]))
+    assert r.status_code == 422
+    assert all(set(d) <= {"type", "loc", "msg"} for d in r.json()["detail"])
+
+    r = client.post(
+        "/api/accounts/import",
+        content=b'{"rows": [ , ], "opening_balance_cents": 1}',
+        headers={"Content-Type": "application/json"},
+    )
+    assert r.status_code == 422
+    assert all("ctx" not in d for d in r.json()["detail"])
+
+
+def test_too_little_history_still_returns_the_streams_it_found(client):
+    # A5 through the route, not only the unit: under 56 days the response
+    # says it assumed nothing AND still carries the bills.
+    end = datetime.date(2026, 9, 18)
+    rows = H.monthly_bill(datetime.date(2026, 8, 3), 2, 3, -4500, "ZZQ7K4 HOLDINGS", weekend_shift=False)
+    rows += H.monthly_bill(datetime.date(2026, 8, 10), 2, 10, -1599, "NETFLIX.COM", weekend_shift=False)
+    rows += [H.row(end - datetime.timedelta(days=i), f"KROGER #{i}", -2500) for i in range(30)]
+    out = imported(client, rows=rows, as_of="2026-09-19")
+    assert out["provenance"]["history_days"] < 56
+    assert out["provenance"]["assumed_method"] is None
+    assert out["provenance"]["assumed_ids"] == []
+    assert not [t for t in out["scheduled"] if t["id"].startswith("f_")]
+
+
+def test_the_next_payday_is_right_across_a_year_boundary(client):
+    end = datetime.date(2026, 12, 29)
+    rows = H.weekly_income(end, weeks=30, weekday=1)
+    rows += H.everyday_spending(end - datetime.timedelta(days=90), end)
+    out = imported(client, rows=rows, as_of="2026-12-30")
+    payday = out["provenance"]["next_payday"]
+    assert payday is not None
+    assert datetime.date.fromisoformat(payday).year == 2027
+    assert datetime.date.fromisoformat(payday).weekday() == 1
+
+
 def test_the_golden_account_is_pinned(client):
     out = imported(client)
     streams = out["streams"]

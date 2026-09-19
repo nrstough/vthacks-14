@@ -183,7 +183,7 @@ execution: `docs/demo-script.md` (a beat only if the local run is clean).
 
 ## Results
 
-**Gates.** Backend `.venv/bin/pytest backend/ -q`: **2259 passed, 10
+**Gates.** Backend `.venv/bin/pytest backend/ -q`: **2262 passed, 10
 deselected** (2150 before this change). Frontend `npm run lint && npm run
 build && npm test`: lint clean, build clean, **295 passed** (253 before).
 Existing canaries unmoved; the generator golden hash unmoved.
@@ -193,7 +193,8 @@ target added by this change). A 335-row synthetic export imported, planned,
 and rendered: provenance panel with five streams, next payday named, the
 assumption sentence under the verdict, no console errors. Unticking rent took
 the plan from three changes to "Nothing to change"; re-ticking restored all
-three. Screenshot taken.
+three. Done live in the browser; no image was kept, so this paragraph is the
+only record.
 
 **Local run on a real consented export** (`SAFE_TO_SPEND_CSV`, 1,060 rows,
 2024-08-19 to 2026-09-18, 761 days):
