@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import BalanceChart from './components/BalanceChart'
+import ChatPanel from './components/ChatPanel'
 import PrescriptionList from './components/PrescriptionList'
 import VerdictBand from './components/VerdictBand'
 import { SCENARIOS } from './fixtures/scenarios'
@@ -223,6 +224,8 @@ export default function App() {
           onToggle={onToggle}
         />
       </section>
+
+      <ChatPanel req={request} res={res} source={source} />
 
       <footer className="meta num">
         {footerLines(res).map((line) => (
