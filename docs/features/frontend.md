@@ -22,8 +22,8 @@ reason on screen is either returned by the solver or derived from dates and ids 
 
 - The solver: `POST /api/solve`, with a 150 ms debounce and a stale-response guard.
 - The built-in fallback: `src/solver/mockSolver.ts`, used when the API is unreachable, disclosed
-  by the footer chip "Running on the built-in solver". The chip is a product commitment, not
-  styling. The same file is the oracle the Python solver is tested against; UI work never edits
+  by the nav chip "Running on the built-in solver", rendered by `components/TopNav.tsx` in
+  `.nav-right` and visible on both tabs. The chip is a product commitment, not styling. The same file is the oracle the Python solver is tested against; UI work never edits
   it. If the UI needs different solver output, change the request, not the oracle. The one
   exception on record is solver-owned *wording*, which has to move in both implementations at
   once or `test_parity` fails: see "Reasons on plan rows".
@@ -38,7 +38,8 @@ reason on screen is either returned by the solver or derived from dates and ids 
 Two buttons beside the presets load a whole account, not just a pair of balances:
 `as_of`, `horizon_end`, `scheduled`, both balances, and a fresh candidate set.
 
-- **Provenance is stated, never implied.** The tagline says which account is on screen —
+- **Provenance is stated, never implied.** The status line above the verdict says which
+  account is on screen —
   `Modelled account, seed 12345, Sep 19 to Oct 18.` or `Capital One sandbox, 23 of 23 rows
   read back, …` — with a clause per `not_round_tripped` reason, counted separately. An
   account whose `source` the client does not recognise is refused rather than shown.
@@ -120,7 +121,10 @@ the plan clears zero:
 - does not clear zero (tier 3): `Removing it would not widen the gap.`
 
 The split exists because "not to clear zero" misreads at tier 3, where nothing clears zero; the
-gap sentence claims only what zero marginals prove. Both strings are defined twice, identically,
+gap sentence claims only what zero marginals prove. The gap sentence is reachable through the
+API, via `locks.in`, but **not by this screen**: plan size outranks cushion exposure in the
+objective, so a freely chosen tier 3 plan never keeps a zero-marginal row, and the UI never
+sends `locks.in`. Both strings are defined twice, identically,
 because `test_parity` compares `plan[].reason` field for field: `backend/app/solver/wording.py`
 and, exported for tests, `CUSHION_ONLY_REASON` / `CUSHION_ONLY_REASON_GAP` in
 `frontend/src/solver/mockSolver.ts`. Neither reads "not needed" — that sentence belongs to the
@@ -239,8 +243,13 @@ digit does not change width under a slider.
 **Colour.** The gradient runs Capital One navy (`--navy` `#071a33`) through `--navy-2`
 (`#0b2545`) into the product blue (`--accent` `#2563eb`) and out to nothing, so the page
 resolves into `--panel` rather than stopping at an edge. Every white on the gradient is one of
-`--on-navy`, `--on-navy-soft`, `--on-navy-wash`, `--on-navy-line`; no rule outside `:root`
-carries its own literal. The warm ramp is for anything going wrong, green for anything
+`--on-navy`, `--on-navy-soft`, `--on-navy-wash`, `--on-navy-line`, and the shadow under the lit
+nav pill is `--on-navy-shadow`; white on a solid accent or ink fill — the chat user bubble, the
+crash button — is `--bg`. **No rule outside the two `:root` blocks carries a literal white at
+all**, which is what `styles.test.ts` pins: strip the `:root` blocks and the sheet contains no
+`#fff`, `#ffffff` or `rgba(255, 255, 255, …)`. Literal rgba *shadows* in neutral or navy tints
+are still written inline; the pin is on white, because white is what the gradient retune
+moves. The warm ramp is for anything going wrong, green for anything
 improved. `--ink-3` is `#646b78`, darkened from `#6b7280`, which measured 4.49:1 as a
 `.stat-sub` on the warm `--canvas` — a rounding error short of AA.
 
@@ -253,13 +262,23 @@ account's provenance (`provenanceLine(account, base)`). It is a sibling **above*
 outside its `aria-live` region, because provenance does not change on a re-solve and
 re-announcing it on every slider move would be noise. It never carries an optimality word.
 
-**The solver disclosure chip** stays in `TopNav`, on both tabs, with its text unchanged. It is
-the one thing on the page that is never restyled away.
+**The re-solve sentence** ("Move a slider or rule a change out, and the plan is re-solved from
+scratch.") is a `.panel-lede` under the controls panel's heading, not a tagline over the
+verdict. It describes the controls, so it sits with them; the status line above the verdict
+carries provenance instead.
 
-No dark mode. A reduced-motion block covers `.hero`, `.panel` and `.rx-row`; the responsive
-rules the earlier lane fixed (`.controls` declared once, `.main > * { flex: none }`,
-`minmax(0, 1fr)` tracks, the 640px release of the row cells) are pinned by regex in
-`frontend/tests/styles.test.ts` so a retune cannot quietly undo them.
+**The solver disclosure chip** stays in `TopNav`, in `.nav-right`, on both tabs, with its text
+unchanged. It is the one thing on the page that is never restyled away. It is a nav chip, not a
+footer one — `docs/demo-script.md` says the same.
+
+No dark mode. A reduced-motion block covers `.hero`, `.panel` and `.rx-row`; the **six**
+responsive rules the earlier lane fixed are pinned by regex in `frontend/tests/styles.test.ts`
+so a retune cannot quietly undo them: `.controls` declared once at the top level,
+`.main > * { flex: none }`, `minmax(0, 1fr)` tracks, the 640px release of the row cells,
+reduced motion covering the transitions and not only the animations, and
+`.wallet, .wallet-down, .wallet-loading { background: var(--bg) }` — the wallet is the one view
+with no card of its own, and without that background the navy shows straight through its
+figures.
 
 ## Canaries
 
@@ -288,8 +307,10 @@ cd frontend && npm run lint && npm run build && npm test
 ```
 
 Build before test, always. `tests/bundle.test.ts` greps the built bundle for the forbidden
-words and the fallback chip, and it fails rather than skips when `dist/` is missing, so running
-it first either errors or, worse, passes against stale output that no longer ships.
+words and the fallback chip, and checks that every font the built CSS asks for — and every font
+`dist/index.html` preloads — is a real file in `dist/fonts/` over 1 KB. It fails rather than
+skips when `dist/` is missing, so running it first either errors or, worse, passes against
+stale output that no longer ships.
 
 Then the backend gate, because the parity tests run this frontend's oracle:
 

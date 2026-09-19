@@ -15,7 +15,7 @@ proof, which is the only part nobody else has.
 - [ ] A second tab on the repo, in case someone asks to see the solver
 - [ ] Sliders at their defaults, no overrides left over from the last run
 - [ ] If the wifi is dead, say nothing about it. The page falls back to a local
-      solver and keeps working. Only mention it if the footer chip is spotted.
+      solver and keeps working. Only mention it if the chip in the nav is spotted.
 - [ ] Refresh the two numbers in the build section. The suite keeps growing and
       quoting a stale figure to someone who then runs it is worse than rounding.
       As of Sat 14:00 it is 1,333 backend tests plus 216 frontend tests, and the

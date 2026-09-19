@@ -62,12 +62,7 @@ the other lanes' worktrees, obtaining the Mise source from Hrushi.
 - **D2 Type, set B.** Libre Baskerville 700 for the wordmark, the verdict and panel headings;
   Inter for body copy; JetBrains Mono for eyebrows, labels, chips and every figure, with
   tabular numerals so digits never shift under a slider. All three self-hosted as woff2 under
-  `frontend/public/fonts/` (venue wifi cannot be trusted to fetch a font), **one variable file
-  per family** — Google serves a single variable file per family and hands the same URL back for
-  every weight asked for, so the planned eight static files were three payloads written down
-  eight times. Each `@font-face` declares the range its file actually carries
-  (Libre Baskerville 400–700, Inter 100–900, JetBrains Mono 400–800), because a range wider than
-  the file would let the browser pick a weight the font cannot draw. Clash Display and
+  `frontend/public/fonts/` (venue wifi cannot be trusted to fetch a font). Clash Display and
   Doto are removed: the `@font-face` blocks, the `--display`/`--dotted` uses, and the files.
   The `--display` and `--mono` token names stay and are re-pointed, so component rules do not
   move. Body falls back to the system sans if a file is missing; headings fall back to Georgia.
@@ -120,14 +115,13 @@ the other lanes' worktrees, obtaining the Mise source from Hrushi.
 ## What will change
 
 - `index.css`: both `:root` blocks retuned (gradient, shadows, fonts, navy tokens);
-  one `@font-face` per new family, three in all; Clash/Doto blocks and the dead `.eyebrow` block
+  `@font-face` for the three new families; Clash/Doto blocks and the dead `.eyebrow` block
   removed; the `.eyebrow-note` status line gains its dot; a navy focus ring on the active nav
   pill; the primary button gradient; literal colours tokenised; a 640px gradient height.
   Component rule names unchanged.
 - `tailwind.config.ts`: font stacks and shadow/radius values updated to match.
-- `public/fonts/`: add one variable woff2 per family — `LibreBaskerville-Variable.woff2`,
-  `Inter-Variable.woff2`, `JetBrainsMono-Variable.woff2`; remove the 28 Clash Display files,
-  Doto, and the 24 Array files.
+- `public/fonts/`: add Libre Baskerville (400, 700), Inter (400, 500, 600), JetBrains Mono
+  (400, 500, 600) as woff2; remove the 28 Clash Display files, Doto, and the 24 Array files.
   Array arrived with Hrushi's commit (it is not on `main`), is referenced by nothing, and is
   7.0 MB of the 8.0 MB font payload.
 - `TopNav.tsx`: the wordmark becomes Safe to Spend. `Stats.tsx`, `VerdictBand.tsx`: unchanged.
@@ -149,9 +143,8 @@ the other lanes' worktrees, obtaining the Mise source from Hrushi.
 - **A2** Built CSS contains no `--tw-` variable. (`bundle.test.ts`, new)
 - **A3** Neither built CSS nor `public/fonts` nor `src/` references Doto or Clash Display.
   (`styles.test.ts`, new)
-- **A4** Every `url(/fonts/…)` in the built CSS names a file that exists in `dist/fonts/`, with
-  at least three references found and all three families represented, so the test cannot pass on
-  an empty match. (`bundle.test.ts`, new)
+- **A4** Every `url(/fonts/…)` in the built CSS names a file that exists in `dist/fonts/`.
+  (`bundle.test.ts`, new)
 - **A5** In the source stylesheet, `--display` resolves to Libre Baskerville and is applied to
   `h1`, `h2`, `h3`; `--mono` resolves to JetBrains Mono and is applied to `.rx-amount` (and the
   other figure selectors); `--sans` resolves to Inter and `.num` stays on it, so prose that
@@ -193,18 +186,15 @@ the other lanes' worktrees, obtaining the Mise source from Hrushi.
 cd /Users/nathanstough/Desktop/vthacks-ui/frontend && npm run lint && npm run build && npm test
 ```
 
-Expected: lint clean, build clean, **288 passed, 0 failed** — the post-merge baseline of 253
-(209 + `main`'s 44) plus 35 new: cant 7, kpis 11, styles 14, bundle 2, reasons 1.
+Expected: lint clean, build clean, 253 after the merge (209 + main's 44) plus the new tests,
+0 failing.
 
 ```bash
 cd /Users/nathanstough/Desktop/vthacks-ui && .venv/bin/pytest backend/ -q
 ```
 
-Expected: **2165 passed, 10 deselected** — the post-merge baseline of 2150 measured in step 1
-(`main` added tests and a `pytest.ini` that deselects `perf` and `nessie`) plus 15: three tests
-written by hand (`test_wording`, `test_certificate`, `test_chat`) and twelve parametrisations
-the new `TIER3_CUSHION_ONLY` fixture is picked up by automatically across the parity, wording
-and objective suites. Parity runs with 0 skipped, which `-rs` is used to confirm.
+Expected: the post-merge baseline (re-measured in step 1; `main` added tests and a
+`pytest.ini` that deselects `perf` and `nessie`) plus 1, parity running with 0 skipped.
 
 ## Docs committed to
 
@@ -239,8 +229,10 @@ pins, lane 4 the docs. All ten plan steps ran in order; no step was skipped.
 
 Commits: `05ffa43` (merge), `e61d087` (the left-out list asks "Can do this"), `f0c34fe` (the
 cushion-only reason), `0089203` (kpis tests), `736cc3c` (set B type), `4efa6ab` (navy and the
-status line), `fa240dd` (style and font pins), `759d7d0` (one variable file per family), then
-this docs commit.
+status line), `fa240dd` (style and font pins), `759d7d0` (one variable file per family), `e9c969b` (the
+status line's dot on its own first line), then this docs commit. An adversarial audit afterwards
+produced two more: one for the code, tests and screenshots, one restoring this spec's frozen
+body and recording what really deviated.
 
 ### Commands
 
@@ -257,6 +249,21 @@ in ~22 s. Frontend +35 (cant 7, kpis 11, styles 14, bundle 2, reasons 1). Backen
 tests written by hand, twelve parametrisations the `TIER3_CUSHION_ONLY` fixture is picked up by
 across the parity, wording and objective suites).
 
+**Re-run after the adversarial audit's fixes**, same commands, same worktree:
+
+| Command | Exit | Result |
+|---|---|---|
+| `npm run lint` (oxlint) | 0 | clean, no output |
+| `npm run build` (`tsc -b && vite build`) | 0 | clean; the pre-existing Recharts chunk-size note only |
+| `npm test` | 0 | **292 passed, 0 failed, 0 skipped** |
+| `.venv/bin/pytest backend/ -q -rs` | 0 | **2165 passed, 10 deselected**, 25.3 s |
+| `grep -c "SKIPPED.*test_parity"` on the `-rs` summary | — | **0**: parity ran |
+
+Frontend 288 → 292: the wallet card pin and the literal-white pin in `styles.test.ts`, the
+`controlFor` call-site pin in `cant.test.ts`, and the `index.html` preload pin in
+`bundle.test.ts`. Each was checked against a deliberate mutation and fails when the thing it
+protects goes. The backend was not touched and its figure is unchanged.
+
 ### Acceptance criteria
 
 | AC | Verdict | Evidence |
@@ -265,7 +272,7 @@ across the parity, wording and objective suites).
 | A2 | Met | `bundle.test.ts` "the built CSS carries no Tailwind runtime variables" |
 | A3 | Met | `styles.test.ts`, the two "no Doto…" tests, over the stylesheet, the config and `public/fonts` |
 | A4 | Met | `bundle.test.ts` "every font the built CSS asks for is actually in dist/fonts": 3 references, all three families, each file present and > 1 KB |
-| A5 | Met | `styles.test.ts`: "the three font tokens resolve to the three self-hosted families", "headings are on the display face", "`.rx-amount` is on the mono face", "`.num` stays on the text face", plus the five responsive pins ("`.controls` is declared exactly once", "`.main` children do not flex-shrink", "the grid tracks are all minmax(0…", "the 640px breakpoint releases the row cells", "reduced motion covers the transitions") and "the stylesheet has no @tailwind directives" |
+| A5 | Met, the sixth pin added in the audit round | `styles.test.ts`: "the three font tokens resolve to the three self-hosted families", "headings are on the display face", "`.rx-amount` is on the mono face", "`.num` stays on the text face", and "the stylesheet has no @tailwind directives". Of the **six** load-bearing responsive rules the handoff lists, **five** shipped in the first round ("`.controls` is declared exactly once", "`.main` children do not flex-shrink", "the grid tracks are all minmax(0…", "the 640px breakpoint releases the row cells", "reduced motion covers the transitions"); the sixth, the wallet keeping its card on the gradient (handoff bug 5), was pinned in the audit round as "the wallet keeps its own card on the gradient" |
 | A6 | Met | `kpis.test.ts`, 11 tests, including the empty window, the tier 3 shortfall with and without a worst date, and "no plan claim ever names a dollar figure or a fee" |
 | A7 | Met | `cant.test.ts`, 7 tests: the four plan/out × ruled/not cases, the `domId` pin in both sections, the toggle flipping both, and the source greps ( `cant-` absent under `src/components`, the template once in `lib/focus.ts`, `onFocus={` still wired) |
 | A8 | Met | `reasons.test.ts`: the tier 1 and tier 2 texts still match `/clears zero without it/` and now also `doesNotMatch(/cushion/i)`; tier 3 and unproven branches unchanged |
@@ -274,14 +281,16 @@ across the parity, wording and objective suites).
 | A11 | Met | `test_wording.py::test_a_cushion_only_reason_never_reads_as_not_needed` calls `plan_reason` directly on a zero-marginal item both ways; `test_certificate.py:47` updated to `CUSHION_ONLY_REASON` |
 | A11b | Met | `test_certificate.py::test_at_tier_three_a_cushion_only_row_talks_about_the_gap`: tier 3, at least one row `CUSHION_ONLY_REASON_GAP`, no row the clears-zero form. Achieved with `locks.in`; see deviation 1 |
 | A12 | Met | The existing certificate-sentence tests in `test_wording.py` are unchanged and green |
-| A13 | Met | Screenshots at 1440 and 390 for plan, tier 3 and wallet; contrast and browser checks below |
+| A13 | Met | Screenshots at 1440 and 390 for plan, tier 3 and wallet, now in the repo under `docs/shots/2026-09-19_ui-mise-tuning/`; contrast and browser checks below. The evidence is the shots **and** the inline browser observations recorded under "Browser checks" — the shots show the layouts, the observations cover the behaviour and the measured contrast, which a still cannot carry |
 
 Not in the spec but done alongside: `test_chat.py::test_a_cushion_only_change_is_paraphrased_without_not_needed`,
 pinning the prompt's tier-neutral paraphrase (deviation 5).
 
 ### Deviations and limitations
 
-All six were deliberate and are recorded rather than fixed.
+One to six were deliberate and are recorded rather than fixed. Seven to nine were found by
+the adversarial audit afterwards: the first write-up had edited them into the frozen body of
+this spec instead of recording them here, and the body has since been restored.
 
 1. **The tier 3 fixture pins its zero-marginal change in through `locks.in`.** The plan assumed
    a freely chosen tier 3 plan could contain such a row. It cannot: the objective ranks plan
@@ -292,7 +301,10 @@ All six were deliberate and are recorded rather than fixed.
    marginals is reachable only when the caller pins it, which `locks.in` is exactly for. The
    reasoning and the arithmetic are written out in the comment above `TIER3_CUSHION_ONLY` in
    `backend/tests/fixtures/planted.py`. The plan's fallback (drop the fixture, keep the unit
-   test) was not needed.
+   test) was not needed. The consequence for the product is worth stating plainly: because plan
+   size outranks cushion exposure in the objective and the screen never sends `locks.in`, the
+   `CUSHION_ONLY_REASON_GAP` sentence is reachable through the API but **cannot** be produced by
+   the UI as built.
 2. **Fonts ship as three variable files, not eight static ones.** Google serves one variable
    file per family and hands back the same URL for every weight asked for, so the eight-file
    plan was three payloads written down eight times. Each `@font-face` declares the range its
@@ -315,12 +327,39 @@ All six were deliberate and are recorded rather than fixed.
    the worst day", and `test_chat.py` asserts the rendered context contains that and not "not
    needed to clear zero". The literal `RULED OUT by the user`, pinned by `main`'s
    `test_chat.py:184`, was kept.
-6. **The tagline's second clause was dropped and provenance moved.** `main`'s "Move a slider or
-   rule a change out, and the plan is re-solved from scratch." is gone; the controls panel is
-   already headed "What if / Move the inputs". Provenance is rendered on the plan tab only, as
-   a sibling **above** the verdict and outside its `aria-live` region, so a re-solve never
-   re-announces it. The wallet tab shows the demo token wallet, not the checking account, so it
-   carries no provenance line.
+6. **The tagline's second clause was relocated and provenance moved.** `main`'s "Move a slider
+   or rule a change out, and the plan is re-solved from scratch." no longer sits over the
+   verdict. The first write-up said it was dropped, and for one round it was: the controls
+   panel's heading ("What if / Move the inputs") names the controls but does not say what moving
+   one does. The sentence now sits under that heading as a `.panel-lede`, beside the controls it
+   describes. Provenance is rendered on the plan tab only, as a sibling **above** the verdict and
+   outside its `aria-live` region, so a re-solve never re-announces it. The wallet tab shows the
+   demo token wallet, not the checking account, so it carries no provenance line.
+7. **D2 planned eight static woff2 files; three variable files shipped.** The frozen D2 paragraph
+   says "All three self-hosted as woff2" against a plan of eight files — Libre Baskerville 400
+   and 700, Inter 400/500/600, JetBrains Mono 400/500/600. Google serves one variable file per
+   family and hands the same URL back for every weight asked for, so those eight were three
+   payloads written down eight times. What shipped is `LibreBaskerville-Variable.woff2`,
+   `Inter-Variable.woff2` and `JetBrainsMono-Variable.woff2`, each `@font-face` declaring the
+   range its file actually carries, measured off the rendered glyphs: **Libre Baskerville
+   400–700, Inter 100–900, JetBrains Mono 400–800**. A range wider than the file would let the
+   browser pick a weight the font cannot draw and quietly clamp it. (Deviation 2 records the
+   same decision; this entry records that the spec's own D2 and "What will change" text was
+   edited to match rather than left to stand.)
+8. **A4 shipped stricter than it was frozen.** Frozen A4 asks only that every `url(/fonts/…)` in
+   the built CSS name a file that exists in `dist/fonts/`. The shipped test also requires **at
+   least three references** and **all three families**, so the check cannot pass on an empty
+   match, and each file to be over 1 KB. The audit round added a second test over `dist/index.html`,
+   requiring at least two `rel="preload" as="font"` hrefs, each resolving to a file in
+   `dist/fonts/` over 1 KB — the preloads were previously untested, and a renamed font file
+   leaves a `<link>` pointing at a 404 that `font-display: swap` then hides.
+9. **Both frozen `Expected:` lines were low.** The frozen frontend line reads "253 + new ≈ 284";
+   the run measured **288**, the extra four being additional style and bundle pins written during
+   the run. The frozen backend line reads "baseline + 2"; the run measured **2165**, the
+   post-merge baseline of 2150 plus 15 — three tests written by hand and twelve parametrisations
+   the new `TIER3_CUSHION_ONLY` fixture is picked up by automatically across the parity, wording
+   and objective suites. The audit round adds four more frontend tests, taking that figure to
+   **292**; see the Commands table, which records both runs.
 
 ### Contrast, measured in the browser at 1440 wide
 
@@ -355,9 +394,18 @@ for; it measured 4.49 before.
 ### Screenshots
 
 Captured at 1440 and 390 wide for the plan tab, tier 3 (`$60.00`) and the wallet tab, against
-the same three states as the pre-merge baseline:
+the same three states as the pre-merge baseline.
 
-`scratchpad/shots/before-*.png` → `scratchpad/shots/after-*.png`.
+The after-shots were held in a session scratchpad, which is volatile: the evidence for A13
+would not have survived the session. They are now in the repo, downscaled to 1200px on the long
+edge, under `docs/shots/2026-09-19_ui-mise-tuning/` — `after-desktop-plan.png`,
+`after-desktop-tier3.png`, `after-desktop-wallet.png`, `after-mobile-plan.png`,
+`after-mobile-tier3.png`, `after-mobile-wallet.png`, plus `before-desktop-plan.png` for the
+comparison. 1.1 MB in all.
+
+A13 does not rest on the shots alone. The contrast figures above were computed from the
+rendered pixels in the browser pane, and the three behaviours under "Browser checks" were
+observed live there; neither is something a still can carry.
 
 ## Claude critique
 
