@@ -4,12 +4,22 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { MAX_ROWS, parseAmountCents, parseBankCsv, parseDateIso, splitCsv } from '../src/lib/importCsv.ts'
+import { MAX_ROWS, MIN_ROWS, parseAmountCents, parseBankCsv, parseDateIso, splitCsv } from '../src/lib/importCsv.ts'
 
 const HEADER = '"DATE","DESCRIPTION","AMOUNT","CHECK #","STATUS"'
 
 function csv(...lines: string[]): string {
   return [HEADER, ...lines].join('\n')
+}
+
+// Enough rows to clear MIN_ROWS, so a test about ONE row's handling is not
+// really a test about the minimum-history rule.
+function padded(...lines: string[]): string {
+  const filler = Array.from(
+    { length: MIN_ROWS },
+    (_unused, i) => `"01/${String(10 + i).padStart(2, '0')}/2026","FILLER CO","-1.00","","Posted"`,
+  )
+  return csv(...lines, ...filler)
 }
 
 test('every amount format a bank writes becomes exact cents', () => {
@@ -57,9 +67,13 @@ test('dates are validated by component, not normalised into another month', () =
 })
 
 test('the header may be in any order or case', () => {
-  const out = parseBankCsv('amount,Status,date,DESCRIPTION\n-25.00,Posted,01/02/2026,KROGER')
+  const filler = Array.from(
+    { length: MIN_ROWS },
+    (_unused, i) => `-1.00,Posted,01/${String(10 + i).padStart(2, '0')}/2026,FILLER CO`,
+  ).join('\n')
+  const out = parseBankCsv(`amount,Status,date,DESCRIPTION\n-25.00,Posted,01/02/2026,KROGER\n${filler}`)
   assert.equal(out.error, null)
-  assert.deepEqual(out.rows, [{ date: '2026-01-02', description: 'KROGER', amount_cents: -2500 }])
+  assert.deepEqual(out.rows[0], { date: '2026-01-02', description: 'KROGER', amount_cents: -2500 })
 })
 
 test('a file missing a column it needs says so', () => {
@@ -74,17 +88,17 @@ test('quoted fields may contain commas and doubled quotes', () => {
 
 test('rows that are not posted are excluded and counted', () => {
   const out = parseBankCsv(
-    csv('"01/02/2026","KROGER","-25.00","","Posted"', '"01/03/2026","KROGER","-30.00","","Pending"'),
+    padded('"01/02/2026","KROGER","-25.00","","Posted"', '"01/03/2026","KROGER","-30.00","","Pending"'),
   )
-  assert.equal(out.rows.length, 1)
+  assert.equal(out.rows.length, MIN_ROWS + 1)
   assert.equal(out.notPosted, 1)
 })
 
 test('an unreadable row is reported by line, never silently dropped and never zeroed', () => {
   const out = parseBankCsv(
-    csv('"01/02/2026","KROGER","banana","","Posted"', '"02/30/2026","KROGER","-1.00","","Posted"'),
+    padded('"01/02/2026","KROGER","banana","","Posted"', '"02/30/2026","KROGER","-1.00","","Posted"'),
   )
-  assert.equal(out.rows.length, 0)
+  assert.equal(out.rows.length, MIN_ROWS)
   assert.deepEqual(out.rejected, [
     { line: 2, reason: 'bad_amount' },
     { line: 3, reason: 'bad_date' },
@@ -94,24 +108,43 @@ test('an unreadable row is reported by line, never silently dropped and never ze
 test('a rejection never carries the cell it rejected', () => {
   // The reason codes are a closed set; a message quoting the row would put a
   // private payee into the UI and into anything that logs it.
-  const out = parseBankCsv(csv('"01/02/2026","ZZQ7K4 SECRET PAYEE","banana","","Posted"'))
+  const out = parseBankCsv(padded('"01/02/2026","ZZQ7K4 SECRET PAYEE","banana","","Posted"'))
   assert.equal(JSON.stringify(out.rejected).includes('ZZQ7K4'), false)
 })
 
 test('a zero-amount row is refused rather than planned around', () => {
-  const out = parseBankCsv(csv('"01/02/2026","KROGER","0.00","","Posted"'))
+  const out = parseBankCsv(padded('"01/02/2026","KROGER","0.00","","Posted"'))
   assert.deepEqual(out.rejected, [{ line: 2, reason: 'zero_amount' }])
 })
 
 test('duplicate rows are kept, because two coffees are two coffees', () => {
   const line = '"01/02/2026","STARBUCKS","-4.75","","Posted"'
-  const out = parseBankCsv(csv(line, line))
-  assert.equal(out.rows.length, 2)
+  const out = parseBankCsv(padded(line, line))
+  assert.equal(out.rows.filter((r) => r.amount_cents === -475).length, 2)
 })
 
 test('an empty file and a header-only file each say what is wrong', () => {
   assert.match(parseBankCsv('').error ?? '', /empty/)
   assert.match(parseBankCsv(HEADER).error ?? '', /no transactions/)
+})
+
+test('a handful of transactions is not a history', () => {
+  // A one-row file used to parse fine, plan an empty schedule, and have the
+  // solver answer "sufficient" over a single transaction.
+  const one = parseBankCsv(csv('"01/02/2026","KROGER","-25.00","","Posted"'))
+  assert.match(one.error ?? '', /1 usable transaction; not enough history/)
+  assert.equal(one.rows.length, 0)
+
+  const few = parseBankCsv(
+    csv(...Array.from({ length: MIN_ROWS - 1 }, (_u, i) => `"01/0${(i % 9) + 1}/2026","KROGER","-1.00","","Posted"`)),
+  )
+  assert.match(few.error ?? '', /not enough history/)
+
+  const enough = parseBankCsv(
+    csv(...Array.from({ length: MIN_ROWS }, (_u, i) => `"01/${String(10 + i).padStart(2, '0')}/2026","KROGER","-1.00","","Posted"`)),
+  )
+  assert.equal(enough.error, null)
+  assert.equal(enough.rows.length, MIN_ROWS)
 })
 
 test('a file over the row cap is refused before anything is sent', () => {
@@ -130,15 +163,12 @@ test('a file at exactly the cap is accepted', () => {
 
 test('a real-shaped export parses end to end', () => {
   const out = parseBankCsv(
-    csv(
+    padded(
       '"09/16/2026","HARRIS TEETER PAYROLL","1,240.55","","Posted"',
       '"09/15/2026","OAKWOOD PROPERTIES","(1,200.00)","","Posted"',
       '"09/14/2026","DOORDASH*CHIPOTLE","-31.80","","Posted"',
     ),
   )
   assert.equal(out.error, null)
-  assert.deepEqual(
-    out.rows.map((r) => r.amount_cents),
-    [124055, -120000, -3180],
-  )
+  assert.deepEqual(out.rows.slice(0, 3).map((r) => r.amount_cents), [124055, -120000, -3180])
 })

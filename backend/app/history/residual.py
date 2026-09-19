@@ -14,6 +14,9 @@ from __future__ import annotations
 
 import datetime
 
+from app.schemas import CENTS_ABS
+
+from .errors import ImportRefused
 from .money import median_cents
 
 CONTEXT_DAYS = 56
@@ -75,6 +78,16 @@ def assumed_rows(
     while day <= horizon_end:
         values = by_weekday[day.weekday()]
         amount = median_cents(values) if values else 0
+        # A DAY's total is the sum of its rows, and only the rows are capped.
+        # Enough max-size rows on one weekday push the median past what a
+        # scheduled amount may hold, and the response model then rejects a
+        # request that was perfectly valid on the way in — a 500 on good
+        # input. Refuse here, where the number can be named.
+        if amount > CENTS_ABS:
+            raise ImportRefused(
+                "The everyday spending in this history is too large to plan over. "
+                "Check the export is a single account in one currency."
+            )
         if amount > 0:
             out.append((f"{ASSUMED_PREFIX}{day.isoformat().replace('-', '')}", day, -amount))
         day += datetime.timedelta(days=1)

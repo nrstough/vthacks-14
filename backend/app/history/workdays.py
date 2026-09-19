@@ -47,7 +47,11 @@ def days_in_month(year: int, month: int) -> int:
 
 
 def add_months(d: datetime.date, n: int) -> datetime.date:
-    """Move by whole months, clamping the day to the target month's length."""
+    """Move by whole months, clamping the day to the target month's length.
+
+    Used by the tests that pin the clamp; `on_day_of_month` is the path the
+    projector takes, and both clamp the same way.
+    """
     month_index = d.month - 1 + n
     year = d.year + month_index // 12
     month = month_index % 12 + 1

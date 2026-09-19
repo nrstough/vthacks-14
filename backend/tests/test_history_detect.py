@@ -269,3 +269,48 @@ def test_an_unrecognised_recurring_outflow_is_treated_as_a_bill():
     data = H.monthly_bill(datetime.date(2026, 1, 8), 8, 8, -4200, "ZZQ7K4 HOLDINGS", weekend_shift=False)
     stream = only(detect_streams(rows(data), END)[0])
     assert (stream.kind, stream.category) == ("bill", "unknown")
+
+
+def test_several_charges_from_one_payee_on_one_day_are_not_a_stream():
+    # A payee that bills several times a day is a transfer app or a shopping
+    # habit, not a scheduled payment.
+    data = []
+    for week in range(12):
+        day = datetime.date(2026, 6, 2) + datetime.timedelta(days=7 * week)
+        for i in range(2):
+            data.append(H.row(day, "VENMO CASHOUT", 5000 + i))
+    streams, unscheduled = detect_streams(rows(data), END)
+    assert streams == []
+    assert len(unscheduled) == len(data)
+
+
+def test_the_same_day_guard_is_load_bearing(monkeypatch):
+    data = []
+    for week in range(12):
+        day = datetime.date(2026, 6, 2) + datetime.timedelta(days=7 * week)
+        for i in range(2):
+            data.append(H.row(day, "VENMO CASHOUT", 5000 + i))
+    # Collapse same-day rows without flagging it, and the guard is gone.
+    real = D._collapse_same_day
+    monkeypatch.setattr(D, "_collapse_same_day", lambda rs: (real(rs)[0], False))
+    assert detect_streams(rows(data), END)[0], "removing the guard must change the answer"
+
+
+def test_a_lapsed_bill_inside_the_baseline_window_leaves_the_residual():
+    # Its rows must still be removed from everyday spending: a rent payment
+    # that stopped last month is not $150 a week of groceries.
+    from app.history.residual import assumed_rows, daily_outflow
+
+    start = END - datetime.timedelta(days=90)
+    data = [H.row(start + datetime.timedelta(days=i), f"KROGER #{i}", -2500) for i in range(91)]
+    # A monthly bill whose last payment is 40 days before the end, so it sits
+    # inside the 56-day baseline window, and which then stops.
+    data += H.monthly_bill(datetime.date(2025, 10, 9), 11, 9, -120000, "OAKWOOD PROPERTIES", weekend_shift=False)
+    parsed = rows(data)
+    streams, _ = detect_streams(parsed, END)
+    rent = only([s for s in streams if s.amount_cents == -120000])
+    used = {r.index for s in streams for r in s.rows}
+    series, _ = daily_outflow(parsed, used, start, END)
+    assumed = assumed_rows(series, END, END + datetime.timedelta(days=1), END + datetime.timedelta(days=14))
+    assert max(-a for _i, _d, a in assumed) == 2500, "the stopped rent must not become everyday spending"
+    assert rent.rows

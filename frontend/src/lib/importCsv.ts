@@ -9,6 +9,9 @@
 import type { ImportRow } from '../types'
 
 export const MAX_ROWS = 20000
+// Below this there is no rhythm to find and no spending to summarise, so the
+// honest answer is "not enough history" rather than a confident empty plan.
+export const MIN_ROWS = 10
 
 export type RejectCode =
   | 'no_date'
@@ -212,6 +215,16 @@ export function parseBankCsv(text: string): ParseResult {
     // Duplicates are kept on purpose: two coffees on one day are two coffees.
     rows.push({ date, description: description.slice(0, 200), amount_cents: cents })
   })
+
+  if (rows.length < MIN_ROWS) {
+    return {
+      ...empty,
+      rejected,
+      notPosted,
+      totalLines: lines.length,
+      error: `That file has ${rows.length} usable ${rows.length === 1 ? 'transaction' : 'transactions'}; not enough history to plan from.`,
+    }
+  }
 
   return { rows, rejected, notPosted, totalLines: lines.length, error: null }
 }

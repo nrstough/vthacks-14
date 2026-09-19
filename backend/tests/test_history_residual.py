@@ -26,8 +26,12 @@ def test_detected_rows_plus_the_residual_equal_the_original_totals():
     # subtraction lets a month with a big bill produce negative "everyday
     # spending", and the clip that hides it also hides the bug.
     checked = 0
+    shapes = set()
     for seed in range(300):
-        data = H.realistic(months=4)
+        # The seed moves the payday weekday, the amounts and the bills' days
+        # of month, so this exercises detection 300 different ways rather
+        # than the same account 300 times.
+        data = H.realistic(months=4, seed=seed)
         data += H.everyday_spending(END - datetime.timedelta(days=60), END, seed=seed)
         parsed = rows(data)
         streams, _ = detect_streams(parsed, END)
@@ -47,8 +51,10 @@ def test_detected_rows_plus_the_residual_equal_the_original_totals():
 
         for day in set(by_day) | set(series):
             assert series.get(day, 0) + stream_by_day.get(day, 0) == by_day.get(day, 0), day
+        shapes.add(tuple(sorted((s.kind, s.cadence, s.anchor) for s in streams)))
         checked += 1
     assert checked == 300, "the loop must actually run; an empty one asserts nothing"
+    assert len(shapes) > 20, f"the fixture must actually vary; only {len(shapes)} distinct accounts"
 
 
 def test_every_day_of_the_history_is_present_and_quiet_days_are_counted():

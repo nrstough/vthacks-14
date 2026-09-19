@@ -9,8 +9,9 @@ Exact solver (OR-Tools CP-SAT), stateless server, no accounts, no database.
 - `backend/app/` — FastAPI app (`/health`, `POST /api/solve`, `POST /api/candidates`,
   `POST /api/chat`, `GET /api/chat/status`, `POST /api/accounts/sample`,
   `POST /api/accounts/nessie`, `POST /api/accounts/import`), the
-  solver package (`backend/app/solver/`) and the candidate generator
-  (`backend/app/candidates/`), Python 3.14
+  solver package (`backend/app/solver/`), the candidate generator
+  (`backend/app/candidates/`) and the bank-export importer
+  (`backend/app/history/`), Python 3.14
 - `backend/tests/` — pytest suite; `tests/oracle/` runs the TypeScript stand-in solver
   through Node for parity checks
 - `frontend/` — Vite + React + TypeScript + Recharts; `src/solver/mockSolver.ts` is the

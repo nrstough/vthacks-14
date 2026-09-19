@@ -442,11 +442,17 @@ counting it is optimistic — and its stream id appears in
 `income_not_counted_today`. A bill due on `as_of` is projected unless the
 export already carries that payee on that day.
 
+`stale_days` is the raw gap between the last exported day and `as_of`, always
+present and often zero. It is a NUMBER, not a flag: do not read non-zero as
+stale. This app's own threshold is seven days.
+
 **Rejections, never silent drops.** A row after `as_of` or more than three
 years old is reported in `rejected_rows` with its index. If nothing survives,
 the answer is a 422 rather than an empty plan.
 
-Responses: `200` with the body above; `422` for malformed input, for a history
-where every row was rejected, and for a projection that would exceed the
-2000-row schedule limit. Assumed rows are truncated before any detected row is
+Responses: `200` with the body above; `422` for malformed input, for fewer
+than ten usable rows, for a history where every row was rejected, for a
+projection that would exceed the 2000-row schedule limit, and for a recurring
+charge or a day's spending too large to fit a scheduled amount (rows are
+capped individually, but a day is the sum of its rows). Assumed rows are truncated before any detected row is
 dropped, and the count appears in `truncated_assumed_rows`.

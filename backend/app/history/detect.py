@@ -19,9 +19,12 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 
 from app.candidates.lexicon import PROTECTED, UNKNOWN_CATEGORY, classify
+from app.schemas import CENTS_ABS
 
+from .errors import ImportRefused
 from .labels import stream_label
 from .money import coefficient_of_variation, trimmed_mean_cents
+from .workdays import WEEKDAY_NAMES
 from .payee import payee_key
 
 MIN_OCCURRENCES = 3
@@ -285,13 +288,22 @@ def detect_streams(rows: list[Row], history_end: datetime.date) -> tuple[list[St
             anchor_doms: tuple[int, ...] = ()
             if cadence in ("weekly", "biweekly"):
                 anchor_weekday = Counter(d.weekday() for d in recent_dates).most_common(1)[0][0]
-                anchor = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")[anchor_weekday]
+                anchor = WEEKDAY_NAMES[anchor_weekday]
             elif cadence == "semimonthly":
                 anchor_doms = doms or ()
                 anchor = f"the {_ordinal(anchor_doms[0])} and {_ordinal(anchor_doms[1])}"
             else:
                 anchor_doms = (_mode_day_of_month([d.day for d in recent_dates]),)
                 anchor = f"the {_ordinal(anchor_doms[0])}"
+
+            amount = trimmed_mean_cents(recent_amounts)
+            # Same reason as the assumed rows: same-day rows are summed, and
+            # only the individual rows are capped on the way in.
+            if abs(amount) > CENTS_ABS:
+                raise ImportRefused(
+                    "One recurring charge in this history is too large to plan over. "
+                    "Check the export is a single account in one currency."
+                )
 
             last_seen = dates[-1]
             interval = {"weekly": 7, "biweekly": 14, "semimonthly": 15, "monthly": 30}[cadence]
@@ -315,7 +327,7 @@ def detect_streams(rows: list[Row], history_end: datetime.date) -> tuple[list[St
                     anchor=anchor,
                     anchor_weekday=anchor_weekday,
                     anchor_doms=anchor_doms,
-                    amount_cents=trimmed_mean_cents(recent_amounts),
+                    amount_cents=amount,
                     occurrences=len(dates),
                     last_seen=last_seen,
                     active=active,

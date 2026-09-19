@@ -33,7 +33,7 @@ reason on screen is either returned by the solver or derived from dates and ids 
 
 ## Account sources
 
-Two buttons beside the presets load a whole account, not just a pair of balances:
+Three controls beside the presets load a whole account, not just a pair of balances:
 `as_of`, `horizon_end`, `scheduled`, both balances, and a fresh candidate set.
 
 - **Provenance is stated, never implied.** The tagline says which account is on screen —

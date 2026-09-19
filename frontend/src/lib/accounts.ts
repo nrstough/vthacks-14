@@ -232,7 +232,12 @@ export async function loadImport(
   body: unknown,
   signal: AbortSignal,
 ): Promise<ImportAccountResponse> {
-  const out = await post('/api/accounts/import', body, signal, 'Import needs the server.')
+  const out = await post(
+    '/api/accounts/import',
+    body,
+    signal,
+    'Import needs the server. Presets still work offline.',
+  )
   if (out?.__error) {
     fail(out, {
       '422': 'That export could not be planned',

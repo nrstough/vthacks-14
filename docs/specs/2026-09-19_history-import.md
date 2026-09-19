@@ -183,9 +183,9 @@ execution: `docs/demo-script.md` (a beat only if the local run is clean).
 
 ## Results
 
-**Gates.** Backend `.venv/bin/pytest backend/ -q`: **2252 passed, 10
+**Gates.** Backend `.venv/bin/pytest backend/ -q`: **2259 passed, 10
 deselected** (2150 before this change). Frontend `npm run lint && npm run
-build && npm test`: lint clean, build clean, **291 passed** (253 before).
+build && npm test`: lint clean, build clean, **295 passed** (253 before).
 Existing canaries unmoved; the generator golden hash unmoved.
 
 **Browser pass** (frontend 5176 proxying to backend 8002, the configurable
@@ -218,7 +218,7 @@ amount to find. The consequence is recorded as the first limitation in
 `docs/features/history-import.md`: an account like that gets no candidates,
 so the product can forecast and name a shortfall but cannot prescribe.
 
-**Deviations from the plan.** Three, each with its reason:
+**Deviations from the plan.** Six, each with its reason:
 
 - Stream `kind` gained a third value, `discretionary`. A weekly grocery run is
   recurring and worth projecting but is not a bill, and labelling it one
@@ -231,3 +231,34 @@ so the product can forecast and name a shortfall but cannot prescribe.
   with two skipped weeks failed to fit and was dropped as an unscheduled
   inflow — the exact failure C5 was written to prevent, which the original
   wording did not actually prevent.
+- `stale` is reported as `stale_days`, the raw gap, always present; the
+  seven-day threshold is applied by the client. D9 described a flag. Any
+  other consumer must read the number, not treat non-zero as stale, and the
+  contract says so.
+- R1's browser-side `streamLabel(stream, rows)` was dropped. The server's
+  label is already brand-free, so labelling again from the raw rows would add
+  a second place for a payee to reach the screen. `source_row_indexes` is
+  still returned and tested as provenance, but no client consumes it.
+- A minimum of ten usable rows was added, client and server. A one-row file
+  previously parsed, planned an empty schedule, and had the solver answer
+  "sufficient" over a single transaction. A1 asked for "not enough history"
+  on a one-row file and the original implementation did not deliver it.
+
+**`docs/demo-script.md` was deliberately not touched.** The plan made the
+import beat conditional on a clean local run. The run was clean but found no
+bills on that account, so the demo would show a plan with nothing to change —
+weaker than the existing four minutes. The modelled and Nessie beats stand.
+
+**Post-commit audit.** An adversarial Claude critique of `5513a0a` returned
+Fail overall on one blocking defect: a daily residual median above the
+contract's cents bound produced a 500 on schema-valid input (rows are capped
+but a day is the sum of its rows). Fixed by refusing with a 422 in
+`app/history/residual.py` and, for symmetry, on the stream amount in
+`detect.py`; the auditor's 9,648-row reproducer is now a named 422 and is
+pinned by a test. Also fixed from that pass: the missing minimum-history
+refusal, a peer-transfer counterfactual, a real counterfactual for the
+assumed-row exemption (the previous one stood in for the filter rather than
+removing it), the lapsed-bill-inside-the-window residual test, the 300-history
+loop varying only the residual, the untested import arms of `provenanceLine`
+and `chatKey`, the one-directional label-map assertion, a float in the panel's
+per-day figure, dead code, and the shortened offline message.

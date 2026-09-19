@@ -38,16 +38,36 @@ from app.schemas import (
 )
 
 from .detect import Row, detect_streams
+from .errors import ImportRefused
 from .labels import candidate_detail, candidate_label
 from .payee import payee_key
 from .project import project
-from .residual import ASSUMED_DESCRIPTION, CONTEXT_DAYS, WEEKS, assumed_rows, daily_outflow
+from .residual import (
+    ASSUMED_DESCRIPTION,
+    ASSUMED_PREFIX,
+    CONTEXT_DAYS,
+    WEEKS,
+    assumed_rows,
+    daily_outflow,
+)
 
 STALE_AFTER_DAYS = 7
+# Fewer rows than this is not a history: there is no rhythm to find and no
+# spending to summarise, and answering "sufficient" over one transaction is
+# worse than refusing.
+MIN_ROWS = 10
 
 
-class ImportRefused(ValueError):
-    """The rows cannot be planned. Always the caller's input, never a bug."""
+__all__ = ["ImportRefused", "import_account"]
+
+
+def is_assumed(txn_id: str) -> bool:
+    """THE guard. Assumed rows never reach the candidate generator.
+
+    Named rather than inlined so a test can take it away and prove the
+    generator really would offer to cancel spending that does not exist.
+    """
+    return txn_id.startswith(ASSUMED_PREFIX)
 
 
 def _filtered(req: ImportRequest, as_of: datetime.date) -> tuple[list[Row], list[dict]]:
@@ -74,6 +94,10 @@ def import_account(req: ImportRequest, today: datetime.date) -> dict:
     if not rows:
         raise ImportRefused(
             "No usable history. Every row is either dated in the future or more than three years old."
+        )
+    if len(rows) < MIN_ROWS:
+        raise ImportRefused(
+            f"Only {len(rows)} usable transactions. That is not enough history to plan from."
         )
 
     history_start = min(r.date for r in rows)
@@ -174,8 +198,8 @@ def import_account(req: ImportRequest, today: datetime.date) -> dict:
     scheduled.sort(key=lambda t: (t["date"], t["id"]))
 
     # ---- candidates, from detected rows only ----
-    detected_rows = [t for t in scheduled if not t["id"].startswith("f_")]
-    assert all(t["id"] in category_by_txn for t in detected_rows), "a detected row lost its category"
+    detected_rows = [t for t in scheduled if not is_assumed(t["id"])]
+    assert {t["id"] for t in detected_rows} == set(category_by_txn), "the label map and the rows drifted apart"
     probe = [
         ScheduledTxn.model_validate({**t, "description": raw_sample_by_txn[t["id"]]}) for t in detected_rows
     ]

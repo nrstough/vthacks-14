@@ -99,11 +99,24 @@ def test_no_candidate_targets_an_assumed_row(client):
     assert all(not c["target_txn_id"].startswith("f_") for c in out["candidates"])
 
 
-def test_the_exemption_is_load_bearing(monkeypatch):
-    # Remove the filter and the generator offers "skip this charge" against
-    # spending the product invented on the person's behalf.
+def test_removing_the_exemption_is_caught_before_anything_ships(monkeypatch):
+    # Take the guard away and the pipeline fails loudly rather than quietly
+    # handing the generator rows it must never see. The other half of this
+    # pair proves the generator really would offer them.
+    import datetime as _dt
+
+    import app.history as history
+    from app.schemas import ImportRequest
+
+    monkeypatch.setattr(history, "is_assumed", lambda _txn_id: False)
+    request = ImportRequest.model_validate(body())
+    with pytest.raises(AssertionError, match="drifted apart"):
+        history.import_account(request, _dt.date.fromisoformat(AS_OF))
+
+
+def test_the_generator_really_would_offer_an_assumed_row():
+    # The other half: the hazard is real, not hypothetical.
     from app.candidates import generate
-    from app.candidates.policy import UNKNOWN_DISCRETIONARY
     from app.schemas import CandidatesRequest
 
     assumed_row = {
@@ -119,7 +132,6 @@ def test_the_exemption_is_load_bearing(monkeypatch):
             {"as_of": AS_OF, "horizon_end": "2026-10-20", "scheduled": [assumed_row], "limit": 18}
         )
     )
-    assert UNKNOWN_DISCRETIONARY, "policy must still offer something for unknown discretionary rows"
     assert leaked.candidates, "if this stops being true the exemption is no longer needed"
     assert leaked.candidates[0].target_txn_id == "f_20260921"
 
@@ -246,6 +258,30 @@ def test_too_many_detected_rows_alone_is_a_422_not_a_500(monkeypatch, client):
 # A12/A13: the golden account, and determinism
 
 
+def test_a_handful_of_transactions_is_not_a_history(client):
+    # Answering "sufficient" over one transaction is worse than refusing.
+    rows = [H.row(datetime.date(2026, 9, 1) + datetime.timedelta(days=i), f"KROGER #{i}", -2500) for i in range(3)]
+    r = client.post("/api/accounts/import", json=body(rows=rows))
+    assert r.status_code == 422
+    assert "not enough history" in str(r.json()["detail"]).lower()
+
+
+def test_a_daily_total_too_large_to_plan_is_refused_not_a_500(client):
+    # Rows are capped, but a DAY is the sum of its rows, and the median of
+    # those sums has to fit a scheduled amount. This was a 500 on input the
+    # schema had already accepted.
+    end = datetime.date(2026, 9, 18)
+    rows = []
+    day = end - datetime.timedelta(days=55)
+    while day <= end:
+        for i in range(1001 if day.weekday() == 1 else 1):
+            rows.append(H.row(day, f"BIG {i % 7}", -(10**8)))
+        day += datetime.timedelta(days=1)
+    r = client.post("/api/accounts/import", json=body(rows=rows, as_of="2026-09-19"))
+    assert r.status_code == 422, r.status_code
+    assert "too large to plan" in str(r.json()["detail"])
+
+
 def test_the_golden_account_is_pinned(client):
     out = imported(client)
     streams = out["streams"]
@@ -255,6 +291,13 @@ def test_the_golden_account_is_pinned(client):
     assert (income["cadence"], income["anchor"]) == ("weekly", "Tuesday")
     assert out["provenance"]["next_payday"] == "2026-09-22"
     assert sorted(s["amount_cents"] for s in streams if s["kind"] == "bill") == [-120000, -3499, -1599]
+    # Rent is protected, so nothing is ever offered against it; the gym, the
+    # subscription and the weekly grocery run are all changeable.
+    assert len(out["candidates"]) == 10
+    rent = next(s for s in streams if s["amount_cents"] == -120000)
+    offered_against = {c["target_txn_id"] for c in out["candidates"]}
+    assert offered_against.isdisjoint(rent["projected_ids"]), "rent must never be offered"
+    assert out["meta"]["protected"]
 
     request = SolveRequest.model_validate(
         {
@@ -267,7 +310,8 @@ def test_the_golden_account_is_pinned(client):
             "locks": {"in": [], "out": []},
         }
     )
-    assert solve(request).tier == 3
+    result = solve(request)
+    assert (result.tier, len(result.plan)) == (3, 3)
 
 
 def test_the_same_export_twice_gives_the_same_answer(client):

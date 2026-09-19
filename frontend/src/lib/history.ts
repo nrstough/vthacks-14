@@ -139,7 +139,13 @@ export function panelModel(account: ImportAccountResponse): PanelModel {
   const p = account.provenance
   const assumedDaily = account.scheduled.filter((t) => t.id.startsWith(ASSUMED_PREFIX))
   const total = assumedDaily.reduce((sum, t) => sum + Math.abs(t.amount_cents), 0)
-  const perDay = assumedDaily.length > 0 ? Math.round(total / assumedDaily.length) : 0
+  // Integer division with an explicit half-up on the remainder: the rule is
+  // that no float touches money, and "display only" is how that rule erodes.
+  const perDay =
+    assumedDaily.length > 0
+      ? Math.floor(total / assumedDaily.length) +
+        (2 * (total % assumedDaily.length) >= assumedDaily.length ? 1 : 0)
+      : 0
 
   return {
     streams: account.streams,

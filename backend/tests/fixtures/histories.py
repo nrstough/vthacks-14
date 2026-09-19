@@ -135,14 +135,33 @@ def peer_transfers(start: datetime.date, end: datetime.date, seed: int = 47) -> 
     return out
 
 
-def realistic(end: datetime.date = datetime.date(2026, 9, 18), months: int = 9) -> list[dict]:
-    """A whole account: weekly pay, rent, two subscriptions, spending, transfers."""
+def realistic(
+    end: datetime.date = datetime.date(2026, 9, 18), months: int = 9, seed: int = 0
+) -> list[dict]:
+    """A whole account: weekly pay, rent, two subscriptions, spending, transfers.
+
+    `seed` moves the payday weekday, the amounts and the bills' days of month,
+    so a loop over seeds exercises DETECTION and not only the residual.
+    """
+    # Seed 0 is the fixed account the golden test pins; any other seed moves
+    # the payday weekday, the amounts and the bills' days of month.
+    rng = random.Random(seed)
+    vary = seed != 0
     start = end - datetime.timedelta(days=30 * months)
     rows: list[dict] = []
-    rows += weekly_income(end, weeks=4 * months)
-    rows += monthly_bill(start, months, 1, -120000, "OAKWOOD PROPERTIES")
-    rows += monthly_bill(start, months, 12, -3499, "PLANET FIT CLUB FEES", weekend_shift=False)
-    rows += monthly_bill(start, months, 15, -1599, "NETFLIX.COM", weekend_shift=False)
-    rows += everyday_spending(start, end)
-    rows += peer_transfers(start, end)
+    rows += weekly_income(
+        end,
+        weeks=4 * months,
+        weekday=rng.randrange(0, 5) if vary else 1,
+        amount=30000 + rng.randrange(0, 40000) if vary else 42000,
+        seed=seed if vary else 11,
+    )
+    rows += monthly_bill(
+        start, months, 1 + rng.randrange(0, 5) if vary else 1,
+        -(90000 + rng.randrange(0, 60000)) if vary else -120000, "OAKWOOD PROPERTIES",
+    )
+    rows += monthly_bill(start, months, 10 + rng.randrange(0, 8) if vary else 12, -3499, "PLANET FIT CLUB FEES", weekend_shift=False)
+    rows += monthly_bill(start, months, 15 + rng.randrange(0, 8) if vary else 15, -1599, "NETFLIX.COM", weekend_shift=False)
+    rows += everyday_spending(start, end, seed=seed if vary else 23)
+    rows += peer_transfers(start, end, seed=seed if vary else 47)
     return sorted(rows, key=lambda r: r["date"])

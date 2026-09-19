@@ -68,10 +68,6 @@ def stream_label(kind: str, category: str, cadence: str) -> str:
     return f"{CATEGORY_DISPLAY[category].capitalize()} ({CADENCE_WORDS[cadence]})"
 
 
-def stream_noun(kind: str) -> str:
-    """What to call a stream in a sentence to the person."""
-    return {"income": "income", "bill": "bill", "discretionary": "regular spending"}[kind]
-
 
 def candidate_label(action: str, category: str) -> str:
     noun = CATEGORY_DISPLAY[category]
