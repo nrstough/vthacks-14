@@ -499,3 +499,50 @@ checked the shape of something and not its content.** List-ness but not the
 fields inside. Truncation but not scrubbing. An id's presence but not whether
 it was usable. Each time the tests asserted the guard rather than the failure,
 so each time they passed.
+
+## Codex re-audit — dated note (2026-09-19, after commit `19d3c3c`)
+
+Still **Fail**, four findings, all real and all fixed here. Three reproduced
+before fixing. Nothing above this line is rewritten.
+
+1. **An empty `_id` still vanished.** The guard added last round checked the id
+   against the schema's pattern, and `n_` on its own matches it perfectly well
+   — so it waved through exactly the rows `to_scheduled` then dropped. Now
+   non-emptiness is checked first.
+2. **A body that is not UTF-8 was a 500.** The decode sits outside the guard
+   that catches bad JSON.
+3. **The timeout fix was half a fix.** `_timeout()` raised the right exception
+   and `account_from_nessie` called `from_env()` without translating it, so
+   `NESSIE_TIMEOUT_S=soon` was still a 500.
+4. **Both contract docs omitted the sixth reason.** `returned without a usable
+   id` shipped in the code and the client and not in `api-contract.md` or
+   `nessie.md` — the same omission as the fifth reason two rounds ago, in the
+   two places the automated gates do not reach. The gates cover schema against
+   client; prose is still checked by hand, and by hand is how this keeps
+   failing.
+
+### The pattern, now four rounds deep
+
+Every round has found the same defect class somewhere new: **a guard that
+checks the shape of a thing and not its usability.** List-ness, not the fields
+inside. Truncation, not scrubbing. An id's presence, not whether it is
+non-empty. A validator that raises, not a caller that maps it.
+
+Each fix was correct and each left the neighbouring case open, because the test
+written with it asserted the guard rather than the failure. The durable lesson
+for this codebase is the one the gates encode: **write the test that fails
+first, then the guard** — and where a gate cannot reach, such as prose, expect
+the drift and check it deliberately.
+
+### Accepted, not fixed
+
+- **Component-level tests.** Nothing in `frontend/tests/` mounts a component,
+  so account replacement, preset cancellation and the chat reset are verified
+  by the reducer tests, by `chatKey()`, and by the browser. Adding a DOM test
+  harness is a larger change than this one.
+- **Acceptance 7 remains self-report.** No committed browser artifact.
+
+### Gates
+
+Backend **2085 passed**, 2 skipped, 8 deselected. Frontend lint clean, build
+clean, **246 passed**. Golden hash unmoved.

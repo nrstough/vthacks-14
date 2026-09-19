@@ -322,10 +322,15 @@ written. `/api/accounts/sample` is the cent-precise path.
 Nessie's `balance`, so reading it would report an input as though it were a
 result.
 
-`not_round_tripped` reasons, one per row, in this precedence: `no usable date`,
-`outside the window`, `written but not returned`, `amount rounds to zero
-dollars` (under fifty cents, so rounding left nothing to write), `amount
-changed by the sandbox`. The first two are dropped from `scheduled`; the last keeps the
+`not_round_tripped` reasons, one per row, in this precedence: `returned
+without a usable id`, `no usable date`, `outside the window`, `written but not
+returned`, `amount rounds to zero dollars` (under fifty cents, so rounding left
+nothing to write), `amount changed by the sandbox`.
+
+A row the sandbox returns with no id, or with one the contract's id pattern
+refuses, cannot be named by its id — that is the defect. It is dropped from
+`scheduled` and counted under a placeholder id of the form
+`n_unidentified_<resource>_<n>`, so the loss is stated rather than silent. The first two are dropped from `scheduled`; the last keeps the
 sandbox's value, because that is what the sandbox holds.
 
 **Errors.** `503` when no key is configured, when the sandbox returns nothing,

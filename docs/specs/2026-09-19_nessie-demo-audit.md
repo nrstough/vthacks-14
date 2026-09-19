@@ -2,27 +2,25 @@
 
 | Dimension | Grade | Notes |
 |-----------|-------|-------|
-| Plan adherence | Fail | D2, D5a/D6 and acceptance 4 remain violated. |
-| Scope discipline | Acceptable | Minor extra cleanup and README additions are disclosed. |
-| Test coverage | Fail | Tests miss reproducible redaction, malformed-data and silent-loss cases. |
-| Review compliance | Acceptable | No Codex findings section is embedded or referenced in the run spec. |
-| Freeze integrity | Acceptable | No P1/P2/P3 hashes; subsequent spec changes are append-only. |
-| Regression check | Acceptable | No assertion failures observed; four environmental setup errors limit verification. |
-| Documentation | Fail | Operator error mapping and the read-only demo narration contradict implementation. |
-| **Overall** | **Fail** | Audited committed change through `5466974`. |
+| Plan adherence | Fail | Silent row loss and malformed-response 500 remain. |
+| Scope discipline | Acceptable | Minor extra edits are disclosed and bounded. |
+| Test coverage | Fail | Passing tests miss reproduced contract violations; browser evidence remains self-report. |
+| Review compliance | Fail | Referenced Codex findings are only partially resolved. |
+| Freeze integrity | Acceptable | Hash check skipped: none present. Original spec preserved; corrections appended. |
+| Regression check | Acceptable | No assertion failures observed; four backend setup errors are environmental. |
+| Documentation | Fail | Both declared contract docs omit the newly added sixth reason. |
+| **Overall** | **Fail** | |
 
 ### Commentary
 
-1. **Plan adherence, Test coverage — causes Fail: configured key can reach the response.** In [roundtrip.py](/Users/nathanstough/Desktop/vthacks-nessie/backend/app/nessie/roundtrip.py:178), `_upstream()` forwards conversion errors containing the offending upstream value without scrubbing it. A stub returning an amount equal to a fake configured key produced **502 with that exact key in `detail`**. Scrub conversion errors before exposing them, and add route-level tests for both transaction amounts and account balances.
+1. **Plan adherence / Review compliance — causes Fail.** An empty `_id` still disappears silently. [roundtrip.py:242](/Users/nathanstough/Desktop/vthacks-nessie/backend/app/nessie/roundtrip.py:242) accepts `""` because the derived `n_` matches the pattern, but `to_scheduled()` drops it. A stubbed read-only route with one valid row and one empty-ID row returned **200, `returned: 1`, `not_round_tripped: []`**. Reject empty IDs before normalization and test this through the route.
 
-2. **Plan adherence, Test coverage — causes Fail: malformed upstream data still produces 500.** An upstream row with `_id: "bad id"` passes normalization but fails response-model validation. Separately, an HTTP error body containing `{"message":123}` crashes `_scrub()` because it assumes a string ([client.py](/Users/nathanstough/Desktop/vthacks-nessie/backend/app/nessie/client.py:137)). Both cases reproduced **500**, violating acceptance 4. Validate upstream identifiers and error-message types, translate malformed data to 502, and test through the route.
+2. **Plan adherence / Review compliance — causes Fail.** Invalid UTF-8 upstream bytes produce **500**, contrary to D5a and acceptance 4. [client.py:150](/Users/nathanstough/Desktop/vthacks-nessie/backend/app/nessie/client.py:150) decodes outside the JSON-error guard. Reproduced with `b"\xff"`. Translate decoding failures into the upstream exception mapped to 502 and add a route regression test.
 
-3. **Plan adherence, Test coverage — causes Fail: read-only mode silently loses rows.** [Normalization](/Users/nathanstough/Desktop/vthacks-nessie/backend/app/nessie/__init__.py:133) skips records without IDs before reporting problems. A read-only stub returning one valid row and one ID-less row produced **200, one scheduled row, and an empty `not_round_tripped`**. This violates D2’s “Nothing is dropped silently.” Reject such malformed rows with 502 or explicitly account for them; add a mixed-validity read-only test.
+3. **Plan adherence — reinforces Fail.** The claimed timeout correction remains incomplete. `NESSIE_TIMEOUT_S=soon` still returns **500**: `_timeout()` raises `NessieNotConfigured`, but [roundtrip.py:438](/Users/nathanstough/Desktop/vthacks-nessie/backend/app/nessie/roundtrip.py:438) calls `from_env()` without translating that exception. Map configuration failures to `NessieUnavailable` and verify the route’s status and JSON detail.
 
-4. **Documentation — causes Fail: operational instructions contradict the changed behavior.** [.env.example](/Users/nathanstough/Desktop/vthacks-nessie/.env.example:46) says unreachable Nessie returns 503; transport failures actually map to 502. Correcting this timeout comment was explicitly committed in the spec. The [demo script](/Users/nathanstough/Desktop/vthacks-nessie/docs/demo-script.md:153) also says the account “was just written” after clicking the button, although the recommended `NESSIE_ACCOUNT_ID` configuration performs only reads. Correct the status guidance and provide narration for read-only mode.
+4. **Documentation — causes Fail.** [api-contract.md:325](/Users/nathanstough/Desktop/vthacks-nessie/docs/api-contract.md:325) and [nessie.md](/Users/nathanstough/Desktop/vthacks-nessie/docs/features/nessie.md) omit `returned without a usable id`. This is a new response value and an explicitly claimed documentation update, not cosmetic staleness. Document its placeholder IDs, dropped-row behavior and precedence.
 
-5. **Regression check — limits grade to Acceptable; environmental errors are not regressions.** On `nessie-demo` in the supplied worktree, Python 3.14.7 ran `PYTHONDONTWRITEBYTECODE=1 .venv/bin/pytest backend/ -q -s -p no:cacheprovider -m "not perf"`: **2,072 passed, 2 skipped, 8 deselected, 4 setup errors**. All four errors require temporary files blocked by this read-only environment. Golden tests passed. Node 22.17.1 frontend lint and **246 tests passed** against existing `dist`; a fresh build was not run. The existing static mount independently returned 503 for the no-key Nessie route. Live/browser results remain recorded evidence, not independently repeated checks.
+5. **Test coverage — causes Fail.** The suite misses findings 1–3. Component-level account replacement also remains untested, and acceptance 7 has no independently reviewable browser artifact. Add route tests for the reproduced failures and component tests exercising delayed loads/solves, preset cancellation and chat reset.
 
-6. **Test coverage — additional evidence limitation, no separate downgrade.** The dated note explicitly withdraws the promised screenshots. Browser observations exist only as prose; the original screenshot deliverable was not supplied.
-
-7. **Audit scope — no downgrade.** The checkout was initially clean, but four files acquired external uncommitted edits during the audit. Findings above concern committed `5466974` and the reproduced behavior; those concurrent edits are not treated as completed, verified corrections.
+6. **Regression check — Acceptable; verification limitations.** Audited `nessie-demo` at `19d3c3c`. With Python 3.14.7, `PYTHONDONTWRITEBYTECODE=1 .venv/bin/pytest backend/ -q -m 'not perf' -p no:cacheprovider --capture=sys` yielded **2,078 passed, 2 skipped, 8 deselected, 4 setup errors**. All four errors require temporary-file writes prohibited here; golden tests passed. With Node 22.17.1, frontend lint, both no-emit TypeScript checks and **246 tests** passed. Tests used existing `dist`; a fresh build, live sandbox probe and browser checks were not rerun.

@@ -35,6 +35,7 @@ from typing import Any
 from app.accounts.product import sample_account
 from app.nessie import NessieUnavailable, NessieUpstreamError, to_scheduled
 from app.nessie.client import (
+    NessieError,
     _scrub,
     NessieConfig,
     NessieError,
@@ -239,7 +240,10 @@ def _usable_id(row: dict[str, Any]) -> bool:
     the way out as a 500. Both have to be caught before either happens.
     """
     ident = row.get("_id")
-    return isinstance(ident, str) and bool(ID_RE.fullmatch(f"n_{ident[:40]}"))
+    # Non-empty first: `to_scheduled` drops a falsy `_id`, and `n_` on its own
+    # matches the id pattern perfectly well, so the pattern check alone waved
+    # through exactly the rows that then disappeared.
+    return bool(ident) and isinstance(ident, str) and bool(ID_RE.fullmatch(f"n_{ident[:40]}"))
 
 
 def _normalise(
@@ -435,7 +439,14 @@ def read_back(
 
 def account_from_nessie(req: Any, config: NessieConfig | None = None) -> dict[str, Any]:
     """The route's one entry point. Read-only when an account id is configured."""
-    config = config or NessieConfig.from_env()
+    if config is None:
+        # from_env() validates the timeout, and its NessieError is a type no
+        # handler maps — so a misconfigured box answered 500 rather than saying
+        # what was wrong with it.
+        try:
+            config = NessieConfig.from_env()
+        except NessieError as e:
+            raise NessieUnavailable(str(e)) from e
     # Before any dispatch: read-only mode reaches the network too, and a missing
     # key there would surface as a generic upstream 502 rather than "not set up".
     if not config.api_key:

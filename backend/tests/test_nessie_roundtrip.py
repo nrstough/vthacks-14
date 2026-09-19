@@ -930,3 +930,56 @@ def test_the_frontend_knows_every_reason_this_server_can_send():
     union = text[text.index("export interface NotRoundTripped") :].split("}", 1)[0]
     for reason in reasons:
         assert f"'{reason}'" in union, f"frontend/src/types.ts is missing the reason {reason!r}"
+
+
+def test_an_empty_id_is_not_a_usable_id(monkeypatch):
+    """`n_` on its own matches the id pattern perfectly well, so a pattern
+    check alone waved through exactly the rows `to_scheduled` then dropped."""
+    from app.nessie.roundtrip import _usable_id
+
+    assert not _usable_id({"_id": ""})
+    assert not _usable_id({})
+    assert not _usable_id({"_id": None})
+    assert _usable_id({"_id": "abc123"})
+
+    box = install(monkeypatch, Sandbox(nickname="Demo Checking"))
+    seed_and_read_back(seeded_account(seed=SEED, horizon_days=30), CFG)
+    for rows in box.rows.values():
+        for row in rows:
+            row["_id"] = ""
+    with pytest.raises(NessieUnavailable):
+        read_back("acc_0", CFG, as_of="2026-09-19", horizon_end="2026-10-18")
+
+
+def test_a_body_that_is_not_text_is_an_upstream_error(monkeypatch):
+    """Decoded outside the JSON guard, so invalid bytes were a 500."""
+
+    class RawBytes:
+        def read(self) -> bytes:
+            return b"\xff\xfe not text"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+    monkeypatch.setattr(client.urllib.request, "urlopen", lambda *a, **k: RawBytes())
+    with pytest.raises(NessieUpstreamError):
+        seed_and_read_back(seeded_account(seed=SEED), CFG)
+
+
+def test_a_misconfigured_timeout_is_a_503_not_a_500(monkeypatch):
+    """from_env() validates the timeout and raises a type no handler maps."""
+    import app.chat.gemini as gemini
+    from fastapi.testclient import TestClient as _TC
+
+    from app.main import create_app as _create
+
+    monkeypatch.setattr(gemini, "_env_loaded", True)
+    monkeypatch.setenv("NESSIE_API_KEY", "k" * 32)
+    monkeypatch.setenv("NESSIE_TIMEOUT_S", "soon")
+    monkeypatch.setattr(client.urllib.request, "urlopen", explode)
+    r = _TC(_create(None)).post("/api/accounts/nessie", json={})
+    assert r.status_code == 503, r.text
+    assert "NESSIE_TIMEOUT_S" in r.json()["detail"]

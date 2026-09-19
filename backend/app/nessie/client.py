@@ -147,7 +147,13 @@ def _request(config: NessieConfig, method: str, path: str, body: dict | None = N
         raise NessieError(f"Nessie base URL is not usable: {_redact(url)}") from e
     try:
         with urllib.request.urlopen(req, timeout=config.timeout_s) as resp:
-            raw = resp.read().decode()
+            try:
+                raw = resp.read().decode()
+            except UnicodeDecodeError as e:
+                # Decoded outside the JSON guard, so invalid bytes were a 500.
+                raise NessieError(
+                    f"Nessie answered with bytes that are not text for {_redact(url)}"
+                ) from e
             if not raw.strip():
                 return None
             try:
