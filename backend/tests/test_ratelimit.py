@@ -132,6 +132,30 @@ def test_a_clock_that_goes_backwards_grants_nothing():
     assert limiter.check("a").allowed is False
 
 
+def test_a_clock_that_goes_backwards_does_not_lock_an_address_out():
+    """The other half of the same guarantee.
+
+    Granting nothing on a backwards step is right; stranding the timestamp in
+    the future would leave the address refused until real time caught up,
+    which is the lockout the guard exists to prevent.
+    """
+    clock = Clock()
+    limiter = RateLimiter(per_minute=20, burst=1, clock=clock)
+    limiter.check("a")
+    assert limiter.check("a").allowed is False
+    clock.advance(-600)
+    assert limiter.check("a").allowed is False  # nothing granted
+    clock.advance(3)  # and the usual wait still works from here
+    assert limiter.check("a").allowed is True
+
+
+def test_a_limiter_cannot_be_configured_into_dividing_by_zero():
+    """`disabled()` is the off switch; zero would 500 on the first refusal."""
+    for kwargs in ({"per_minute": 0}, {"burst": 0}, {"per_minute": -1}):
+        with pytest.raises(ValueError, match="disabled"):
+            RateLimiter(**kwargs)
+
+
 def test_a_refused_request_is_not_charged():
     """Charging a refusal would let a loop extend its own lockout for ever."""
     clock = Clock()

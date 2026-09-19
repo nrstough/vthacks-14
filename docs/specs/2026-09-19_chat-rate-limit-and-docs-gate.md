@@ -114,8 +114,16 @@ judges' stance paragraph.
 
 ## Amendment, 2026-09-19, after the Codex plan review
 
-Two decisions above were superseded before any code was written. They are left
-in place because this is the audit record; what shipped is below.
+Decisions above were superseded by the review, before any code was written.
+They are left in place because this is the audit record; what shipped is below.
+
+**On the provenance of this section.** The design changes were made in plan
+revision 2 and approved before implementation began, but this text and
+`…-plan-review.md` were both committed *with* the code, not before it. So the
+ordering is self-attested rather than shown by history, and the genuinely
+frozen text at `83231f1` describes a design that was never built. The next run
+of this pipeline should commit the review artifact and the amendment ahead of
+the implementation commit. Recorded here rather than quietly corrected.
 
 **D3 is superseded.** The application does not parse `X-Forwarded-For` at all.
 The installed uvicorn (0.53.0) enables `proxy_headers` by default, trusts
@@ -222,7 +230,7 @@ history establishes that the design preceded the implementation.
 
 | Suite | Before | After |
 |---|---|---|
-| `pytest backend/ -q` | 1,271 passed | **1,321 passed** (+50) |
+| `pytest backend/ -q` | 1,271 passed | **1,325 passed** (+54) |
 | `npm test` (frontend) | 209 passed | **216 passed** (+7) |
 
 `npm run lint` and `npm run build` clean. The frontend build runs before the
@@ -243,7 +251,7 @@ none.
 | AC8 | Full suites green | above |
 
 **Counterfactuals, run rather than asserted.** Each guard was deleted in turn
-and the named test had to fail. Ten of ten now bite:
+and the named test had to fail. All of the following bite:
 
 | Mutation | Test that caught it |
 |---|---|
@@ -261,6 +269,10 @@ and the named test had to fail. Ten of ten now bite:
 | Unit drops the docs variable | `test_the_unit_file_sets_the_name_the_app_reads` |
 | 429 branch never wired into the request path | frontend `chat-errors` (3 fail) |
 | Server detail echoed on a 429 | frontend `chat-errors` (3 fail) |
+| App stops reading `os.environ` for the gate | `test_the_environment_variable_actually_reaches_the_app` |
+| The `ExecStart` continuation backslash is lost | `test_the_unit_parses_the_way_systemd_reads_it` |
+| Backwards clock strands the timestamp | `test_a_clock_that_goes_backwards_does_not_lock_an_address_out` |
+| The zero guard is removed | `test_a_limiter_cannot_be_configured_into_dividing_by_zero` |
 
 **Two vacuous tests were found this way and fixed**, which is the reason the
 exercise is run at all:
@@ -291,5 +303,30 @@ Two frozen plan files (`docs/reports/2026-09-19_solver-core-plan.md`,
 frozen records, and the new parameters are keyword-only, so what they say still
 holds. Left alone.
 
-**Deviations from the plan.** One, recorded above: `chat.md` → `README.md` for
-the docs-gate variable. Everything else went as planned.
+**Deviations from the plan.** All of them, not only the first:
+
+1. The docs-gate variable went to `README.md` rather than `docs/features/chat.md`;
+   it is app-wide, not a chat setting.
+2. No tests were added to `test_chat.py`. The plan said "additions"; only the
+   fixture changed. The upstream-429 case was already covered there, as the
+   review pointed out, and the limiter's own tests live in their own file.
+3. `backend/tests/test_docs_gate.py` was not in the plan as a separate file.
+   The plan folded stage 5 in with the rest; a separate concern got a separate
+   file.
+4. Seven frontend tests shipped against five planned.
+5. The `docs/prize-strategy.md` edit is wider than the three items P2 named.
+   It also states the HSTS, CSP, loopback-binding and sandbox facts that the
+   survey had verified but the paragraph never mentioned. Each was
+   re-verified against `Caddyfile` and `deploy/overdraft-guard.service` before
+   being written down.
+
+**A second critique pass found five more defects, all fixed before this
+record was finalised:**
+
+| Defect | Fix |
+|---|---|
+| The environment-to-app wiring for the docs gate had no test at all: every test passed `docs=` explicitly, so deleting the `os.environ` read left the suite green and the box serving the console | `test_the_environment_variable_actually_reaches_the_app` |
+| The unit-file tests grepped lines, so a lost `ExecStart` continuation backslash — a unit systemd would refuse to start — still passed | The unit is now parsed the way systemd reads it, continuations joined, and each flag asserted to belong to `ExecStart` |
+| D5 was half-built: a backwards clock granted nothing, correctly, but stranded the timestamp in the future and locked the address out until real time caught up | `bucket.at` is resynced unconditionally; the two-sided guarantee is now tested |
+| `RateLimiter(per_minute=0)` raised `ZeroDivisionError` from inside the dependency, i.e. a 500 | The constructor refuses it and names `disabled()` as the off switch |
+| The full-bucket eviction pass was unreachable, not merely untested: a bucket with a token to spend always spends it, so a stored bucket is never at capacity | Removed. Dead code that looks like a policy is worse than no policy |

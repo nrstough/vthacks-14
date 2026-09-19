@@ -9,6 +9,8 @@ import assert from 'node:assert/strict'
 import { askViaApi, ChatError, RESTING, restingMessage, retryAfterOf } from '../src/lib/chat.ts'
 import type { SolveRequest, SolveResponse } from '../src/types.ts'
 
+// Mirrors BANNED in backend/app/solver/wording.py. Three frontend files keep
+// their own copy of this list; adding a word there means adding it here too.
 const BANNED = ['infeasib', 'guarantee']
 
 const REQ = {} as unknown as SolveRequest

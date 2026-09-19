@@ -62,6 +62,11 @@ class RateLimiter:
         clock: Callable[[], float] = time.monotonic,
         lock=None,
     ) -> None:
+        if per_minute < 1 or burst < 1:
+            # Not a way to switch the limit off — that is `disabled()`, which
+            # says so at the call site. Zero here would divide by zero on the
+            # first refusal and 500 the endpoint.
+            raise ValueError("per_minute and burst must both be at least 1; use RateLimiter.disabled()")
         self._rate = per_minute / 60.0
         self._burst = float(burst)
         self._max_keys = max_keys
@@ -104,7 +109,11 @@ class RateLimiter:
                 # guard costs one comparison.
                 if elapsed > 0:
                     bucket.tokens = min(self._burst, bucket.tokens + elapsed * self._rate)
-                    bucket.at = now
+                # Resynced even when the clock went backwards. Granting nothing
+                # is half of it; leaving `at` in the future would strand the
+                # bucket until real time caught up, which is the lockout the
+                # same guard is meant to prevent.
+                bucket.at = now
 
             if bucket.tokens >= 1.0:
                 bucket.tokens -= 1.0
@@ -120,26 +129,22 @@ class RateLimiter:
             return decision
 
     def _evict(self) -> None:
-        """Hold the map to its ceiling. Caller holds the lock.
+        """Hold the map to its ceiling, least-recently-used first.
 
-        A bucket at full capacity carries no information — forgetting it and
-        meeting that address fresh are the same thing — so those go first.
-        Past that it is least-recently-used, and every attempt moves its own
-        key to the end, so an address that is currently hammering is never
-        the one dropped.
+        Every attempt moves its own key to the end, so the address that is
+        currently hammering is never the one dropped: filling the map is not
+        a way to clear your own record.
 
-        An actor with thousands of source addresses can force eviction, but
-        such an actor defeats any per-address limit by rotating addresses
+        An earlier draft dropped buckets at full capacity first, on the
+        grounds that they carry no information. That branch was unreachable —
+        a bucket with a token to spend always spends it, so a stored bucket is
+        never at capacity — and dead code that looks like a policy is worse
+        than no policy.
+
+        An actor with thousands of source addresses can still force eviction,
+        but such an actor defeats any per-address limit by rotating addresses
         anyway. This ceiling is a memory bound, not a security boundary.
         """
-        if len(self._buckets) <= self._max_keys:
-            return
-
-        for key in [k for k, b in self._buckets.items() if b.tokens >= self._burst]:
-            del self._buckets[key]
-            if len(self._buckets) <= self._max_keys:
-                return
-
         while len(self._buckets) > self._max_keys:
             self._buckets.popitem(last=False)
 

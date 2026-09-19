@@ -106,7 +106,7 @@ could not post a transaction list off the box, and no personal financial history
 proposed request flow. The API key is server-side, never in the bundle: in `.env` locally, and on
 the box a root-owned `0600` file outside the repository and outside the deploy's file list. The
 service runs on loopback behind Caddy under `NoNewPrivileges` and `ProtectSystem=strict`, and
-serves no interactive API console.
+the box serves no interactive API console (it stays on in local development).
 
 The explainer is rate limited to twenty questions a minute per address, because it is the one
 endpoint that spends the key; the limit holds a count per address, no content and no identity, and
