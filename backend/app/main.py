@@ -15,7 +15,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.schemas import SolveRequest, SolveResponse
+from app.candidates import generate
+from app.schemas import (
+    CandidatesRequest,
+    CandidatesResponse,
+    SolveRequest,
+    SolveResponse,
+)
 from app.solver.errors import EngineUnavailable
 from app.solver.solve import solve
 
@@ -48,8 +54,13 @@ def create_app(dist_dir: Path | None = DEFAULT_DIST) -> FastAPI:
     def api_solve(req: SolveRequest) -> SolveResponse:
         return solve(req)
 
+    @app.post("/api/candidates", response_model=CandidatesResponse)
+    def api_candidates(req: CandidatesRequest) -> CandidatesResponse:
+        return generate(req)
+
     # Mounted last. A mount at "/" registered first would shadow every route
-    # above it, and the API would answer 404 for /health and 405 for /api/solve.
+    # above it, and the API would answer 404 for /health and 405 for the two
+    # /api routes.
     if dist_dir is not None and dist_dir.is_dir():
         app.mount("/", StaticFiles(directory=dist_dir, html=True), name="frontend")
 

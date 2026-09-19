@@ -1,4 +1,4 @@
-"""Request and response models for POST /api/solve.
+"""Request and response models for POST /api/solve and POST /api/candidates.
 
 Strict by construction: unknown fields are rejected, money is integer cents and
 never a float, and dates are YYYY-MM-DD strings. Cross-field checks live on the
@@ -121,6 +121,35 @@ class Locks(Strict):
     out: list[Id] = Field(default_factory=list, max_length=MAX_N)
 
 
+# Both request models take the same window and the same rows, so they share these
+# rather than keeping two copies that can drift. `iso` above is the precedent: a
+# module-level helper several validators call.
+
+
+def check_horizon(horizon_end: str, as_of: str | None) -> str:
+    """Validate horizon_end against as_of.
+
+    `as_of` is None when it failed its own validator and never reached
+    `info.data`; skipping the span check then keeps the 422 pointed at the one
+    field the caller actually got wrong.
+    """
+    iso(horizon_end)
+    if as_of:
+        span = (datetime.date.fromisoformat(horizon_end) - datetime.date.fromisoformat(as_of)).days + 1
+        if span < 1:
+            raise ValueError("horizon_end is before as_of; there are no days to plan over")
+        if span > MAX_T:
+            raise ValueError(f"horizon of {span} days is longer than the {MAX_T}-day limit")
+    return horizon_end
+
+
+def check_unique_txn_ids(v: list[ScheduledTxn]) -> list[ScheduledTxn]:
+    ids = [t.id for t in v]
+    if len(ids) != len(set(ids)):
+        raise ValueError("transaction ids must be unique")
+    return v
+
+
 class SolveRequest(Strict):
     as_of: StrictStr
     horizon_end: StrictStr
@@ -141,23 +170,12 @@ class SolveRequest(Strict):
     @field_validator("horizon_end")
     @classmethod
     def _horizon_end(cls, v: str, info: ValidationInfo) -> str:
-        iso(v)
-        as_of = info.data.get("as_of")
-        if as_of:
-            span = (datetime.date.fromisoformat(v) - datetime.date.fromisoformat(as_of)).days + 1
-            if span < 1:
-                raise ValueError("horizon_end is before as_of; there are no days to plan over")
-            if span > MAX_T:
-                raise ValueError(f"horizon of {span} days is longer than the {MAX_T}-day limit")
-        return v
+        return check_horizon(v, info.data.get("as_of"))
 
     @field_validator("scheduled")
     @classmethod
     def _scheduled(cls, v: list[ScheduledTxn]) -> list[ScheduledTxn]:
-        ids = [t.id for t in v]
-        if len(ids) != len(set(ids)):
-            raise ValueError("transaction ids must be unique")
-        return v
+        return check_unique_txn_ids(v)
 
     @field_validator("candidates")
     @classmethod
@@ -194,6 +212,39 @@ class SolveRequest(Strict):
         if both:
             raise ValueError(f"locked both in and out: {both}")
         return v
+
+
+class CandidatesRequest(Strict):
+    """What /api/candidates needs: the window and the rows, nothing about balances.
+
+    Fields are declared in SolveRequest's order and checked by the same functions,
+    so the two endpoints reject the same input the same way.
+
+    `limit` defaults to MAX_FREE rather than MAX_N because that is the largest set
+    every fallback still answers: the exhaustive engine refuses above it, and so
+    does the browser's stand-in solver. A caller that knows it has CP-SAT can ask
+    for more.
+    """
+
+    as_of: StrictStr
+    horizon_end: StrictStr
+    scheduled: list[ScheduledTxn] = Field(max_length=MAX_SCHED)
+    limit: Annotated[StrictInt, Field(ge=1, le=MAX_N)] = MAX_FREE
+
+    @field_validator("as_of")
+    @classmethod
+    def _as_of(cls, v: str) -> str:
+        return iso(v)
+
+    @field_validator("horizon_end")
+    @classmethod
+    def _horizon_end(cls, v: str, info: ValidationInfo) -> str:
+        return check_horizon(v, info.data.get("as_of"))
+
+    @field_validator("scheduled")
+    @classmethod
+    def _scheduled(cls, v: list[ScheduledTxn]) -> list[ScheduledTxn]:
+        return check_unique_txn_ids(v)
 
 
 # --------------------------------------------------------------------------
@@ -265,3 +316,24 @@ class SolveResponse(Strict):
     external_cash_needed: ExternalCash | None
     balances: list[BalanceRow]
     meta: Meta
+
+
+class CandidatesMeta(Strict):
+    """What happened to every row the generator looked at.
+
+    `protected`, `not_actionable` and the targets of the returned candidates
+    partition the considered rows. `unrecognised` is orthogonal to those three:
+    it records classification, not disposition, so a row no keyword matched
+    appears there whether it was offered, protected or cut by the limit.
+    """
+
+    rows_considered: Annotated[StrictInt, Field(ge=0, le=MAX_SCHED)]
+    protected: list[Id]
+    unrecognised: list[Id]
+    not_actionable: list[Id]
+    truncated: bool
+
+
+class CandidatesResponse(Strict):
+    candidates: list[Candidate] = Field(max_length=MAX_N)
+    meta: CandidatesMeta
