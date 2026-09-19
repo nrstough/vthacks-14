@@ -6,8 +6,10 @@
 >
 > The table below is the survey of `2653df3`, except for its last two rows:
 > those were the open ones, and their status and evidence have been rewritten
-> to what closed them. Everything else is as first written. The survey's
-> original text is in git history.
+> to what closed them. Everything else is as first written — including the
+> line just above the table, which counted two of three done because that is
+> what was true when the survey was taken. All of it is done now. The
+> survey's original text is in git history.
 
 **Purpose of this chat:** Run `/plan review` locally on the two-item security scope below,
 then execute it on branch `claude/security-readiness-krrpk9`. The branch exists on

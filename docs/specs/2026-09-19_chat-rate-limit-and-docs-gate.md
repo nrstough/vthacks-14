@@ -320,6 +320,21 @@ holds. Left alone.
    re-verified against `Caddyfile` and `deploy/overdraft-guard.service` before
    being written down.
 
+**A fifth pass graded the change Acceptable and recommended stopping.** It
+found one unreachable `max()` clamp — the same class as the dead branch
+removed earlier, by this change's own stated rule — and one preserved survey
+sentence with an awkward neighbour. Both were closed rather than logged: the
+clamp now names the invariant it guards, and the handoff's banner covers the
+preserved line instead of the line being edited, since editing it is what
+made the banner false the round before.
+
+The critique ran five times. Rounds one to three each found something live:
+a production wiring line with no test, a test satisfied by a comment rather
+than the directive it checked, an unbounded token-minting regression
+introduced by an earlier fix, a 500 reachable from the constructor, and two
+self-contradicting documents. Round four found nothing that could affect the
+running system, a reader, or a judge, which is where the loop was stopped.
+
 **A fourth pass graded the change Fail on documentation. Both causes were
 self-inflicted, and five findings were fixed:**
 

@@ -144,6 +144,12 @@ class RateLimiter:
                 # bucket's high-water mark — the time until refilling resumes
                 # at all. Reporting only the first would promise three
                 # seconds in the middle of a ten-minute wait.
+                # `bucket.at` is only ever assigned inside `elapsed > 0`, where
+                # it is set to `now`, so this difference is never negative
+                # under any clock. The clamp guards that invariant rather than
+                # a case — nothing can reach it, and no test can distinguish
+                # it; it is here so a future assignment to `at` cannot turn a
+                # wait negative in silence.
                 catch_up = max(0.0, bucket.at - now)
                 wait = catch_up + (1.0 - bucket.tokens) / self._rate
                 decision = Decision(False, max(1, ceil(wait)))
