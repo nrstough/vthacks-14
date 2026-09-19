@@ -232,7 +232,7 @@ contract, new dependencies.
 ## Commands
 
 ```bash
-cd "/Users/nathanstough/Desktop/VT Hacks" && .venv/bin/pytest backend/tests/test_candidates_classify.py backend/tests/test_candidates_policy.py backend/tests/test_candidates_api.py backend/tests/test_candidates_roundtrip.py -q
+cd "/Users/nathanstough/Desktop/VT Hacks" && .venv/bin/pytest backend/tests/test_candidates_classify.py backend/tests/test_candidates_policy.py backend/tests/test_candidates_api.py backend/tests/test_candidates_roundtrip.py -q -m "not perf"
 cd "/Users/nathanstough/Desktop/VT Hacks" && .venv/bin/pytest backend/ -q -m "not perf"
 cd "/Users/nathanstough/Desktop/VT Hacks" && .venv/bin/pytest backend/ -m perf -q -s
 ```
@@ -307,7 +307,10 @@ were wrong in two constructible cases (both now explicit tests); the every-cap r
 would have 422'd on an opening balance of ~10^14; `_normalise` bypasses the one deliberate
 oracle divergence, so `assert_agrees` is used instead; `KROGER #382` and `kroger 0382` do
 **not** normalise to identical tokens, so the test asserts equal classification instead;
-`" monthly"` misdescribes a weekly charge, now `" recurring"`.
+`" monthly"` misdescribes a weekly charge, now `" recurring"`. The second suggestion —
+`-m "not perf"` on the first command, so the 300-window sweep does not run twice — was
+recorded as applied in the first draft of this section while the command itself was
+unchanged; the critique's second round caught that, and it is applied above.
 
 **Codex, asked separately what executing this plan demands.** Estimated 70 % mechanical /
 30 % judgment, and named the failure modes worth guarding: an omitted lexicon phrase
@@ -316,6 +319,13 @@ wrong ranking key; and vacuous matcher tests. **One of those was live in this br
 `test_the_longest_phrase_wins_within_a_category` compared only categories, and both phrases
 were `atm_cash`, so it passed whichever won. It now compares the display, and a second test
 asserts every phrase in the table reaches its own category rather than being shadowed.
+
+### Recorded, not resolved
+
+The run spec was written and committed in the same commit as the implementation, so git
+carries no evidence that D1–D14 and AC1–AC12 predate the code. Nothing here was rewritten
+after the fact — Results is appended — but that cannot be verified from history. Commit the
+spec at plan time in the next run.
 
 ### Deviations from the plan
 
@@ -328,3 +338,29 @@ asserts every phrase in the table reaches its own category rather than being sha
   the nine real names are used.
 - Two perf cases added rather than one: the 2000-row classification cost and the
   300-window engine-agreement sweep the critique moved out of the gate.
+
+### Audit rounds
+
+**Claude critique, round 1 — Fail** (Test coverage, Documentation). It ran 15 mutations
+against the committed code. Six changed load-bearing behaviour and killed **zero** tests:
+dropping the alternative index from the rank key, inverting the savings preference,
+deleting the final dated sort, and three of the five policy rows that never appear on the
+demo account. Two tests were vacuous for reasons reading them would not reveal — the cap
+test used 100 identical rows, so pain alone already separated first choices from second;
+and the ordering test was masked because `_dedupe` re-sorts as a side effect and the demo
+account has two DoorDash rows. It also found a real defect neither review anticipated:
+classification depended on the caller's Unicode form, so an accented merchant name
+classified differently in NFC and NFD. All fixed in `88b0657`.
+
+**Claude critique, round 2 — Acceptable.** All 22 mutations across both rounds now kill at
+least one test; the four that killed tests in round 1 kill exactly as many, so nothing was
+weakened. It verified the new ordering test genuinely exits `_dedupe` early (rather than
+being masked the way its predecessor was), checked the policy literal against D9 row by
+row, and confirmed the Unicode fix changes the tokens of exactly one string in the whole
+corpus — the intended one — with no new phrase collisions and no perf cost (2000 rows ×
+1880-character descriptions: 251 ms against a 2000 ms budget). Its one surviving finding
+was F6 above.
+
+Scorecard: Plan adherence Acceptable, Scope discipline **Excellent**, Test coverage
+**Excellent**, Review compliance Acceptable, Freeze integrity Acceptable, Regression check
+**Excellent**, Documentation Acceptable. **Overall: Acceptable.**
