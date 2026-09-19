@@ -81,3 +81,17 @@ test('the dom id lives in one place, and the component still wires onFocus', () 
   const list = readFileSync(join(src, 'components', 'PrescriptionList.tsx'), 'utf8')
   assert.match(list, /onFocus=\{/)
 })
+
+test('each section calls controlFor with its own name, exactly once', () => {
+  // The helper's whole job is that the two lists invert against each other, and
+  // the only thing telling it which list it is in is this argument. Swapping
+  // one for the other flips the tick on a whole section and breaks nothing
+  // else — the four cases above still pass, because they call the helper
+  // directly. This is the pin on the call sites.
+  const src = fileURLToPath(new URL('../src/', import.meta.url))
+  const list = readFileSync(join(src, 'components', 'PrescriptionList.tsx'), 'utf8')
+  for (const section of ['plan', 'out']) {
+    const found = (list.match(new RegExp(`controlFor\\('${section}',`, 'g')) ?? []).length
+    assert.equal(found, 1, `controlFor('${section}', … appears ${found} times, expected 1`)
+  }
+})

@@ -101,3 +101,29 @@ test('every font the built CSS asks for is actually in dist/fonts', () => {
     assert.ok(size > 1024, `dist/fonts/${name} is only ${size} bytes`)
   }
 })
+
+// The two faces above the fold are preloaded from index.html, which Vite copies
+// through untouched — so a renamed or moved font file leaves the <link> behind
+// pointing at a 404. The browser then silently falls back and the page looks
+// fine to whoever built it, which is the same failure mode the test above
+// exists for, one layer up.
+test('every font index.html preloads is actually in dist/fonts', () => {
+  const html = readFileSync(join(DIST_ROOT, 'index.html'), 'utf8')
+  const hrefs: string[] = []
+  for (const tag of html.match(/<link\b[^>]*>/g) ?? []) {
+    if (!/rel=["']preload["']/.test(tag)) continue
+    if (!/as=["']font["']/.test(tag)) continue
+    const href = tag.match(/href=["']([^"']+)["']/)
+    assert.ok(href, `a font preload has no href: ${tag}`)
+    hrefs.push(href[1])
+  }
+
+  // Vacuity guard, as above: a regex that matched nothing would pass silently.
+  assert.ok(hrefs.length >= 2, `expected at least 2 font preloads in index.html, found ${hrefs.length}`)
+
+  for (const href of hrefs) {
+    assert.ok(href.startsWith('/fonts/'), `preload href ${href} is not under /fonts/`)
+    const size = statSync(join(DIST_ROOT, href.slice(1))).size
+    assert.ok(size > 1024, `dist${href} is only ${size} bytes`)
+  }
+})

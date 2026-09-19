@@ -320,6 +320,11 @@ export default function App() {
                   <div>
                     <p className="panel-kicker">What if</p>
                     <h2>Move the inputs</h2>
+                    {/* The clause the old tagline carried. It belongs next to
+                        the controls it describes, not over the verdict. */}
+                    <p className="panel-lede">
+                      Move a slider or rule a change out, and the plan is re-solved from scratch.
+                    </p>
                   </div>
                 </div>
 

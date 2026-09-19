@@ -88,6 +88,9 @@
   --on-navy-soft: rgba(255, 255, 255, 0.78);
   --on-navy-wash: rgba(255, 255, 255, 0.14);
   --on-navy-line: rgba(255, 255, 255, 0.26);
+  /* The shadow under the lit nav pill. Navy, not neutral black: the pill sits
+     on the gradient, and black over the blue reads as dirt on the screen. */
+  --on-navy-shadow: rgba(7, 26, 51, 0.25);
 
   /* brand.burnt / brand.peach. Red on this page is always the warm one. */
   --neg: #c63205;
@@ -155,7 +158,6 @@
    Baskerville ships 400 and 700 and nothing between; the tighter tracking the
    old grotesque needed is eased off, a serif does not want it. */
 .panel-head h2,
-.band-head h2,
 .verdict h1,
 h1, h2, h3 {
   font-family: var(--display);
@@ -277,7 +279,7 @@ body {
   background: var(--on-navy);
   color: var(--accent-press);
   font-weight: 600;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 1px 2px var(--on-navy-shadow);
 }
 
 .pillnav button .dot {
@@ -318,7 +320,7 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.92);
+  background: color-mix(in srgb, var(--on-navy) 92%, transparent);
   color: var(--accent-press);
   font-size: 12px;
   font-weight: 700;
@@ -380,7 +382,6 @@ body {
   height: 6px;
   border-radius: 50%;
   background: var(--good);
-  flex: none;
 }
 
 /* ---------- stat boxes ---------- */
@@ -516,177 +517,17 @@ body {
 .panel-tag.warn { background: var(--warn-wash); color: var(--warn); }
 .panel-tag.neg { background: var(--neg-wash); color: var(--neg); }
 
+/* The one line of prose a panel head is allowed, sitting under its heading.
+   The head already carries the gap below itself, so this only needs the space
+   between it and the heading — a bottom margin here would double that gap. */
 .panel-lede {
   font-size: 14px;
   color: var(--ink-2);
-  margin: 0 0 var(--s3);
+  margin: 6px 0 0;
   max-width: 72ch;
 }
 
 .panel-head .panel-actions { display: flex; align-items: center; gap: var(--s1); }
-
-.panel-menu {
-  border: 0;
-  background: transparent;
-  color: var(--ink-3);
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-}
-
-.panel-menu:hover { background: var(--panel-2); color: var(--ink); }
-
-/* ---------- dashboard: right rail list ---------- */
-
-.rail-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s2);
-}
-
-.rail-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.rail-item:last-child { border-bottom: 0; }
-
-.rail-item .avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.rail-item .rail-name { font-size: 14px; font-weight: 600; color: var(--ink); }
-.rail-item .rail-time { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
-.rail-item .rail-btn {
-  margin-left: auto;
-  border: 1px solid var(--accent);
-  background: var(--bg);
-  color: var(--accent-ink);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 4px 12px;
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.rail-item .rail-btn:hover { background: var(--accent-wash); }
-
-/* ---------- dashboard: table ---------- */
-
-.table-wrap { overflow-x: auto; }
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.table th {
-  text-align: left;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-  padding: 0 var(--s2) 10px 0;
-  border-bottom: 1px solid var(--line);
-  white-space: nowrap;
-}
-
-.table td {
-  padding: 12px var(--s2) 12px 0;
-  border-bottom: 1px solid var(--line);
-  color: var(--ink-2);
-  vertical-align: middle;
-}
-
-.table tr:last-child td { border-bottom: 0; }
-
-.table .t-num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; }
-.table .t-id { color: var(--ink-3); font-size: 12px; }
-.table .t-name { font-weight: 600; color: var(--ink); }
-.table .t-amount { font-weight: 600; color: var(--ink); text-align: right; }
-
-.t-pill {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: var(--radius-pill);
-}
-
-.t-pill.in { background: var(--good-wash); color: var(--good); }
-.t-pill.out { background: var(--neg-wash); color: var(--neg); }
-.t-pill.wait { background: var(--warn-wash); color: var(--warn); }
-
-.t-action {
-  border: 0;
-  background: transparent;
-  color: var(--ink-3);
-  cursor: pointer;
-  font-size: 15px;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-}
-
-.t-action:hover { background: var(--panel-2); color: var(--ink); }
-
-/* ---------- dashboard: verdict panel ---------- */
-
-.verdict-panel {
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: var(--s4);
-  position: relative;
-  overflow: hidden;
-}
-
-.verdict-panel::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 4px;
-  background: var(--accent);
-}
-
-.verdict-panel.t2::before { background: var(--warn); }
-.verdict-panel.t3::before { background: var(--neg); }
-
-.verdict-panel .verdict { margin: 0; }
-
-.verdict-panel .verdict h1 { font-size: 30px; margin-bottom: var(--s2); }
-
-.verdict-panel .certificate {
-  margin-top: var(--s3);
-  border-left-color: var(--accent);
-  background: var(--panel);
-}
-
-.verdict-panel .cash-callout {
-  margin-top: var(--s3);
-  border-color: var(--neg);
-  background: var(--neg-wash);
-}
-
-.verdict-panel .pill { margin-bottom: var(--s2); }
 
 /* ---------- dashboard: chart panel ---------- */
 
@@ -708,10 +549,6 @@ body {
   border-radius: var(--radius);
   padding: var(--s3);
 }
-
-.controls-panel .band-head { margin-bottom: var(--s3); }
-
-.controls-panel .band-head h2 { font-size: 15px; }
 
 .controls .ctl {
   padding: var(--s2);
@@ -783,14 +620,6 @@ body {
   display: flex;
   gap: var(--s3);
   flex-wrap: wrap;
-}
-
-.meta-local {
-  color: var(--warn);
-  background: var(--warn-wash);
-  border-radius: var(--radius-pill);
-  padding: 1px 10px;
-  font-weight: 600;
 }
 
 /* ---------- scenario switcher ---------- */
@@ -966,26 +795,6 @@ body {
 
 /* ---------- band 2: chart ---------- */
 
-.band { margin-bottom: var(--s5); }
-
-.band-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--s2);
-  margin-bottom: var(--s2);
-  flex-wrap: wrap;
-}
-
-.band-head h2 {
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ink-3);
-  margin: 0;
-}
-
 .legend { display: flex; gap: var(--s2); font-size: 12px; color: var(--ink-2); flex-wrap: wrap; }
 .legend i { display: inline-block; width: 16px; height: 0; border-top-width: 2px; margin-right: 6px; vertical-align: middle; }
 .legend .l-base { border-top: 2px dashed var(--ink-3); }
@@ -1152,16 +961,6 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 
 /* ---------- band 4: the explainer ---------- */
 
-.chat-off {
-  font-size: 12px;
-  color: var(--warn);
-  background: var(--warn-wash);
-  border-radius: 999px;
-  padding: 1px 10px;
-  font-weight: 600;
-}
-.chat-model { font-size: 12px; color: var(--ink-3); }
-
 .chat-log {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -1187,7 +986,7 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 .msg-user {
   align-self: flex-end;
   background: var(--accent);
-  color: #fff;
+  color: var(--bg);
   border-bottom-right-radius: 4px;
 }
 .msg-bot {
@@ -1281,7 +1080,7 @@ details.considered[open] summary { margin-bottom: var(--s1); }
   font: inherit;
   font-size: 14px;
   font-weight: 500;
-  color: #fff;
+  color: var(--bg);
   background: var(--accent);
   border: 0;
   border-radius: var(--radius);
@@ -1303,35 +1102,7 @@ details.considered[open] summary { margin-bottom: var(--s1); }
   overflow-wrap: anywhere;
 }
 
-/* ---------- tabs and the demo wallet ---------- */
-
-.tabs {
-  display: flex;
-  gap: 0.25rem;
-  margin-top: 0.75rem;
-}
-
-.tabs button {
-  background: none;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--ink-dim);
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.8125rem;
-  padding: 0.3rem 0.85rem;
-}
-
-.tabs button.on {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--bg);
-}
-
-.tabs button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
+/* ---------- the demo wallet ---------- */
 
 .wallet-head {
   align-items: baseline;
@@ -1522,7 +1293,6 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 .chips button:focus-visible,
 .reset:focus-visible,
 .crash button:focus-visible,
-.tabs button:focus-visible,
 .ctl input[type='range']:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -1531,7 +1301,7 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 
 /* On the gradient an indigo ring disappears. There it is white. */
 .pillnav button:focus-visible {
-  outline-color: #fff;
+  outline-color: var(--on-navy);
 }
 
 /* Except on the lit pill, which IS white: there the ring has to go the other
@@ -1567,7 +1337,6 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 .ctl-presets button,
 .switcher button,
 .reset,
-.tabs button,
 .chat-form button,
 .crash button,
 .wallet-sign {
@@ -1586,8 +1355,7 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 .pillnav button:active,
 .switcher button:active,
 .chips button:active:not(:disabled),
-.ctl-presets button:active,
-.tabs button:active { transform: scale(0.97); }
+.ctl-presets button:active { transform: scale(0.97); }
 
 /* Cards lift towards the pointer. The border lightens as the shadow deepens,
    so the edge does not double up as the card rises. */

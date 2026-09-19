@@ -1,6 +1,6 @@
 // Pins on the SOURCE stylesheet, where bundle.test.ts pins the built one.
-// Two kinds of thing are nailed down here, and nothing else — no colours, no
-// sizes, because those are meant to be tuned:
+// Three kinds of thing are nailed down here, and nothing else — no colour
+// VALUES, no sizes, because those are meant to be tuned:
 //
 //   1. The type system. Which face each token resolves to, and which selectors
 //      are on which face. `.num` staying on the text face is the one that
@@ -10,6 +10,9 @@
 //   2. The six responsive rules from the handoff, each of which was a real bug
 //      once. They are easy to undo by accident and invisible until someone
 //      opens the page at a width nobody tested.
+//   3. That white is a token rather than a literal. Not which white — that a
+//      rule outside `:root` never carries its own, so the shell retunes in one
+//      place.
 //
 // Whitespace-tolerant regexes throughout: a formatter must be free to reflow
 // this sheet without breaking the suite.
@@ -158,4 +161,44 @@ test('reduced motion covers the transitions, not only the animations', () => {
 // config is kept in step by hand precisely so this stays true.
 test('the stylesheet has no @tailwind directives', () => {
   assert.doesNotMatch(CSS, /@tailwind/)
+})
+
+// The wallet is the one view that never had a card of its own: it used to sit
+// on a white page, so it needed none. On the gradient it was dark text on deep
+// blue — handoff bug 5. The card is the fix, and `background` is the load-
+// bearing half of it: without it the panel is transparent and the navy shows
+// straight through the figures.
+test('the wallet keeps its own card on the gradient', () => {
+  // Comments are stripped first, or the one above the rule is swept into the
+  // selector list and the exact-token match below never fires.
+  const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '')
+  const card = [...bare.matchAll(/(?:^|\n)([^{}@]+)\{([^{}]*)\}/g)].find(
+    (r) =>
+      r[1]
+        .split(',')
+        .map((x) => x.trim())
+        .includes('.wallet') && /background:\s*var\(--bg\)/.test(r[2]),
+  )
+  assert.ok(card, 'no rule selecting a bare .wallet declares background: var(--bg)')
+  const selectors = card[1].split(',').map((x) => x.trim())
+  for (const sel of ['.wallet', '.wallet-down', '.wallet-loading']) {
+    assert.ok(selectors.includes(sel), `${sel} does not share the wallet card rule`)
+  }
+})
+
+// ---------- the tokens that replaced the literal whites ----------
+
+// Every white on this page is a token, so the shell retunes as one and no rule
+// is left behind on the old value. The two `:root` blocks are the one place a
+// literal is allowed to live, and are stripped before the check; whatever is
+// left is a rule that kept its own.
+test('no rule outside the :root blocks carries a literal white', () => {
+  const stripped = CSS.replace(/:root\s*\{[\s\S]*?\n\}/g, '')
+  assert.doesNotMatch(stripped, /#fff\b/i, 'a rule outside :root still uses #fff')
+  assert.doesNotMatch(stripped, /#ffffff\b/i, 'a rule outside :root still uses #ffffff')
+  assert.doesNotMatch(
+    stripped,
+    /rgba\(\s*255\s*,\s*255\s*,\s*255/,
+    'a rule outside :root still uses a literal rgba white',
+  )
 })
