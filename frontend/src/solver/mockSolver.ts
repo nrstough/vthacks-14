@@ -7,7 +7,9 @@
 // is useful: it is an independent reference the CP-SAT model can be tested
 // against, which is how the research memo validated the formulation.
 
-import { money, shortDate } from '../lib/format'
+// Explicit .ts extension: the Node parity harness runs this file directly
+// under --experimental-strip-types, which does no extension probing.
+import { money, shortDate } from '../lib/format.ts'
 import type {
   BalanceRow,
   Candidate,
@@ -237,8 +239,22 @@ export function solve(req: SolveRequest, previousPlanArg: string[] = []): SolveR
   // went below zero, which is automatically true at tier 3 where the plan is
   // below zero anyway. That made the proof pass vacuously in exactly the case
   // it mattered most, and print a sentence that was false on its face.
-  const perItem: CertificateItem[] = best.map((c) => {
-    const without = best.filter((o) => o.id !== c.id)
+  // Sort by the day you must act, then by id, so the order never depends on
+  // the order candidates happened to arrive in. Plain comparison, not
+  // localeCompare: ICU collation orders punctuation differently from code
+  // points, and the Python side sorts by code point.
+  const byDate = (a: Candidate, b: Candidate) => {
+    if (a.effective_date !== b.effective_date) return a.effective_date < b.effective_date ? -1 : 1
+    if (a.id !== b.id) return a.id < b.id ? -1 : 1
+    return 0
+  }
+  const planOrder = best.slice().sort(byDate)
+
+  // Built in plan order, so the first-strict-max tiebreak below runs over
+  // (date, id) rather than over enumeration order, which nothing else could
+  // reproduce.
+  const perItem: CertificateItem[] = planOrder.map((c) => {
+    const without = planOrder.filter((o) => o.id !== c.id)
     const t = simulate(req, without, days)
     return {
       candidate_id: c.id,
@@ -284,13 +300,6 @@ export function solve(req: SolveRequest, previousPlanArg: string[] = []): SolveR
   }
 
   /* plan rows, ordered by the day the user has to act */
-  // Sort by the day you must act, then by id, so the order never depends on
-  // the order candidates happened to arrive in.
-  const byDate = (a: Candidate, b: Candidate) =>
-    a.effective_date === b.effective_date
-      ? a.id.localeCompare(b.id)
-      : a.effective_date.localeCompare(b.effective_date)
-  const planOrder = best.slice().sort(byDate)
   const plan: PlanItem[] = planOrder
     .map((c) => {
       const cert = perItem.find((p) => p.candidate_id === c.id)
@@ -397,9 +406,7 @@ export function solve(req: SolveRequest, previousPlanArg: string[] = []): SolveR
       // Exhaustive search always proves it; a time-limited solver may not.
       minimal_proven: true,
       sentence,
-      per_item: planOrder
-        .map((c) => perItem.find((p) => p.candidate_id === c.id)!)
-        .filter(Boolean),
+      per_item: perItem,
     },
     shortfall: {
       worst_cents: bestTrace.worstShortfall,
