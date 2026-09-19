@@ -2,23 +2,19 @@
 
 | Dimension | Grade | Notes |
 |-----------|-------|-------|
-| Plan adherence | Fail | Missing-date validation and later-stage fallback violate AC1/D10 and R1. |
-| Scope discipline | Excellent | No material scope expansion found. |
-| Test coverage | Fail | Tests miss omitted recharge dates and unproven empty-plan wording. |
-| Review compliance | Fail | Review finding 4’s unproven empty-plan case remains unresolved. |
-| Freeze integrity | — | Skipped: no P1/P2/P3 hashes found in the run spec. |
-| Regression check | Acceptable | 819 tests passed; one setup error caused by sandbox restrictions. |
-| Documentation | Fail | Feature documentation misstates implemented fallback behavior. |
-| **Overall** | **Fail** | |
+| Plan adherence | Fail | AC13 violated by a solver-error response. |
+| Scope discipline | Excellent | Changes remain within the declared scope. |
+| Test coverage | Fail | AC14’s planted-case invariant coverage is missing. |
+| Review compliance | Excellent | Prior Codex findings have fixes and regression tests. |
+| Freeze integrity | — | Skipped: no P1/P2/P3 hashes present. |
+| Regression check | Acceptable | 821 gate tests and 6 performance tests passed; one fixture blocked by sandbox. |
+| Documentation | Excellent | Declared documentation covers the changed behavior. |
+| **Overall** | **Fail** | Two acceptance gaps remain. |
 
 ### Commentary
 
-1. **Plan adherence / Test coverage — causes Fail.** In [schemas.py](/Users/nathanstough/Desktop/VT%20Hacks/backend/app/schemas.py:91), omitting `recharge_date` bypasses its field validator because the default is not validated. Removing that key from the shipped fixture’s `c_shell_defer` produced **HTTP 200**, rather than 422. The solver consequently treats the deferral as permanent savings. Validate the default or make the field required, and test both omitted and explicitly null recharge dates.
+1. **Plan adherence — downgrade to Fail.** Injecting CP-SAT `INFEASIBLE` on a valid request with 19 free candidates returns HTTP 503 with `{"detail":"stage days_below_zero returned INFEASIBLE"}`. [engine_cpsat.py:151](</Users/nathanstough/Desktop/VT Hacks/backend/app/solver/engine_cpsat.py:151>) passes the solver status through the API, violating AC13. Return neutral user-facing wording and retain technical details in logs. Add an HTTP regression test exercising the actual engine-error path; the existing test supplies an already-safe exception message.
 
-2. **Plan adherence / Documentation — causes Fail.** [engine_cpsat.py](/Users/nathanstough/Desktop/VT%20Hacks/backend/app/solver/engine_cpsat.py:148) returns the incumbent as FEASIBLE when a numeric stage after the first returns UNKNOWN or INFEASIBLE. R1 requires exhaustive fallback for ≤18 free candidates, otherwise 503; the documented stage-8 exception does not cover this. A reproduction returning UNKNOWN on the second solve confirmed `meta.solver="cp-sat"` and `status="FEASIBLE"` instead of fallback. [solver.md](/Users/nathanstough/Desktop/VT%20Hacks/docs/features/solver.md:62) promises the unimplemented fallback, misleading operators about failure handling. Implement R1 and add later-stage failure tests.
+2. **Test coverage — downgrade to Fail.** [test_invariants.py:21](</Users/nathanstough/Desktop/VT Hacks/backend/tests/test_invariants.py:21>) includes only three scenarios and 50 random requests. AC14 explicitly requires the independent invariants on every planted response too. Add all planted requests to this parametrization; oracle parity and selected objective assertions do not replace these checks.
 
-3. **Review compliance / Test coverage — causes Fail.** The empty-plan branch in [wording.py](/Users/nathanstough/Desktop/VT%20Hacks/backend/app/solver/wording.py:156) precedes the proof-status check; the certificate branch likewise lacks proof status. Injecting an empty FEASIBLE incumbent for the solvable `clears` fixture produces “There are no changes available” and “Nothing … can be changed in time.” These claims are unsupported. Review finding 4 explicitly required testing unproven tier-3 responses with zero selected changes. Make both branches proof-aware and add that regression test.
-
-4. **Regression check — limits grade to Acceptable; no implementation failure attributed.** The backend run produced **819 passed, one setup error**, including six passing performance tests. The static-site fixture could not create a temporary directory in this read-only sandbox; the existing built site separately returned HTTP 200. Both frontend TypeScript checks passed. The full emitting frontend build was not rerun under the filesystem restriction.
-
-5. **Documentation — cosmetic only; does not cause Fail.** [README.md](/Users/nathanstough/Desktop/VT%20Hacks/README.md:39) still labels the gate “788 tests”; current collection contains 814 non-performance tests. Update or remove the count.
+3. **Regression check — limited to Acceptable by verification constraints.** The gate produced **821 passes and one setup error** because the read-only sandbox cannot create the static-site fixture’s temporary directory. All **six performance tests** passed. Static serving against the existing build and both TypeScript checks passed. A fresh production build was not rerun because it requires filesystem writes. No new test assertion failures were observed.

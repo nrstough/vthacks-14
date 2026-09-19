@@ -18,9 +18,24 @@ from app.solver.solve import solve
 from tests.fixtures.scenarios import SCENARIOS
 from tests.gen import instances
 
-CASES = [("scenario:" + k, v) for k, v in SCENARIOS.items()] + [
-    (f"random:{i}", r) for i, r in enumerate(instances(50))
-]
+
+def _planted() -> list[tuple[str, dict]]:
+    """Every hand-built case, so the properties are checked on exactly the
+    instances where the rules are pinned."""
+    from tests.fixtures import planted
+
+    return sorted(
+        (f"planted:{name}", value)
+        for name, value in vars(planted).items()
+        if name.isupper() and isinstance(value, dict) and "as_of" in value
+    )
+
+
+CASES = (
+    [("scenario:" + k, v) for k, v in SCENARIOS.items()]
+    + _planted()
+    + [(f"random:{i}", r) for i, r in enumerate(instances(50))]
+)
 
 
 def days_of(req: dict) -> list[str]:

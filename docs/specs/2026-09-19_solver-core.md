@@ -275,7 +275,17 @@ its sandbox refusing a temporary directory, not a failure.
 **Tests after the Codex round: 822.**
 
 **Claude critique verdict:** Acceptable (round 3), nothing blocking.
-**Codex audit grade:** Fail on the first pass, three defects; all fixed and re-audited below.
+### Codex re-audit (~02:55) — two further findings, both fixed
+
+| Finding | Resolution |
+|---|---|
+| **AC13 applied to the plan but not to the error body.** A refused request returned `503 {"detail": "stage days_below_zero returned INFEASIBLE"}` — the solver's own status name, containing the one word this product never shows anyone. | Stage and status now go to the log; the response says "the constraint solver could not finish this one". Same for the loader's message on a broken install. New API test asserts the 503 body carries none of the solver's vocabulary. |
+| **AC14 says "fixtures, planted and random"; the invariants covered only fixtures and random.** The hand-built cases — where every rule is pinned — were checked by parity and by targeted assertions, but not by the implementation-free properties. | All planted cases added to the parametrisation. 977 tests. |
+
+**Tests after the re-audit: 977** (the invariant properties now run over every planted case).
+
+**Codex audit grade:** Fail on the first two passes, five defects between them; all fixed
+and mutation-guarded. Final pass recorded below.
 
 ## Refinements from deep exploration (Sat ~01:50, before plan approval)
 

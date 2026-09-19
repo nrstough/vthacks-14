@@ -253,8 +253,27 @@ def test_a_later_stage_failing_with_no_fallback_refuses(monkeypatch):
         return cp_model.UNKNOWN if calls["n"] == 2 else status
 
     monkeypatch.setattr(cp_model.CpSolver, "solve", wrapper)
-    with pytest.raises(EngineUnavailable, match="worst_shortfall"):
+    with pytest.raises(EngineUnavailable) as raised:
         run(SCENARIOS["clears"], CPSAT)
+    # Neutral for the caller; the stage and status go to the log instead.
+    assert "worst_shortfall" not in str(raised.value)
+    assert "UNKNOWN" not in str(raised.value)
+
+
+def test_the_log_still_says_which_stage_failed(monkeypatch, caplog):
+    """Neutral to the caller must not mean silent to whoever has to fix it."""
+    real = cp_model.CpSolver.solve
+    calls = {"n": 0}
+
+    def wrapper(self, model, *args, **kwargs):
+        calls["n"] += 1
+        status = real(self, model, *args, **kwargs)
+        return cp_model.UNKNOWN if calls["n"] == 2 else status
+
+    monkeypatch.setattr(cp_model.CpSolver, "solve", wrapper)
+    with caplog.at_level("WARNING"):
+        run(SCENARIOS["clears"], Settings())
+    assert any("worst_shortfall" in r.getMessage() for r in caplog.records)
 
 
 def test_an_unfinished_search_that_selected_nothing_says_only_that(monkeypatch):

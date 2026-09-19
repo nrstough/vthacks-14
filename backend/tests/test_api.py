@@ -224,3 +224,39 @@ def test_a_broken_solver_install_falls_back_rather_than_crashing(client, monkeyp
         r = client.post("/api/solve", json=SCENARIOS["clears"])
         assert r.status_code == 200, f"{failure!r} -> {r.status_code}"
         assert r.json()["meta"]["solver"] == "brute-force"
+
+
+def test_a_refusal_never_leaks_the_solver_s_vocabulary(client, monkeypatch):
+    """The banned words apply to the error body as much as to the plan.
+
+    The constraint solver's own status names are diagnostics, and one of them is
+    the single word this product never shows anyone. They belong in the log.
+    """
+    from ortools.sat.python import cp_model
+
+    monkeypatch.setattr(
+        cp_model.CpSolver, "solve", lambda self, m, *a, **k: cp_model.INFEASIBLE
+    )
+
+    raw = copy.deepcopy(SCENARIOS["clears"])
+    # More changes than exhaustive search will take on, so there is no fallback
+    # and the refusal is the actual response.
+    from app.schemas import MAX_FREE
+
+    for i in range(MAX_FREE + 1):
+        raw["scheduled"].append({
+            "id": f"t_x{i:02d}", "date": "2026-09-23", "description": "X",
+            "amount_cents": -1000, "kind": "discretionary", "recurring": False,
+        })
+        raw["candidates"].append({
+            "id": f"c_x{i:02d}", "label": "X", "detail": "X", "action": "skip",
+            "target_txn_id": f"t_x{i:02d}", "freed_cents": 1000,
+            "effective_date": "2026-09-23", "recharge_date": None,
+            "lead_time_days": 0, "pain": 1,
+        })
+
+    r = client.post("/api/solve", json=raw)
+    assert r.status_code == 503
+    detail = r.json()["detail"].lower()
+    for word in ("infeasib", "guarantee", "unknown", "model_invalid"):
+        assert word not in detail, f"{word!r} reached the user: {detail!r}"

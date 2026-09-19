@@ -105,7 +105,8 @@ def _run_engine(req, days, elig, previous_plan, settings):
             # All three mean the same thing here — CP-SAT is not available — and
             # falling back costs nothing, because the fallback is exact too.
             if settings.force_engine == "cp-sat":
-                raise EngineUnavailable(f"the constraint solver is unavailable: {exc}") from None
+                log.warning("constraint solver could not be loaded: %s", exc)
+                raise EngineUnavailable("the constraint solver is unavailable") from None
             # Otherwise this is invisible: the answer is still exact, so nothing
             # downstream complains, and on a box where the install is broken the
             # only symptom is that everything got slower.
