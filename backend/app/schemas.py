@@ -398,3 +398,53 @@ class SampleAccountResponse(Strict):
     buffer_cents: NonNegCents
     scheduled: list[ScheduledTxn] = Field(max_length=MAX_SCHED)
     source: Literal["modelled"]
+
+
+class NotRoundTripped(Strict):
+    """One row the sandbox did not give back unchanged.
+
+    Reported rather than hidden. A demo that quietly drops half an account is
+    worse than one that says what it dropped, and the reasons are distinct
+    because they have different causes and different fixes.
+    """
+
+    id: Id
+    reason: Literal[
+        "written but not returned",
+        "amount changed by the sandbox",
+        "no usable date",
+        "outside the window",
+    ]
+
+
+class NessieProvenance(Strict):
+    """Which sandbox records this account is, and how it got here."""
+
+    customer_id: StrictStr | None
+    account_id: StrictStr
+    mode: Literal["seeded", "read_only"]
+
+
+class NessieAccountResponse(Strict):
+    """An account seeded into Capital One's Nessie sandbox and read back.
+
+    A sibling of SampleAccountResponse rather than a widening of it: that model's
+    `source` is a closed literal that its tests and the deploy's smoke check both
+    pin, and the sample endpoint's behaviour is unchanged by any of this.
+
+    `source` is required and always "nessie". Generated data seeded into someone
+    else's sandbox is still generated data; nothing downstream may present it as
+    a bank's record of anyone.
+    """
+
+    seed: StrictInt
+    as_of: StrictStr
+    horizon_end: StrictStr
+    opening_balance_cents: Cents
+    buffer_cents: NonNegCents
+    scheduled: list[ScheduledTxn] = Field(max_length=MAX_SCHED)
+    source: Literal["nessie"]
+    nessie: NessieProvenance
+    written: Annotated[StrictInt, Field(ge=0)]
+    returned: Annotated[StrictInt, Field(ge=0)]
+    not_round_tripped: list[NotRoundTripped]

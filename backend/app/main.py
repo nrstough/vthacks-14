@@ -23,9 +23,12 @@ from app.accounts.product import sample_account
 from app.candidates import generate
 from app.chat import ChatUnavailable, ChatUpstreamError, chat, status as chat_status
 from app.chat.schemas import ChatRequest, ChatResponse, ChatStatus
+from app.nessie import NessieUnavailable, NessieUpstreamError
+from app.nessie.roundtrip import account_from_nessie
 from app.schemas import (
     CandidatesRequest,
     CandidatesResponse,
+    NessieAccountResponse,
     SampleAccountRequest,
     SampleAccountResponse,
     SolveRequest,
@@ -104,6 +107,17 @@ def create_app(dist_dir: Path | None = DEFAULT_DIST) -> FastAPI:
     async def _chat_upstream(_: Request, exc: ChatUpstreamError) -> JSONResponse:
         return JSONResponse(status_code=502, content={"detail": str(exc)})
 
+    @app.exception_handler(NessieUnavailable)
+    async def _nessie_unavailable(_: Request, exc: NessieUnavailable) -> JSONResponse:
+        # No key, or a key the sandbox will not confirm. The client offers the
+        # modelled account instead. Never an empty account: a blank screen reads
+        # as data, and this is the one failure that must not look like a fact.
+        return JSONResponse(status_code=503, content={"detail": str(exc)})
+
+    @app.exception_handler(NessieUpstreamError)
+    async def _nessie_upstream(_: Request, exc: NessieUpstreamError) -> JSONResponse:
+        return JSONResponse(status_code=502, content={"detail": str(exc)})
+
     @app.get("/health")
     def health() -> dict[str, bool]:
         return {"ok": True}
@@ -139,6 +153,13 @@ def create_app(dist_dir: Path | None = DEFAULT_DIST) -> FastAPI:
                 horizon_days=req.horizon_days,
             )
         )
+
+    # Seeds a sandbox account from a modelled one and reads it back. Whole
+    # dollars, because that is what Nessie stores; `not_round_tripped` names
+    # every row the sandbox did not return unchanged.
+    @app.post("/api/accounts/nessie", response_model=NessieAccountResponse)
+    def api_nessie_account(req: SampleAccountRequest) -> NessieAccountResponse:
+        return NessieAccountResponse.model_validate(account_from_nessie(req))
 
     # Mounted last. A mount at "/" registered first would shadow every route
     # above it, and the API would answer 404 for /health and 405 for the two

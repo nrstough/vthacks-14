@@ -3,17 +3,13 @@
 `docs/features/nessie.md`. The transport lives in `client.py` and its exceptions
 never escape this module.
 
-**Nothing in `app/main.py` calls this package yet.** The two exception types below
-are the boundary a route will map to status codes, following
-`app/chat/__init__.py`'s precedent — but no such route exists, so nothing maps
-them today. The seed-and-read-back workflow, the `not_round_tripped` report and
-the fallback-disclosure flag are likewise unwritten. The feature doc has the full
-list of what is and is not here; do not infer behaviour from these docstrings
-alone.
+`POST /api/accounts/nessie` calls this package through `roundtrip.py`, which
+holds the seed-and-read-back workflow and the `not_round_tripped` report. The two
+exception types below are the boundary `app/main.py` maps to 503 and 502,
+following `app/chat/__init__.py`'s precedent.
 
-What does exist — the transport, the credential check, the money conversion, key
-redaction and row normalisation — is tested and has been run against the live
-sandbox. Two things shape it.
+This module is the transport, the credential check, the money conversion, key
+redaction and row normalisation. Two things shape it.
 
 **A read cannot confirm the key.** A wrong key returns `200 []`, which is what a
 valid key over an empty sandbox returns. So `verify()` writes a customer and
@@ -21,14 +17,17 @@ reads it back by id, and an empty list is reported as *unverified*, never as
 "this customer has no accounts". The failure this forbids is a misconfigured box
 showing a judge a blank screen that looks like real, empty data.
 
-**Nessie cannot store a transaction history.** Its documented creatable surface
-is customers, accounts, deposits and bills; purchases have no documented create
-or list path (`docs/nessie-agent-brief.md`, caution 3). So a round trip *would*
-preserve income and recurring bills and could not preserve arbitrary
-discretionary charges. Stated in the conditional because no round trip is
-implemented: when one is, that loss must be reported rather than hidden, since a
-demo which quietly drops half the account is worse than one that says what it
-dropped.
+**Spending is a withdrawal, not a purchase.** An earlier reading of this took the
+missing purchase-create path in the web reference as proof that discretionary
+charges could not round-trip at all. They can: Capital One's own SDKs use
+`/accounts/{id}/withdrawals`, which takes a deposit's five fields and needs no
+merchant. So income, recurring bills and discretionary charges all survive the
+trip, and `roundtrip.py` reports whatever does not.
+
+**The sandbox truncates to whole dollars and freezes `balance`.** Measured, and
+confirmed by four unrelated teams. So the seed rounds before writing and the
+balance is never read back as though it were a result. The local integer-cent
+ledger stays the system of record. See `docs/features/nessie.md`.
 """
 
 from __future__ import annotations

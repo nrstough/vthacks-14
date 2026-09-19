@@ -277,3 +277,58 @@ def test_genuinely_sub_cent_values_are_still_refused():
     for bad in ["1.005", "0.001", "19.99000000000000000000000000001", "-0.005"]:
         with pytest.raises(NessieError, match="sub-cent"):
             to_cents(Decimal(bad))
+
+
+# ---- the read-only account id, and what must never reach an error message ----
+
+
+def test_from_env_reads_the_account_id_and_treats_blank_as_unset(monkeypatch):
+    import app.chat.gemini as gemini
+
+    monkeypatch.setattr(gemini, "_env_loaded", True)
+    monkeypatch.setenv("NESSIE_API_KEY", "k" * 32)
+    monkeypatch.setenv("NESSIE_ACCOUNT_ID", "  acc_9  ")
+    assert NessieConfig.from_env().account_id == "acc_9"
+    monkeypatch.setenv("NESSIE_ACCOUNT_ID", "   ")
+    assert NessieConfig.from_env().account_id is None
+    monkeypatch.delenv("NESSIE_ACCOUNT_ID")
+    assert NessieConfig.from_env().account_id is None
+
+
+def test_an_upstream_message_echoing_the_url_does_not_leak_the_key(monkeypatch):
+    """Nessie puts the request URL in its own `message` on some errors, and the
+    key rides in the query string."""
+    secret = "k" * 32
+    monkeypatch.setattr(
+        client.urllib.request,
+        "urlopen",
+        lambda *a, **k: (_ for _ in ()).throw(
+            http_error(500, {"message": f"failed for /customers?key={secret}"})
+        ),
+    )
+    with pytest.raises(NessieError) as e:
+        client.get(CFG, "/customers")
+    assert secret not in str(e.value)
+
+
+def test_a_socket_error_naming_the_url_does_not_leak_the_key(monkeypatch):
+    secret = "k" * 32
+
+    def fake(*_a, **_k):
+        raise urllib.error.URLError(f"no route to https://example.invalid/x?key={secret}")
+
+    monkeypatch.setattr(client.urllib.request, "urlopen", fake)
+    with pytest.raises(NessieError) as e:
+        client.get(CFG, "/customers")
+    assert secret not in str(e.value)
+
+
+def test_a_body_that_is_not_json_is_a_transport_error_not_a_crash(monkeypatch):
+    """An HTML error page from a proxy would otherwise be an uncaught ValueError
+    and a 500 with a stack trace."""
+    monkeypatch.setattr(
+        client.urllib.request, "urlopen", lambda *a, **k: FakeResponse("<html>nope</html>")
+    )
+    with pytest.raises(NessieError) as e:
+        client.get(CFG, "/customers")
+    assert "other than JSON" in str(e.value)

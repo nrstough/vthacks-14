@@ -45,9 +45,6 @@ from app.schemas import CENTS_ABS
 DEFAULT_BASE_URL = "https://prod-api.nessieisreal.com"
 DEFAULT_TIMEOUT_S = 20.0
 
-# Worth one more attempt; the sandbox is a hackathon service and wobbles.
-TRANSIENT = {429, 500, 503, 504}
-
 
 class NessieError(Exception):
     """Transport-level failure. Never escapes this package; see __init__.py."""
@@ -66,6 +63,10 @@ class NessieConfig:
     api_key: str | None
     base_url: str = DEFAULT_BASE_URL
     timeout_s: float = DEFAULT_TIMEOUT_S
+    # Set NESSIE_ACCOUNT_ID to an account that was seeded earlier and the round
+    # trip reads it instead of creating a new customer. Judging morning wants
+    # reads, not twenty writes into someone else's sandbox.
+    account_id: str | None = None
 
     @classmethod
     def from_env(cls) -> NessieConfig:
@@ -77,6 +78,7 @@ class NessieConfig:
             api_key=key.strip() if key else None,
             base_url=(os.environ.get("NESSIE_BASE_URL") or DEFAULT_BASE_URL).rstrip("/"),
             timeout_s=float(os.environ.get("NESSIE_TIMEOUT_S", DEFAULT_TIMEOUT_S)),
+            account_id=(os.environ.get("NESSIE_ACCOUNT_ID") or "").strip() or None,
         )
 
 
@@ -91,6 +93,22 @@ def _redact(url: str) -> str:
     return url.split("?", 1)[0] + "?key=<redacted>"
 
 
+def _scrub(config: NessieConfig, text: str) -> str:
+    """Take the key out of anything the upstream or the socket layer wrote.
+
+    `_redact` handles URLs we build. This handles strings we did not: Nessie
+    echoes the request URL inside its own `message` on some errors, and a
+    `URLError.reason` can carry it too. Either one lands in an exception the
+    route turns into a 502 body, so the key would leave the box.
+    """
+    key = (config.api_key or "").strip()
+    if not key:
+        return text
+    return text.replace(urllib.parse.quote(key, safe=""), "<redacted>").replace(
+        key, "<redacted>"
+    )
+
+
 def _request(config: NessieConfig, method: str, path: str, body: dict | None = None) -> Any:
     url = _url(config, path)
     data = json.dumps(body).encode() if body is not None else None
@@ -99,8 +117,17 @@ def _request(config: NessieConfig, method: str, path: str, body: dict | None = N
     try:
         with urllib.request.urlopen(req, timeout=config.timeout_s) as resp:
             raw = resp.read().decode()
-            # parse_float=Decimal: see the module docstring. The float is never built.
-            return json.loads(raw, parse_float=Decimal) if raw.strip() else None
+            if not raw.strip():
+                return None
+            try:
+                # parse_float=Decimal: see the module docstring. The float is never built.
+                return json.loads(raw, parse_float=Decimal)
+            except ValueError as e:
+                # An HTML error page or a proxy's plain text. Uncaught this is a
+                # 500 with a stack trace; it is an upstream problem, not ours.
+                raise NessieError(
+                    f"Nessie answered with something other than JSON for {_redact(url)}"
+                ) from e
     except urllib.error.HTTPError as e:
         detail = ""
         try:
@@ -113,10 +140,11 @@ def _request(config: NessieConfig, method: str, path: str, body: dict | None = N
                 "No Nessie API key is configured on the server."
             ) from e
         raise NessieError(
-            detail or f"Nessie returned HTTP {e.code} for {_redact(url)}", status=e.code
+            _scrub(config, detail) or f"Nessie returned HTTP {e.code} for {_redact(url)}",
+            status=e.code,
         ) from e
     except urllib.error.URLError as e:
-        raise NessieError(f"Could not reach Nessie: {e.reason}") from e
+        raise NessieError(_scrub(config, f"Could not reach Nessie: {e.reason}")) from e
     except TimeoutError as e:
         raise NessieError("Nessie did not answer in time") from e
 
