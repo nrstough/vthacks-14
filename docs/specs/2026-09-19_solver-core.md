@@ -202,7 +202,7 @@ freeze integrity Excellent. The critique ran 2,400 fuzz instances, 26 hand-built
 | F7 | Two Codex resolutions were only partly implemented. | Planted-vs-oracle parity added. The promised subprocess test for a missing OR-Tools is **deliberately not added**: the `load_cpsat` seam covers the substance and a subprocess test would be slower and flakier. |
 | F8 | The certificate's first-wins tie rule was untested. | Fixed: `EQUAL_MARGINALS` unit test. The `>=` mutant now fails. |
 | F9 | Determinism tests excluded all of `meta`, not just `wall_ms`. | Fixed: `stable_part()` compares everything but the timing. |
-| F10 | `docs/features/solver.md` claimed the `tight` account needs 8 of 11 changes; the fixture was retuned and needs 3. | Fixed, with the sweep result that actually supports D1 in its place. **The same now-stale figure appears in D1's own note above (line ~35), which is frozen: read it as superseded.** The `tight` preset became $180 against a $100 cushion in `0c6e0c5` and solves in 3 changes at tier 2. D1's real support is the sweep: across openings from $30 to $300 the two orders differ on about a quarter of them, and D1 picks fewer changes every time they do. |
+| F10 | `docs/features/solver.md` claimed the `tight` account needs 8 of 11 changes; the fixture was retuned and needs 3. | Fixed, with the sweep result that actually supports D1 in its place. **The same now-stale figure appears in D1's own note above (line ~35), which is frozen: read it as superseded.** The `tight` preset became $180 against a $100 cushion in `0c6e0c5` and solves in 3 changes at tier 2. D1's real support is the sweep: across openings from $30 to $300 the two orders differ on 76 of 271, and D1 never picks more — fewer in 72, the same in 4 where only the tiebreak differs. |
 | F11 | The contract documented no 503, and its limits read as if they bound derived figures. | Fixed in `docs/api-contract.md`. |
 | F12 | Two unreachable branches in `assemble.py`. | Removed. |
 
@@ -233,7 +233,29 @@ only the tiebreak differs. "Picks fewer wherever they differ" should read "never
 
 **Tests after round 2: 814.**
 
-**Claude critique verdict:** _re-check pending (round 3)_
+### Audit round 3 (re-check, ~02:40) — **Acceptable**
+
+Both round-2 findings confirmed closed by mutation: reverting the derived bound fails 3
+tests, narrowing the fallback fails 1, and growing `MAX_SCHED` or `MAX_T` past the derived
+ceiling fails 2. The worst-case formula was independently checked and found correct and
+conservative — a chosen change's contribution to any day is in `{0, +freed}` and never
+negative, because validation forces a recharge to follow its effective date inside the
+horizon. 2,800 fresh differential instances, 22 edge cases, all 17 planted cases and the
+tiebreak-against-full-enumeration check all came back clean.
+
+Two residuals were raised as non-blocking and both were closed anyway: the large-value
+test passed no candidates, so one of the six widened fields was never constructed by it
+(now it is), and this row's wording was still overstated. The fallback also now logs why
+it fell back, which it previously did not — on a box with a broken install the only
+symptom was that everything got slower.
+
+Scorecard: Plan adherence **Excellent**, Scope discipline **Excellent**, Test coverage
+Acceptable, Review compliance Acceptable, Freeze integrity **Excellent**, Regression check
+**Excellent**, Documentation Acceptable. **Overall: Acceptable.**
+
+**Tests after round 3: 814.**
+
+**Claude critique verdict:** Acceptable (round 3), nothing blocking.
 **Codex audit grade:** _pending_
 
 ## Refinements from deep exploration (Sat ~01:50, before plan approval)

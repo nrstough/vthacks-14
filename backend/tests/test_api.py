@@ -155,14 +155,28 @@ def test_a_large_but_legal_account_is_answered_not_crashed(client):
     output by the input bound made it reject its own answer, past the error
     handler, as a 500 — on two values that break no rule.
     """
+    cap = 10**11
     raw = {
         "as_of": "2026-03-01",
         "horizon_end": "2026-03-02",
-        "opening_balance_cents": -(10**11),
+        "opening_balance_cents": -cap,
         "buffer_cents": 0,
-        "scheduled": [{"id": "t_1", "date": "2026-03-01", "description": "X",
-                       "amount_cents": -1, "kind": "bill", "recurring": False}],
-        "candidates": [],
+        "scheduled": [
+            {"id": "t_1", "date": "2026-03-01", "description": "X",
+             "amount_cents": -1, "kind": "bill", "recurring": False},
+            # A second charge at the cap, with a change that covers it, so the
+            # plan is non-empty and the certificate rows are built too. Without
+            # a candidate here, per_item stays empty and one of the widened
+            # fields is never constructed by the test at all.
+            {"id": "t_2", "date": "2026-03-02", "description": "Y",
+             "amount_cents": -cap, "kind": "bill", "recurring": False},
+        ],
+        "candidates": [
+            {"id": "c_a", "label": "Y", "detail": "Y", "action": "skip",
+             "target_txn_id": "t_2", "freed_cents": cap,
+             "effective_date": "2026-03-02", "recharge_date": None,
+             "lead_time_days": 0, "pain": 1},
+        ],
         "locks": {"in": [], "out": []},
         "previous_plan": [],
     }
@@ -170,7 +184,10 @@ def test_a_large_but_legal_account_is_answered_not_crashed(client):
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["tier"] == 3
-    assert body["balances"][0]["baseline_cents"] == -(10**11) - 1
+    assert body["balances"][0]["baseline_cents"] == -cap - 1
+    # The certificate row is larger than any single input field is allowed to be.
+    assert [p["candidate_id"] for p in body["plan"]] == ["c_a"]
+    assert body["certificate"]["per_item"][0]["worst_shortfall_cents"] == 2 * cap + 1
 
 
 def test_the_worst_case_the_input_limits_allow_is_answered(client):
