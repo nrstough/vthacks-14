@@ -1,6 +1,6 @@
 // Deciding where keyboard focus goes when the plan is re-solved.
 //
-// Ticking "Can't do this" moves that row between the plan and the left-out
+// Ticking a row's checkbox moves that row between the plan and the left-out
 // list, which unmounts its checkbox and drops focus on the floor. Restoring it
 // sounds trivial and is not: three separate audit rounds found a different way
 // to get it wrong. The rules live here, apart from React, so they can be tested
