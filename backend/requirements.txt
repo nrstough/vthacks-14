@@ -1,10 +1,23 @@
+# Production only. deploy.sh rsyncs this file to the box and pip-installs it
+# there, so it holds exactly what `backend/app/` imports and nothing else.
+# Test and experiment tooling lives in requirements-dev.txt.
+#
+# This list used to also carry pandas, scipy, RapidFuzz, python-multipart and
+# httpx2. None of them appeared anywhere in the codebase — not in app/, not in
+# tests/, not in experiments/ — and pandas and scipy are the two slowest, most
+# fragile installs you could hand a fresh server. The box installs from PyPI
+# with no wheels/ to fall back on, so every package here is one more chance for
+# the deploy to die halfway through pip install.
+#
+# pydantic is listed even though fastapi pulls it in anyway: app/schemas.py
+# imports it directly, and a direct import that leans on someone else's
+# transitive dependency breaks quietly the day that dependency is loosened.
+#
+# ortools is the one most likely to fail on the box — it needs a wheel built
+# for the box's exact Python, which is why Ubuntu 24.04 LTS (Python 3.12) is
+# the deliberate choice. If it errors, read the version it names before
+# changing anything.
 fastapi==0.141.1
-numpy==2.5.3
 ortools==9.15.6755
-pandas==3.0.6
-pytest==9.1.1
-python-multipart==0.0.32
-RapidFuzz==3.14.6
-scipy==1.18.1
+pydantic==2.13.5
 uvicorn==0.53.0
-httpx2==2.13.0

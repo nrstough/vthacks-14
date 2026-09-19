@@ -1,0 +1,16 @@
+# Everything needed to work on this repo: production, plus the test runner and
+# the experiment tooling. Rebuild the local venv from THIS file, not from
+# requirements.txt, or the gate will not run.
+#
+#   .venv/bin/pip install -r backend/requirements-dev.txt
+#
+# deploy.sh deliberately never ships this file. The box runs the app; it does
+# not run the suite, and nothing on it should need to.
+-r requirements.txt
+
+# The gate: .venv/bin/pytest backend/ -q -m "not perf"
+pytest==9.1.1
+
+# experiments/residual_forecast only. Not imported by app/ or by the backend
+# suite, and not part of the deploy.
+numpy==2.5.3
