@@ -226,6 +226,19 @@ history establishes that the design preceded the implementation.
 
 ## Audit
 
+**Final: Codex at `7d88c80`, Overall Acceptable — "no implementation defect
+found", Documentation Excellent, Review compliance Excellent.** Three
+dimensions sit at Acceptable and none has an open action: the amendment's
+provenance, which cannot be fixed retroactively and is disclosed above; the
+declared documentation deviations; and its sandbox, where three fixtures
+needing a writable temporary directory error out. Those three pass here.
+
+The audit ran three times. Each earlier run's finding was fixed and the audit
+re-run to confirm, which is how the stale test names and the application
+isolation gap below were closed.
+
+---
+
 **Codex, at `b5dba9f`: Overall Acceptable.** Plan adherence, scope discipline,
 test coverage, regression check and documentation each Acceptable; review
 compliance Excellent; freeze integrity skipped for want of P1/P2/P3 hashes.
