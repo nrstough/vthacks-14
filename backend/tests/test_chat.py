@@ -15,9 +15,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.chat.gemini as gemini
-from app.chat import scrub
+from app.chat import chat, descriptor_refs, mask_descriptors, scrub, unmask_descriptors
 from app.chat.prompt import dollars, render_context, system_instruction
+from app.chat.schemas import ChatRequest
 from app.main import create_app
+from app.ratelimit import RateLimiter
 from app.schemas import SolveRequest
 from app.solver.solve import solve
 from tests.fixtures.scenarios import SCENARIOS
@@ -25,7 +27,10 @@ from tests.fixtures.scenarios import SCENARIOS
 
 @pytest.fixture(scope="module")
 def client():
-    return TestClient(create_app(None))
+    # This module posts about twenty times, well past the shipped burst. The
+    # limit is exercised in test_ratelimit.py against a default-configured
+    # app, so opting out here cannot hide a wiring mistake.
+    return TestClient(create_app(None, chat_limiter=RateLimiter.disabled()))
 
 
 @pytest.fixture(scope="module")
@@ -395,3 +400,200 @@ def test_fallbacks_come_from_the_environment(monkeypatch):
     assert gemini.GeminiConfig.from_env().models() == ["x", "y", "z"]
     monkeypatch.setenv("GEMINI_FALLBACK_MODELS", "")
     assert gemini.GeminiConfig.from_env().models() == ["x"]
+
+
+# ---- descriptors never reach the model, so nothing has to guess ----
+#
+# Three earlier versions of this were bypassable, each in the same way: they tried
+# to recover provenance from the model's output. Protected spans, then an
+# upper-case rule, then case-sensitive matching — all defeated, the last by
+# `scrub("This plan IS GUARANTEED to clear.", ["IS GUARANTEED"])`. A string does
+# not carry where it came from.
+#
+# Now the model never sees a descriptor. It sees [[M0]], everything it writes is
+# scrubbed unconditionally, and the real text goes back afterwards.
+
+_TRAP = "GUARANTEED AUTO PROTECTION"
+
+
+def test_the_scrubber_has_no_exceptions_left_to_exploit():
+    for crafted in ["IS GUARANTEED", "GUARANTEED SAVINGS", "guaranteed savings", "Guaranteed Rate"]:
+        out = scrub(f"This plan {crafted} covers it.")
+        assert "guarantee" not in out.lower(), f"{crafted!r} survived as {out!r}"
+
+
+def test_a_descriptor_is_taken_out_before_the_model_sees_it():
+    refs = descriptor_refs([_TRAP])
+    masked = mask_descriptors(f"- 2026-09-22 {_TRAP}: -$38.59", refs)
+    assert _TRAP not in masked
+    assert refs == [_TRAP]
+
+
+def test_a_descriptor_comes_back_intact_after_scrubbing():
+    refs = descriptor_refs([_TRAP])
+    masked = mask_descriptors(f"row {_TRAP} here", refs)
+    assert unmask_descriptors(scrub(masked), refs) == f"row {_TRAP} here"
+
+
+def test_a_reply_gets_both_treatments_and_they_do_not_interfere():
+    refs = descriptor_refs([_TRAP])
+    reply = mask_descriptors(f"Skipping {_TRAP} frees $38.59, and it is guaranteed.", refs)
+    out = unmask_descriptors(scrub(reply), refs)
+    assert _TRAP in out, "the merchant name must survive"
+    assert "it is guaranteed" not in out, "the product's claim must not"
+    assert "sufficient under the schedule shown" in out
+
+
+def test_an_invented_reference_is_dropped_not_guessed():
+    """Inventing a merchant name into a sentence about someone's money is worse
+    than a clipped sentence."""
+    refs = descriptor_refs([_TRAP])
+    invented = unmask_descriptors(mask_descriptors(_TRAP, refs).replace("M0", "M7"), refs)
+    assert invented == ""
+
+
+def test_masking_does_not_depend_on_set_ordering():
+    pair = [_TRAP, "GUARANTEED AUTO PROTECTIOX"]
+    text = f"a {_TRAP} b"
+    assert mask_descriptors(text, descriptor_refs(pair)) == \
+           mask_descriptors(text, descriptor_refs(list(reversed(pair))))
+
+
+def test_the_longer_descriptor_wins_when_one_contains_another():
+    refs = descriptor_refs(["KROGER #382", "KROGER #382 STORE"])
+    masked = mask_descriptors("KROGER #382 STORE", refs)
+    assert unmask_descriptors(masked, refs) == "KROGER #382 STORE"
+    assert "KROGER" not in masked
+
+
+def test_a_short_descriptor_cannot_clobber_the_references():
+    """Replacing one descriptor at a time let a later one rewrite the placeholders
+    an earlier one had just inserted. A merchant named "M" was enough."""
+    refs = descriptor_refs([_TRAP, "M"])
+    text = f"row {_TRAP} and M here"
+    assert unmask_descriptors(mask_descriptors(text, refs), refs) == text
+
+
+def test_the_conversation_history_is_masked_too(monkeypatch):
+    """A user who types a merchant's name into the chat puts it back in front of
+    the model, which echoes it, and the scrubber corrupts it again — the original
+    bug reached by a different road."""
+    import app.chat as chat_mod
+
+    seen: dict = {}
+
+    def fake(config, instruction, turns, sleep=None):
+        seen["instruction"] = instruction
+        seen["turns"] = turns
+        return turns[-1][1], "stub-model"
+
+    monkeypatch.setattr(chat_mod, "generate_with_fallback", fake)
+    raw = copy.deepcopy(SCENARIOS["clears"])
+    raw["scheduled"][0]["description"] = _TRAP
+    solved = solve(SolveRequest.model_validate(raw))
+    req = ChatRequest.model_validate({
+        "messages": [{"role": "user", "text": f"why skip {_TRAP}?"}],
+        "request": raw,
+        "response": json.loads(solved.model_dump_json()),
+    })
+    out = chat(req, config=gemini.GeminiConfig(api_key="x", model="stub", timeout_s=5.0))
+    assert _TRAP not in seen["turns"][-1][1], "the model saw the raw descriptor"
+    assert _TRAP in out.reply, "and it must still come back intact"
+
+
+
+
+def test_the_fixed_brief_is_never_rewritten_by_a_descriptor(monkeypatch):
+    """Masking the rendered instruction rewrote the product's own words.
+
+    A transaction described as "a" produced 239 replacements in the fixed brief —
+    "You ⸤M0⸥re the expl⸤M0⸥iner". Descriptors live in known fields, so they are
+    replaced there and the brief is left alone.
+    """
+    import app.chat as chat_mod
+
+    seen: dict = {}
+
+    def fake(config, instruction, turns, sleep=None):
+        seen["instruction"] = instruction
+        return "ok", "stub-model"
+
+    monkeypatch.setattr(chat_mod, "generate_with_fallback", fake)
+    raw = copy.deepcopy(SCENARIOS["clears"])
+    raw["scheduled"][0]["description"] = "a"
+    solved = solve(SolveRequest.model_validate(raw))
+    req = ChatRequest.model_validate({
+        "messages": [{"role": "user", "text": "why?"}],
+        "request": raw,
+        "response": json.loads(solved.model_dump_json()),
+    })
+    chat(req, config=gemini.GeminiConfig(api_key="x", model="stub", timeout_s=5.0))
+    assert "You are the explainer" in seen["instruction"]
+    assert "expl⸤M" not in seen["instruction"]
+
+
+def test_a_short_descriptor_only_matches_as_a_whole_word():
+    refs = descriptor_refs(["a"])
+    assert mask_descriptors("a plan and a rate", refs).count("⸤M0⸥") == 2
+    assert "plan" in mask_descriptors("a plan and a rate", refs)
+
+
+# --------------------------------------------------------------------------
+# where the account came from
+# --------------------------------------------------------------------------
+#
+# These go through the route rather than calling system_instruction directly.
+# The whole point of the field is that it reaches the model; a test that builds
+# the instruction itself would keep passing if chat() forgot to pass it on.
+
+
+def _instruction(fake) -> str:
+    return fake.calls[0]["body"]["systemInstruction"]["parts"][0]["text"]
+
+
+def test_a_preset_account_is_named_as_the_built_in_sample(client, solved, fake):
+    r = client.post("/api/chat", json=body(solved))
+    assert r.status_code == 200, r.text
+    text = _instruction(fake)
+    assert "the built-in sample account" in text
+    assert "demo data" not in text
+
+
+def test_an_omitted_account_source_behaves_as_a_preset(client, solved, fake):
+    payload = body(solved)
+    assert "account_source" not in payload
+    client.post("/api/chat", json=payload)
+    assert "the built-in sample account" in _instruction(fake)
+
+
+def test_a_modelled_account_is_declared_as_generated_data(client, solved, fake):
+    client.post("/api/chat", json={**body(solved), "account_source": "modelled"})
+    text = _instruction(fake)
+    assert "generated demo data" in text
+    assert "not anyone's account" in text
+
+
+def test_a_sandbox_account_is_declared_as_sandbox_data(client, solved, fake):
+    """The one question this field exists for is "is this my real account?"."""
+    client.post("/api/chat", json={**body(solved), "account_source": "nessie"})
+    text = _instruction(fake)
+    assert "Nessie sandbox" in text
+    assert "not anyone's account" in text
+    assert "whole dollars" in text
+
+
+def test_an_unknown_account_source_is_refused_at_the_edge(client, solved):
+    r = client.post("/api/chat", json={**body(solved), "account_source": "my bank"})
+    assert r.status_code == 422
+
+
+def test_no_account_source_line_breaks_the_wording_rules():
+    """CLAUDE.md: never "guaranteed", never "infeasible", and sandbox data is
+    never called real bank data."""
+    from app.chat.prompt import ACCOUNT_SOURCE
+
+    for line in ACCOUNT_SOURCE.values():
+        lowered = line.lower()
+        assert "guarantee" not in lowered
+        assert "infeasib" not in lowered
+        assert "real bank" not in lowered

@@ -16,10 +16,12 @@ proof, which is the only part nobody else has.
 - [ ] Sliders at their defaults, no overrides left over from the last run
 - [ ] If the wifi is dead, say nothing about it. The page falls back to a local
       solver and keeps working. Only mention it if the footer chip is spotted.
-- [ ] Refresh the two numbers in the build section. They were 810 tests and
-      under 3ms on Saturday morning and the suite is still growing; quoting a
-      stale figure to someone who then runs it is worse than rounding. As of
-      Sat 04:30 it is 977 backend tests plus 87 frontend tests.
+- [ ] Refresh the two numbers in the build section. The suite keeps growing and
+      quoting a stale figure to someone who then runs it is worse than rounding.
+      As of Sat 14:00 it is 1,333 backend tests plus 216 frontend tests, and the
+      three demo accounts solve in roughly 3-8 ms (100 random accounts average
+      under 3 ms each). Re-measure with `.venv/bin/pytest backend/ -m perf -s`;
+      the figures move a little between machines and runs, so quote the range.
 
 ---
 
@@ -125,7 +127,7 @@ That paragraph is the impact answer. Do not cut it for time.
 > The hard part was trusting it. So there are two independent implementations,
 > a brute force and the constraint model, and they're checked against each
 > other on generated accounts. Two hundred instances, zero disagreements.
-> Eight hundred and ten tests. Solves in under three milliseconds."
+> Thirteen hundred tests. Solves in under ten milliseconds."
 
 If they want one more level:
 
@@ -148,8 +150,30 @@ Stop there. Do not trail off into a feature list.
 
 Insert at 1:10, and cut fifteen seconds from the build section to pay for it.
 
-> "This isn't a file I uploaded. It's pulling a real account from Capital One's
-> sandbox over their API."
+**[Click "Capital One sandbox".]**
+
+> "This isn't a file I uploaded. That account lives in Capital One's Nessie
+> sandbox, and it just came back out over their API.
+>
+> Whole dollars, because that's what the sandbox stores — it truncates cents on
+> write. So the line tells you how many rows came back and what changed. The
+> solver never trusts the sandbox's arithmetic; the cents live here."
+
+Two things to have ready if a judge pushes:
+
+- **"Why not read the balance from the bank?"** Their sandbox freezes it at
+  account creation — deposits and withdrawals don't move it. So the integer-cent
+  ledger here is the system of record and their API is a history source. That is
+  a real constraint, found by writing to it, and it is worth saying out loud.
+- **"What if the sandbox is down?"** The button says so and the built-in
+  accounts keep working. Same posture as the offline solver.
+
+**Say "lives in", not "was just written", unless you know which mode the box is
+in.** With `NESSIE_ACCOUNT_ID` set — the recommended setting for judging, because
+writes to that sandbox are permanent — the click only reads. The wording above is
+true either way. If you are demoing on a box without it set, the click does write
+the whole account first, and "watch it write twenty-odd rows and read them back"
+is the better line.
 
 If it is not live on Sunday, say nothing about it at all. Do not apologise for
 missing features; judges only know what you tell them.
@@ -195,6 +219,16 @@ doesn't have.
 An input, not a learned thing. Right now I set it per category. A real version
 asks you once, and it only ever breaks ties between plans that are already the
 same size.
+
+**"Why is this mission-critical AI?"** (the Peraton question)
+Mission-critical isn't about the size of the system, it's about what failure
+costs the person depending on it. A thirty-five dollar fee on a five dollar
+shortfall is a mission failure for someone with no slack. So the parts that must
+not be wrong are exact and provable: a constraint solver decides feasibility,
+and the answer is re-verified against a zero balance after the plan is chosen.
+The language model is at the edges — it explains the plan and never decides it,
+and it is told plainly that this is generated demo data. Nothing it writes can
+change a number.
 
 **"Who is this for?"**
 Someone a bad week away from a thirty-five dollar fee on a five dollar

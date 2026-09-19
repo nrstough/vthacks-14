@@ -1,0 +1,202 @@
+"""A per-address rate limit for the one endpoint that costs money upstream.
+
+`POST /api/chat` spends the server's Gemini key on every call. The request
+body is already bounded — 40 turns of 4,000 characters — but the number of
+requests is not, so anyone with the URL could loop the explainer until the
+free tier is gone. During judging that reads as the explainer being broken.
+
+Stateless for the user, like the rest of the service. A bucket holds a token
+count and a timestamp per address: no request content, no conversation, no
+identity, nothing written down. It dies with the process. This exists to stop
+a loop from spending the key, not to identify anyone.
+
+No new dependency. `slowapi` would be the obvious pick, but installing on
+venue wifi is the recurring hazard every handoff in this repository names.
+"""
+
+from __future__ import annotations
+
+import threading
+import time
+from collections import OrderedDict
+from dataclasses import dataclass
+from math import ceil
+from typing import Callable, NamedTuple
+
+# Twenty a minute sustained, ten available at once. The judging room shares
+# one NAT, so a tight limit breaks the demo; the failure this guards against
+# is a loop, not a crowd. A person asking a question every few seconds never
+# comes close.
+SUSTAINED_PER_MINUTE = 20
+BURST = 10
+
+# A ceiling on the map of buckets, so the map itself is not a way to grow the
+# process. See `_evict`.
+MAX_KEYS = 4096
+
+
+class Decision(NamedTuple):
+    allowed: bool
+    retry_after_s: int
+
+
+@dataclass
+class _Bucket:
+    tokens: float
+    at: float
+
+
+class RateLimiter:
+    """A token bucket per key, refilled continuously, safe across threads.
+
+    The clock and the lock are injectable so the tests can be deterministic
+    about time and explicit about the critical section.
+    """
+
+    def __init__(
+        self,
+        *,
+        per_minute: int = SUSTAINED_PER_MINUTE,
+        burst: int = BURST,
+        max_keys: int = MAX_KEYS,
+        clock: Callable[[], float] = time.monotonic,
+        lock=None,
+    ) -> None:
+        if per_minute < 1 or burst < 1 or max_keys < 1:
+            # None of these is a way to switch the limit off — that is
+            # `disabled()`, which says so at the call site. Zero per_minute
+            # divides by zero on the first refusal; zero max_keys evicts every
+            # bucket as fast as it is made, silently admitting everything;
+            # a negative max_keys raises out of popitem. All three are a 500
+            # or a hole rather than a limit.
+            raise ValueError(
+                "per_minute, burst and max_keys must each be at least 1; use RateLimiter.disabled()"
+            )
+        self._rate = per_minute / 60.0
+        self._burst = float(burst)
+        self._max_keys = max_keys
+        self._clock = clock
+        self._lock = lock if lock is not None else threading.Lock()
+        self._buckets: OrderedDict[str, _Bucket] = OrderedDict()
+        self._off = False
+
+    @classmethod
+    def disabled(cls) -> RateLimiter:
+        """A limiter that allows everything.
+
+        For fixtures that post in bulk. Spelled out at the call site so an
+        opt-out is never mistaken for the real thing.
+        """
+        limiter = cls()
+        limiter._off = True
+        return limiter
+
+    def __len__(self) -> int:
+        return len(self._buckets)
+
+    def check(self, key: str) -> Decision:
+        """Spend one token for `key`, or report how long until one exists."""
+        if self._off:
+            return Decision(True, 0)
+
+        with self._lock:
+            now = self._clock()
+            bucket = self._buckets.get(key)
+            if bucket is None:
+                bucket = _Bucket(tokens=self._burst, at=now)
+                self._buckets[key] = bucket
+            else:
+                self._buckets.move_to_end(key)
+                elapsed = now - bucket.at
+
+                # `at` is a high-water mark: it never moves backwards. A clock
+                # that has not advanced adds nothing, and one that has gone
+                # backwards adds nothing and is not recorded.
+                #
+                # The guarantee runs one way, deliberately. Resyncing `at` to
+                # an earlier reading would let a clock that steps back and
+                # then forward again mint a full burst per round trip while
+                # no time passed at all — a limiter that can be wound. The
+                # cost is the other direction: after a backwards step the
+                # bucket does not refill until the clock passes its previous
+                # reading. `time.monotonic` never goes backwards, so that
+                # cannot happen here.
+                #
+                # Both can be had approximately, by clamping the high-water
+                # mark to some bounded skew, which caps minting and stranding
+                # alike at that bound. Not done: a constant and a branch for
+                # an unreachable case cost more than they buy. Neither can be
+                # had exactly, and a guard on spending someone's API key
+                # should fail closed rather than open.
+                if elapsed > 0:
+                    bucket.tokens = min(self._burst, bucket.tokens + elapsed * self._rate)
+                    bucket.at = now
+
+            if bucket.tokens >= 1.0:
+                bucket.tokens -= 1.0
+                decision = Decision(True, 0)
+            else:
+                # A refused request is NOT charged. Charging it would let a
+                # loop extend its own lockout indefinitely, which turns a rate
+                # limit into a ban.
+                # Two waits, and the client is owed their sum: the time for a
+                # token to accrue, plus — if the clock is behind this
+                # bucket's high-water mark — the time until refilling resumes
+                # at all. Reporting only the first would promise three
+                # seconds in the middle of a ten-minute wait.
+                # `bucket.at` is only ever assigned inside `elapsed > 0`, where
+                # it is set to `now`, so this difference is never negative
+                # under any clock. The clamp guards that invariant rather than
+                # a case — nothing can reach it, and no test can distinguish
+                # it; it is here so a future assignment to `at` cannot turn a
+                # wait negative in silence.
+                catch_up = max(0.0, bucket.at - now)
+                wait = catch_up + (1.0 - bucket.tokens) / self._rate
+                decision = Decision(False, max(1, ceil(wait)))
+
+            self._evict()
+            return decision
+
+    def _evict(self) -> None:
+        """Hold the map to its ceiling, least-recently-used first.
+
+        Every attempt moves its own key to the end, so the address that is
+        currently hammering is never the one dropped: filling the map is not
+        a way to clear your own record.
+
+        An earlier draft dropped buckets at full capacity first, on the
+        grounds that they carry no information. That branch was unreachable —
+        a bucket with a token to spend always spends it, so a stored bucket is
+        never at capacity — and dead code that looks like a policy is worse
+        than no policy. That reachability argument depends on `burst >= 1`,
+        which the constructor now enforces: at a fractional burst below one a
+        refused bucket would sit exactly at capacity and the branch would have
+        been live. The two are coupled; do not relax the one without
+        revisiting the other.
+
+        An actor with thousands of source addresses can still force eviction,
+        but such an actor defeats any per-address limit by rotating addresses
+        anyway. This ceiling is a memory bound, not a security boundary.
+        """
+        while len(self._buckets) > self._max_keys:
+            self._buckets.popitem(last=False)
+
+
+def client_key(request) -> str:
+    """The address to count against.
+
+    Host only, never the port: `request.client` is a (host, port) pair and the
+    port changes with every connection, so keying on the pair would hand out a
+    fresh budget per request and produce a limiter that does nothing while
+    looking like it works.
+
+    Behind Caddy the peer is loopback and the real address arrives in
+    `X-Forwarded-For`. That header is NOT parsed here: uvicorn's
+    ProxyHeadersMiddleware is on by default, trusts only the loopback peers
+    named in the unit file, and resolves the list in reverse to the first
+    untrusted hop — so a client that sends its own header cannot choose its
+    key. One owner for that decision, and it is not this module.
+    """
+    client = getattr(request, "client", None)
+    host = getattr(client, "host", None) if client is not None else None
+    return host or "unknown"

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import BalanceChart from './components/BalanceChart'
 import ErrorBoundary from './components/ErrorBoundary.tsx'
 import ChatPanel from './components/ChatPanel'
@@ -8,6 +8,9 @@ import TopNav from './components/TopNav'
 import VerdictBand from './components/VerdictBand'
 import { SCENARIOS } from './fixtures/scenarios'
 import { solveViaApi } from './lib/api'
+import { chatKey, loadAccount, provenanceLine, sliderBounds } from './lib/accounts.ts'
+import type { LoadKind } from './lib/accountState.ts'
+import { accountReducer, fail, initial, preset as presetAction, start, succeed } from './lib/accountState.ts'
 import { money, shortDate } from './lib/format'
 import { emptyPlanText, footerLines, narrateChart } from './lib/narrate'
 import type { Overrides } from './lib/overrides'
@@ -23,24 +26,31 @@ import type { SolveRequest, SolveResponse } from './types'
 // main one can be watched.
 const WalletView = lazy(() => import('./wallet/WalletView.tsx'))
 
-const BASE = SCENARIOS[0].request
+const FIXTURE = SCENARIOS[0].request
 
 export default function App() {
   const [tab, setTab] = useState<'plan' | 'wallet'>('plan')
-  const [opening, setOpening] = useState(BASE.opening_balance_cents)
-  const [buffer, setBuffer] = useState(BASE.buffer_cents)
+  // The account the request is built from. A preset restores the fixture; the
+  // two source buttons replace it wholesale. The lifecycle lives in a reducer
+  // because the ways it goes wrong are about ordering, not rendering.
+  const [acct, dispatch] = useReducer(accountReducer, FIXTURE, initial)
+  const { account, base, loading, error: loadError } = acct
+  const seqRef = useRef(0)
+  const loadCtl = useRef<AbortController | null>(null)
+  const [opening, setOpening] = useState(FIXTURE.opening_balance_cents)
+  const [buffer, setBuffer] = useState(FIXTURE.buffer_cents)
   const [ruledOut, setRuledOut] = useState<Overrides>(NONE)
   const [newIds, setNewIds] = useState<string[]>([])
   const previousPlan = useRef<string[]>([])
 
   const request = useMemo(
     () => ({
-      ...BASE,
+      ...base,
       opening_balance_cents: opening,
       buffer_cents: buffer,
       locks: toLocks(ruledOut),
     }),
-    [opening, buffer, ruledOut],
+    [base, opening, buffer, ruledOut],
   )
 
   // Seeded from the local solver so the first paint is instant and the page is
@@ -96,11 +106,23 @@ export default function App() {
         // Fall back rather than blank the page. The local solver is exact at
         // this size, so a dead backend or dead venue wifi during judging
         // costs the CP-SAT provenance, not the demo.
-        apply(
-          solve(debounced, before),
-          'local',
-          err instanceof Error ? err.message : 'Solver unreachable.',
-        )
+        // The local solver is exhaustive and refuses above 20 free changes.
+        // Throwing here would be a rejection inside a .catch: no state update,
+        // no notice, and the previous account's plan left on screen looking
+        // like this one's. Say something instead.
+        try {
+          apply(
+            solve(debounced, before),
+            'local',
+            err instanceof Error ? err.message : 'Solver unreachable.',
+          )
+        } catch (offline: unknown) {
+          if (mine !== seq.current) return
+          setSource('local')
+          setNotice(
+            offline instanceof Error ? offline.message : 'Could not work that out offline.',
+          )
+        }
       })
 
     return () => ctl.abort()
@@ -156,11 +178,55 @@ export default function App() {
     focused.current = id
   }
 
-  function preset(cents: number, cushion: number) {
+  // Everything a change of account has to reset. Shared by the presets and the
+  // two source buttons so neither can drift from the other.
+  function adopt(next: SolveRequest, cents: number, cushion: number) {
     setOpening(cents)
     setBuffer(cushion)
     setRuledOut(NONE)
     previousPlan.current = []
+    // Invalidate any solve still in flight for the previous account: its answer
+    // would otherwise land on these rows and look like an answer about them.
+    seq.current++
+    setSolvedRequest(null)
+    setSolvedRuledOut(NONE)
+    setNewIds([])
+    try {
+      setRes(solve({ ...next, opening_balance_cents: cents, buffer_cents: cushion }, []))
+    } catch {
+      // Too many changes for the exhaustive stand-in; the effect will answer.
+    }
+  }
+
+  function preset(cents: number, cushion: number) {
+    loadCtl.current?.abort()
+    // Bump the token too, not just the reducer's. The abort above is what
+    // stops an in-flight load today, and an abort is not guaranteed to win a
+    // race with a response already in flight: without this, the reducer would
+    // reject the stale result while `adopt` below still wrote its balances,
+    // putting a sandbox account's numbers under a line saying "Sample
+    // checking account".
+    seqRef.current++
+    dispatch(presetAction(FIXTURE))
+    adopt(FIXTURE, cents, cushion)
+  }
+
+  async function load(kind: LoadKind) {
+    loadCtl.current?.abort()
+    const ctl = new AbortController()
+    loadCtl.current = ctl
+    // One counter, handed to the reducer, so the two can never drift.
+    const mine = ++seqRef.current
+    dispatch(start(kind, mine))
+    try {
+      const loaded = await loadAccount(kind, ctl.signal)
+      if (mine !== seqRef.current) return
+      dispatch(succeed(mine, loaded.account, loaded.base))
+      adopt(loaded.base, loaded.base.opening_balance_cents, loaded.base.buffer_cents)
+    } catch (e: unknown) {
+      if (ctl.signal.aborted || mine !== seqRef.current) return
+      dispatch(fail(mine, e instanceof Error ? e.message : 'Could not load that account.'))
+    }
   }
 
   const locked = count(ruledOut)
@@ -204,6 +270,12 @@ export default function App() {
                 swapping under the eye. */}
             <section className="hero" key={`tier-${res.tier}`}>
               <div className="hero-copy">
+                {/* Where the numbers come from. Deliberately a sibling ABOVE
+                    the verdict rather than inside it: the verdict is an
+                    aria-live region, and provenance does not change on a
+                    re-solve, so announcing it again on every slider move
+                    would be noise. */}
+                <p className="eyebrow-note">{provenanceLine(account, base)}</p>
                 <VerdictBand res={res} req={request} />
               </div>
               <Stats res={res} />
@@ -214,7 +286,7 @@ export default function App() {
                 <div className="panel-head">
                   <div>
                     <p className="panel-kicker">
-                      Daily balance · {shortDate(request.as_of)} to {shortDate(request.horizon_end)}
+                      Daily balance · {shortDate(base.as_of)} to {shortDate(base.horizon_end)}
                     </p>
                     <h2>Where the money actually goes</h2>
                   </div>
@@ -260,6 +332,7 @@ export default function App() {
                       type="button"
                       title={s.blurb}
                       aria-pressed={
+                        account === null &&
                         s.request.opening_balance_cents === opening &&
                         s.request.buffer_cents === buffer
                       }
@@ -272,6 +345,32 @@ export default function App() {
                   ))}
                 </div>
 
+                <span className="ctl-presets ctl-sources">
+                  <button
+                    type="button"
+                    title="Generate a fresh account on the server"
+                    aria-pressed={account?.source === 'modelled'}
+                    disabled={loading !== null}
+                    onClick={() => void load('modelled')}
+                  >
+                    {loading === 'modelled' ? 'Loading…' : 'New modelled account'}
+                  </button>
+                  <button
+                    type="button"
+                    title="Seed an account into Capital One's Nessie sandbox and read it back"
+                    aria-pressed={account?.source === 'nessie'}
+                    disabled={loading !== null}
+                    onClick={() => void load('nessie')}
+                  >
+                    {loading === 'nessie' ? 'Loading…' : 'Capital One sandbox'}
+                  </button>
+                </span>
+                {loadError && (
+                  <p className="ctl-note" role="status">
+                    {loadError}
+                  </p>
+                )}
+
                 <div className="controls">
                   <label className="ctl">
                     <span className="ctl-head">
@@ -280,8 +379,8 @@ export default function App() {
                     </span>
                     <input
                       type="range"
-                      min={2000}
-                      max={30000}
+                      min={sliderBounds(opening).min}
+                      max={sliderBounds(opening).max}
                       step={500}
                       value={opening}
                       onChange={(e) => setOpening(Number(e.target.value))}
@@ -338,7 +437,13 @@ export default function App() {
                 />
               </section>
 
-              <ChatPanel req={request} res={res} source={source} />
+              <ChatPanel
+                key={chatKey(account)}
+                req={request}
+                res={res}
+                source={source}
+                accountSource={account?.source ?? 'preset'}
+              />
             </div>
           </>
         )}

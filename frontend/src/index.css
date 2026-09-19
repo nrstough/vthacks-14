@@ -1771,3 +1771,15 @@ details.considered[open] summary { margin-bottom: var(--s1); }
   .panel,
   .hero { transition: none; }
 }
+
+/* The two account-source buttons sit under the presets and share their look.
+   A load is the one control here that takes a visible moment, so it needs a
+   disabled state the presets never did. */
+.ctl-sources {
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.ctl-presets button:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}

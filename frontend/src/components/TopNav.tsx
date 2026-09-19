@@ -21,9 +21,9 @@ export default function TopNav({ tab, onTab, res, source, notice }: Props) {
     <header className="navbar">
       <div className="brand">
         <span className="mark" aria-hidden="true">
-          OG
+          S
         </span>
-        Overdraft Guard
+        Safe to Spend
       </div>
 
       <nav className="pillnav" aria-label="Views">

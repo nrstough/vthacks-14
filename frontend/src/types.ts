@@ -1,5 +1,10 @@
 // Mirrors docs/api-contract.md. Keep the two in step.
 
+// Where the account on screen came from, which is a different question from
+// which solver produced the numbers. A union, not an enum: the project compiles
+// with erasableSyntaxOnly and Node's type stripping needs the same.
+export type AccountSource = 'preset' | 'modelled' | 'nessie'
+
 export type TxnKind = 'income' | 'bill' | 'discretionary'
 export type Action = 'skip' | 'defer' | 'downgrade' | 'cancel'
 
@@ -97,3 +102,80 @@ export interface SolveResponse {
     excluded_locked_in: string[] // pinned ids dropped because they are no longer actionable
   }
 }
+
+// --------------------------------------------------------------------------
+// account sources
+// --------------------------------------------------------------------------
+
+export interface CandidatesRequest {
+  as_of: string
+  horizon_end: string
+  scheduled: ScheduledTxn[]
+  limit?: number
+}
+
+export interface CandidatesMeta {
+  rows_considered: number
+  protected: string[]
+  unrecognised: string[]
+  not_actionable: string[]
+  truncated: boolean
+}
+
+export interface CandidatesResponse {
+  candidates: Candidate[]
+  meta: CandidatesMeta
+}
+
+export interface SampleAccountRequest {
+  seed?: number
+  as_of?: string
+  horizon_days?: number
+}
+
+// Not a request body for the other endpoints: it carries `seed` and `source`,
+// and both request models forbid extras, so posting it verbatim is a 422. Pick
+// the fields each endpoint declares — see toCandidatesRequest and toBase.
+export interface SampleAccountResponse {
+  seed: number
+  as_of: string
+  horizon_end: string
+  opening_balance_cents: number
+  buffer_cents: number
+  scheduled: ScheduledTxn[]
+  source: 'modelled'
+}
+
+// One row the sandbox did not give back unchanged. Reported, never hidden.
+export interface NotRoundTripped {
+  id: string
+  reason:
+    | 'written but not returned'
+    | 'amount changed by the sandbox'
+    | 'no usable date'
+    | 'outside the window'
+    | 'amount rounds to zero dollars'
+    | 'returned without a usable id'
+}
+
+export interface NessieProvenance {
+  customer_id: string | null
+  account_id: string
+  mode: 'seeded' | 'read_only'
+}
+
+export interface NessieAccountResponse {
+  seed: number
+  as_of: string
+  horizon_end: string
+  opening_balance_cents: number
+  buffer_cents: number
+  scheduled: ScheduledTxn[]
+  source: 'nessie'
+  nessie: NessieProvenance
+  written: number
+  returned: number
+  not_round_tripped: NotRoundTripped[]
+}
+
+export type LoadedAccount = SampleAccountResponse | NessieAccountResponse

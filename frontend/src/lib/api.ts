@@ -20,7 +20,7 @@ export class ApiError extends Error {
 
 // A validation failure arrives as FastAPI's list of {loc, msg, ...}. Turn it
 // into a sentence naming the field, rather than pasting raw JSON at the user.
-function describeDetail(detail: unknown): string {
+export function describeDetail(detail: unknown): string {
   if (typeof detail === 'string') return detail
   if (!Array.isArray(detail)) return ''
   return detail

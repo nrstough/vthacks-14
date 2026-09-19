@@ -9,6 +9,7 @@ review.
 from __future__ import annotations
 
 import json
+import sys
 
 import pytest
 
@@ -41,11 +42,19 @@ def user_facing(raw: dict, settings: Settings | None = None) -> list[str]:
     body = json.loads(res.model_dump_json())
     # Ids and dates are data, not prose; the strings that matter are the ones
     # written for a person to read.
+    #
+    # Enumerated deliberately rather than swept over every string in the body.
+    # Transaction ids are caller text and may legally carry a banned substring —
+    # test_candidates_policy.py uses "guaranteed_1" on purpose — and `detail`
+    # quotes the merchant's own descriptor, which is the user's statement line
+    # rather than a claim this product is making. `label` is written by us, so it
+    # belongs here. That is the distinction: our words, not their data.
     return [
         body["verdict"],
         body["qualifier"],
         body["certificate"]["sentence"],
         *[p["reason"] for p in body["plan"]],
+        *[p["label"] for p in body["plan"]],
     ]
 
 
@@ -162,3 +171,32 @@ def test_an_empty_plan_at_tier_three_does_not_claim_the_schedule_clears():
     assert res.tier == 3 and res.plan == []
     assert "already clears" not in res.certificate.sentence
     assert res.certificate.sentence.startswith("Nothing here can be changed in time")
+
+
+# The counterfactual. It must call user_facing(), not rebuild its field list:
+# an inline copy passes even when the production sweep stops checking the field,
+# which is precisely the failure it is supposed to detect.
+@pytest.mark.parametrize("field", ["verdict", "qualifier", "certificate.sentence", "reason", "label"])
+def test_removing_a_field_from_the_sweep_would_be_caught(field, monkeypatch):
+    poison = "gu" + "aranteed"  # character-split so this file does not trip bundle.test.ts
+    real = solve(SolveRequest.model_validate(SCENARIOS["clears"]))
+
+    import app.solver.solve as solve_mod
+
+    def poisoned(req, settings=None):
+        res = real.model_copy(deep=True)
+        if field == "certificate.sentence":
+            res.certificate.sentence = poison
+        elif field in ("reason", "label"):
+            assert res.plan, "this scenario must produce a plan for the case to mean anything"
+            setattr(res.plan[0], field, poison)
+        else:
+            setattr(res, field, poison)
+        return res
+
+    monkeypatch.setattr(solve_mod, "solve", poisoned)
+    monkeypatch.setattr(sys.modules[__name__], "solve", poisoned)
+    texts = user_facing(SCENARIOS["clears"])
+    assert any(word in t.lower() for t in texts for word in BANNED), (
+        f"user_facing() does not surface {field}, so the sweep cannot see a banned word there"
+    )

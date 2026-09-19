@@ -44,3 +44,11 @@ test('the built bundle still carries the crash fallback', () => {
   const found = bundles().some((code) => code.includes('This page stopped working'))
   assert.ok(found, 'the error boundary fallback text is missing from the bundle')
 })
+
+// The sandbox button is how a judge sees the Capital One integration at all.
+// It is the one control whose absence would look like a design choice rather
+// than a build failure, so it gets the same grep the other two do.
+test('the built bundle still offers the sandbox account', () => {
+  const found = bundles().some((code) => code.includes('Capital One sandbox'))
+  assert.ok(found, 'the sandbox button label is missing from the bundle')
+})

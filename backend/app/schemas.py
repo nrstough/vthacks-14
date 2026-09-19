@@ -343,3 +343,110 @@ class CandidatesMeta(Strict):
 class CandidatesResponse(Strict):
     candidates: list[Candidate] = Field(max_length=MAX_N)
     meta: CandidatesMeta
+
+
+# ---- modelled accounts ----
+
+
+class SampleAccountRequest(Strict):
+    """What POST /api/accounts/sample needs.
+
+    `seed` is optional and echoed back on the response, so any account a person
+    sees on screen can be regenerated exactly from the response alone. That is
+    the difference between a demo and a party trick.
+
+    `horizon_days` is bounded well inside MAX_T. The upper end is held at 45
+    rather than the schema's ceiling because candidate count grows with the
+    window and the exhaustive engine is 2^n above nothing.
+    """
+
+    seed: Annotated[StrictInt, Field(ge=0, le=2**31)] | None = None
+    as_of: StrictStr | None = None
+    horizon_days: Annotated[StrictInt, Field(ge=14, le=45)] = 30
+
+    @field_validator("as_of")
+    @classmethod
+    def _as_of(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        iso(v)
+        # `9999-12-31` is a valid date and a 500 waiting to happen: adding the
+        # horizon to it raises OverflowError inside the generator, which is an
+        # unhandled exception rather than a refused request. Leave room for the
+        # largest horizon this endpoint accepts.
+        if datetime.date.fromisoformat(v) > datetime.date.max - datetime.timedelta(days=46):
+            raise ValueError("as_of leaves no room for the horizon")
+        return v
+
+
+class SampleAccountResponse(Strict):
+    """A modelled account, in the contract's own field shapes.
+
+    Not itself a request body for the other two endpoints: it carries `seed`,
+    `opening_balance_cents`, `buffer_cents` and `source`, and both request models
+    are `extra="forbid"`, so posting it verbatim is a 422. The caller picks the
+    fields each endpoint declares.
+
+    `source` is required and always the literal "modelled". It is not decoration:
+    this is generated data and nothing downstream may present it as a bank's.
+    """
+
+    seed: StrictInt
+    as_of: StrictStr
+    horizon_end: StrictStr
+    opening_balance_cents: Cents
+    buffer_cents: NonNegCents
+    scheduled: list[ScheduledTxn] = Field(max_length=MAX_SCHED)
+    source: Literal["modelled"]
+
+
+class NotRoundTripped(Strict):
+    """One row the sandbox did not give back unchanged.
+
+    Reported rather than hidden. A demo that quietly drops half an account is
+    worse than one that says what it dropped, and the reasons are distinct
+    because they have different causes and different fixes.
+    """
+
+    id: Id
+    reason: Literal[
+        "written but not returned",
+        "amount changed by the sandbox",
+        "no usable date",
+        "outside the window",
+        "amount rounds to zero dollars",
+        "returned without a usable id",
+    ]
+
+
+class NessieProvenance(Strict):
+    """Which sandbox records this account is, and how it got here."""
+
+    customer_id: StrictStr | None
+    account_id: StrictStr
+    mode: Literal["seeded", "read_only"]
+
+
+class NessieAccountResponse(Strict):
+    """An account seeded into Capital One's Nessie sandbox and read back.
+
+    A sibling of SampleAccountResponse rather than a widening of it: that model's
+    `source` is a closed literal that its tests and the deploy's smoke check both
+    pin, and the sample endpoint's behaviour is unchanged by any of this.
+
+    `source` is required and always "nessie". Generated data seeded into someone
+    else's sandbox is still generated data; nothing downstream may present it as
+    a bank's record of anyone.
+    """
+
+    seed: StrictInt
+    as_of: StrictStr
+    horizon_end: StrictStr
+    opening_balance_cents: Cents
+    buffer_cents: NonNegCents
+    scheduled: list[ScheduledTxn] = Field(max_length=MAX_SCHED)
+    source: Literal["nessie"]
+    nessie: NessieProvenance
+    written: Annotated[StrictInt, Field(ge=0)]
+    returned: Annotated[StrictInt, Field(ge=0)]
+    not_round_tripped: list[NotRoundTripped]

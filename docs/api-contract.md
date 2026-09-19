@@ -1,4 +1,4 @@
-# API contract — `POST /api/solve` and `POST /api/candidates`
+# API contract — `POST /api/solve`, `POST /api/candidates` and `POST /api/accounts/sample`
 
 Frozen shape. The frontend builds against this; the solver targets it. All money is
 **integer cents**, all dates are `YYYY-MM-DD` strings in local time (no timezones,
@@ -160,7 +160,6 @@ zero (tier 2); otherwise fewest fee-days, then shallowest dip (tier 3).
   answer. A 503 is never an approximate answer — the service refuses rather than guessing,
   because a guess would be indistinguishable from a proof in this shape.
 
-
 ## `POST /api/candidates`
 
 Turns a transaction history into the changes the solver may choose from. Additive: the
@@ -216,3 +215,142 @@ payday. That is legal input, not an error: both engines choose at most one chang
 
 Responses: `200` with the body above; `422` with the same `{"detail": [{type, loc, msg,
 input}]}` shape as `/api/solve`. No `503` — this endpoint runs no solver.
+
+## `POST /api/accounts/sample`
+
+Additive: the `/api/solve` and `/api/candidates` contracts above are unchanged,
+and this endpoint is optional — the client can carry its own accounts and never
+call it.
+
+Returns one **modelled** account, using the contract's own `ScheduledTxn` shape
+so no field needs translating.
+
+The response is not itself a request body for the other two endpoints: it carries
+`seed`, `opening_balance_cents`, `buffer_cents` and `source`, and both
+`SolveRequest` and `CandidatesRequest` are `extra="forbid"`, so posting it
+verbatim is a 422. Pick the fields each endpoint declares — `as_of`,
+`horizon_end` and `scheduled` for `/api/candidates`; those plus the two balances
+and the candidates for `/api/solve`.
+
+```jsonc
+{
+  "seed": 12345,          // optional; omit and the server picks one
+  "as_of": "2026-09-19",  // optional; defaults to the demo date
+  "horizon_days": 30      // optional; 14..45, default 30
+}
+```
+
+`seed` is echoed on the response. That is the point of it: any account a person
+is shown can be regenerated exactly from the response alone, which is the
+difference between a demo and a party trick.
+
+`horizon_days` is bounded well inside `MAX_T`. The ceiling is 45 rather than the
+schema's because candidate count grows with the window and the exhaustive engine
+is 2^n.
+
+```jsonc
+{
+  "seed": 12345,
+  "as_of": "2026-09-19",
+  "horizon_end": "2026-10-18",
+  "opening_balance_cents": 19892,
+  "buffer_cents": 2500,
+  "scheduled": [ /* ScheduledTxn, exactly as /api/solve takes them */ ],
+  "source": "modelled"
+}
+```
+
+**`source` is required and is always the literal `"modelled"`.** It is not
+decoration. This is generated data and nothing downstream may present it as a
+bank's. A client that renders an account from this endpoint must say so on
+screen, in the same spirit as the offline-solver chip.
+
+Every account carries a payday inside the horizon and a dip below `buffer_cents`
+before the first one, so the solver always has work to do. A dip is not the same
+as a solvable dip: roughly 7% of seeds reach tier 3 with an empty plan, which is
+a wanted outcome — naming a shortfall that no combination of changes closes is
+half of what this product is for. Amounts are integer
+cents, heavy-tailed rather than uniform; pay lands on business days.
+
+## `POST /api/accounts/nessie`
+
+Additive, and a sibling of the endpoint above rather than a variant of it. Seeds
+a modelled account into Capital One's Nessie sandbox, reads it back, and returns
+what the sandbox actually holds.
+
+Request body is the same shape as `/api/accounts/sample`:
+
+```jsonc
+{
+  "seed": 12345,          // optional
+  "as_of": "2026-09-19",  // optional
+  "horizon_days": 30      // optional; 14..45, default 30
+}
+```
+
+```jsonc
+{
+  "seed": 12345,
+  "as_of": "2026-09-19",
+  "horizon_end": "2026-10-18",
+  "opening_balance_cents": 49800,
+  "buffer_cents": 2500,
+  "scheduled": [ /* ScheduledTxn, as /api/solve takes them */ ],
+  "source": "nessie",
+  "nessie": {
+    "customer_id": "68cd...",   // null in read-only mode if the sandbox omits it
+    "account_id": "68ce...",
+    "mode": "seeded"            // or "read_only"
+  },
+  "written": 23,                // rows sent to the sandbox; 0 in read-only mode
+  "returned": 23,               // rows in `scheduled`
+  "not_round_tripped": [        // every row the sandbox did not return unchanged
+    { "id": "n_68cf...", "reason": "amount changed by the sandbox" }
+  ]
+}
+```
+
+**`source` is required and is always the literal `"nessie"`.** Data generated
+here and seeded into someone else's sandbox is still generated data; nothing
+downstream may present it as a bank's record of anyone.
+
+**Amounts are whole dollars.** The sandbox truncates on write, so the server
+rounds before seeding (half away from zero) and what comes back is what was
+written. `/api/accounts/sample` is the cent-precise path.
+
+**`opening_balance_cents` is never an arithmetic result.** Writes never move
+Nessie's `balance`. In seeded mode the value is the rounded modelled opening
+and the sandbox's balance is not read at all; in read-only mode it *is* the
+sandbox's balance, which is the frozen creation value and therefore the same
+kind of number — an input, not something the sandbox computed.
+
+`not_round_tripped` reasons, one per row, in this precedence: `returned
+without a usable id`, `no usable date`, `outside the window`, `written but not
+returned`, `amount rounds to zero dollars` (under fifty cents, so rounding left
+nothing to write), `amount changed by the sandbox`.
+
+A row the sandbox returns with no id, or with one the contract's id pattern
+refuses, cannot be named by its id — that is the defect. It is dropped from
+`scheduled` and counted under a placeholder id of the form
+`n_unidentified_<resource>_<n>`, so the loss is stated rather than silent. The first two are dropped from `scheduled`; the last keeps the
+sandbox's value, because that is what the sandbox holds.
+
+**Errors.** `503` when no key is configured, when the sandbox returns nothing,
+or when what it returns normalises to no usable rows — never an empty account,
+because a wrong key answers `200 []` exactly as a real but empty account does.
+`502` when the sandbox fails mid-seed or answers something malformed; the
+message says how many rows were already written, because creates here are
+permanent.
+
+Setting `NESSIE_ACCOUNT_ID` on the server makes this endpoint read that account
+instead of seeding: no writes, `mode: "read_only"`, `written: 0`. See
+`docs/features/nessie.md`.
+
+**Three rules the server cannot enforce**, for any client rendering these
+accounts: clear every lock when the account changes (the ids do not carry
+over); pin `limit` to 18 on the candidates call that follows; and treat a 5xx
+with no `detail` as unreachable rather than as a refusal, because a dead backend
+behind the dev proxy answers with an empty 500.
+
+Responses: `200` with the body above, or `422` when `horizon_days` is out of
+range, `as_of` is not an ISO date, or an unknown field is sent.
