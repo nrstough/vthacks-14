@@ -15,7 +15,8 @@ exactly how much external cash is needed and by when.
 
 Prescriptive, exact, stateless. Not a forecast, not a model. The solver trusts dated
 inputs: payday business-day adjustment, month-end cadence, and transfer netting happen
-upstream in candidate generation / recurring detection (later run spec).
+upstream in candidate generation (`docs/features/candidates.md`) / recurring detection
+(later run spec).
 
 ## Contract
 
@@ -44,7 +45,9 @@ tiebreak differs.
 
 ## Constraints
 
-- At most one chosen candidate per `target_txn_id` (model constraint + validation).
+- At most one chosen candidate per `target_txn_id`. A search constraint in both engines,
+  not a validation rule: offering two competing changes on one transaction is legal input,
+  and the generator does it on purpose (`docs/features/candidates.md`).
 - `freed_cents ≤ |target transaction amount|` (validation, 422).
 - Lead time: a candidate is actionable iff `effective_date − as_of ≥ lead_time_days`.
 - Locks: out → never chosen; in → always chosen when actionable; in-but-past-lead-time →
@@ -103,7 +106,8 @@ never fixed.
 
 ## Pain scores — V1 and V2
 
-V1: pain is an input (category defaults from candidate generation); the user corrects it
+V1: pain is an input (category defaults from candidate generation —
+`backend/app/candidates/policy.py`, documented in `docs/features/candidates.md`); the user corrects it
 with lock toggles, which re-solve instantly. **V2 (roadmap):** learn pain scores from
 lock/override behaviour across users with a small model. Learning belongs on the
 estimation side (pain, recurrence, income timing); the decision stays exact. There are
@@ -113,7 +117,8 @@ cannot prove minimality or name the binding day.
 ## Known gaps
 
 - One `freed_cents` on one `effective_date` per candidate: a cancel that removes two
-  billings in the horizon must be expressed as two candidates (data-prep layer's job).
+  billings in the horizon must be expressed as two candidates. The generator does this,
+  one per occurrence; see `docs/features/candidates.md`.
 - Limits: horizon ≤ 366 days, ≤ 60 candidates, ≤ 2000 scheduled rows, |cents| ≤ 10^11.
 - The frontend's `as_of` comes from a browser `Date`; the backend never touches time.
 

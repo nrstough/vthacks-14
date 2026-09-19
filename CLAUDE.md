@@ -62,7 +62,8 @@ nobody checked.
 
 ## Layout
 
-- `backend/` — FastAPI app and the solver. `POST /api/solve`, `GET /health`.
+- `backend/` — FastAPI app, the solver, and the candidate generator that feeds it.
+  `POST /api/solve`, `POST /api/candidates`, `GET /health`.
 - `frontend/` — Vite, React, TypeScript, Recharts. Also holds
   `src/solver/mockSolver.ts`, an exact reference implementation used both as
   the offline fallback and as the oracle the Python solver is tested against.

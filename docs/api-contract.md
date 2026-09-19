@@ -1,4 +1,4 @@
-# API contract — `POST /api/solve`
+# API contract — `POST /api/solve` and `POST /api/candidates`
 
 Frozen shape. The frontend builds against this; the solver targets it. All money is
 **integer cents**, all dates are `YYYY-MM-DD` strings in local time (no timezones,
@@ -158,3 +158,59 @@ zero (tier 2); otherwise fewest fee-days, then shallowest dip (tier 3).
   where `loc[0]` is `"body"`; `503` with `{"detail": "..."}` when no exact engine can
   answer. A 503 is never an approximate answer — the service refuses rather than guessing,
   because a guess would be indistinguishable from a proof in this shape.
+
+
+## `POST /api/candidates`
+
+Turns a transaction history into the changes the solver may choose from. Additive: the
+`/api/solve` contract above is unchanged, and this endpoint is optional — a client that
+builds its own candidates never has to call it.
+
+```jsonc
+{
+  "as_of": "2026-09-19",              // same three fields /api/solve validates,
+  "horizon_end": "2026-10-02",        // checked by the same code
+  "scheduled": [ /* ScheduledTxn, as above */ ],
+  "limit": 18                         // optional, 1..60, default 18
+}
+```
+
+`limit` defaults to 18 rather than the 60-candidate maximum because 18 is the largest set
+every fallback still answers: the server's exhaustive engine refuses above it, and so does
+the browser's stand-in solver. Raise it only if you know CP-SAT is available.
+
+```jsonc
+{
+  "candidates": [ /* Candidate, exactly as /api/solve accepts them */ ],
+  "meta": {
+    "rows_considered": 13,            // rows that were outflows inside the horizon
+    "protected": ["t_card"],          // recognised as not-ours-to-touch, or unrecognised bills
+    "unrecognised": [],               // no keyword matched; see below
+    "not_actionable": ["t_spotify"],  // changeable, but nothing could be offered
+    "truncated": false                // more were generated than `limit` allowed
+  }
+}
+```
+
+Every considered row is in exactly one of **offered** (it is some candidate's
+`target_txn_id`), `protected`, or `not_actionable`. `unrecognised` is orthogonal: it
+records classification, not disposition, so a row no keyword matched appears there whether
+it was offered, protected, or dropped by `limit`. When `truncated` is true, a row whose
+every alternative fell below the cut appears in none of the three.
+
+A transaction may receive more than one candidate — trim the grocery run *or* push it past
+payday. That is legal input, not an error: both engines choose at most one change per
+`target_txn_id` in the search.
+
+**Three rules for the client, which the server cannot enforce:**
+
+- Send the **same `as_of`** to this endpoint and to `/api/solve`. A candidate whose
+  `effective_date` falls before a later `as_of` makes the whole solve a 422.
+- **Re-fetch candidates whenever `as_of` changes.** A day's passing can retire a change
+  whose lead time has run out.
+- **Prune `locks` to the ids this endpoint returned.** `locks` naming an id that is no
+  longer on offer is a 422 on the entire request; an id that merely missed its lead time
+  is absorbed and reported in `meta.excluded_locked_in`.
+
+Responses: `200` with the body above; `422` with the same `{"detail": [{type, loc, msg,
+input}]}` shape as `/api/solve`. No `503` — this endpoint runs no solver.
