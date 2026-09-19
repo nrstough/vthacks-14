@@ -1,5 +1,11 @@
 # Handoff — vthacks-kickoff (2026-09-18, Fri ~8:15 PM)
 
+> **Superseded in places, Sat 2026-09-19 02:10.** Kept as the record of what was known on
+> Friday night. Since corrected: VTHacks 14 has **no DigitalOcean track** (Vultr is the only
+> hosting track — see `docs/prize-strategy.md`); the endpoint is `POST /api/solve`, not
+> `/solve` (`docs/api-contract.md`); and the solver shipped with CP-SAT plus an exhaustive
+> fallback rather than the memo's DP (`docs/features/solver.md`).
+
 **Purpose of this chat:** Start building the VTHacks 14 project. Planning is done; write the 4-minute demo script first, then the solver, then everything else. Enforce the schedule's kill criteria.
 
 ## Context

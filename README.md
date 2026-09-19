@@ -36,7 +36,8 @@ cd frontend && npm run dev                                     # Vite dev server
 ## Test
 
 ```bash
-.venv/bin/pytest backend/ -q
+.venv/bin/pytest backend/ -q -m "not perf"    # the gate: 788 tests, ~5s
+.venv/bin/pytest backend/ -m perf -s          # timings, reported not gating
 ```
 
 Parity tests need Node ≥ 22 on PATH (they run the TS oracle with `--experimental-strip-types`).

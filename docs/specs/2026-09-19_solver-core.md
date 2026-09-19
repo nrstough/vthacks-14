@@ -131,9 +131,62 @@ cd "/Users/nathanstough/Desktop/VT Hacks/frontend" && npm run build
 `README.md`, `docs/prize-strategy.md`, `docs/api-contract.md` (Objective + D5),
 `frontend/src/solver/mockSolver.ts` (D1 patch, after frontend commit).
 
-## Results
+## Results — executed Sat 2026-09-19, 01:43–02:10
 
-_(filled at execution: test counts, timings, Claude critique verdict, Codex audit grade)_
+**Tests: 788 passing** (`.venv/bin/pytest backend/ -q -m "not perf"`, 4.9 s), plus 6 perf
+tests reported separately. Frontend build clean.
+
+| Suite | Tests | Covers |
+|---|---|---|
+| `test_parity.py` | 8 | AC6 — 53 instances vs the Node oracle, both engines, fallback, refusal |
+| `test_invariants.py` | 477 | AC14 — 53 cases x 9 properties, rebuilt from the request |
+| `test_objective.py` | 43 | AC5 — every objective rule, both engines |
+| `test_engines.py` | 12 | AC15 — unproven search, tiebreak timeout, refusal, 40-candidate scale |
+| `test_validation.py` | 39 | AC1 |
+| `test_dates.py` | 24 | AC2, incl. a Node cross-check of money/date formatting |
+| `test_simulate.py` | 11 | AC3 |
+| `test_eligibility.py` | 10 | AC4 |
+| `test_tiers.py` | 12 | AC7 |
+| `test_certificate.py` | 9 | AC8 |
+| `test_stability.py` | 6 | AC9 |
+| `test_response.py` | 11 | AC10 — `types.ts` and the models agree field for field |
+| `test_api.py` | 15 | AC11 |
+| `test_wording.py` | 105 | AC13 |
+| `test_perf.py` | 6 | AC12 (`-m perf`) |
+
+**Measurements.** Demo accounts solve in 3.5–5.5 ms. Sixty changes over a sixty-day
+horizon: 27 ms. A hundred random accounts: 3.1 ms each. Exhaustive search at its
+eighteen-change cap: 3.0 s — which is why CP-SAT is the default rather than a nicety.
+Plan-flip rate across eighty-one one-dollar steps of the opening balance: **8.8%**
+(threshold 15%), and lower with the previous plan remembered than without.
+
+CP-SAT answered 200/200 generated instances with zero disagreements against exhaustive
+search, and 53/53 against the TypeScript reference.
+
+**Deviations from the decisions above, all deliberate:**
+
+- *D3's `max_time_in_seconds=2.0` per stage* is superseded by R1: one monotonic six-second
+  deadline shared by every solve including the tiebreak. Eight independent two-second
+  limits would have allowed sixteen seconds.
+- *D11's module list* gained `app/solver/errors.py`. `EngineUnavailable` is named by both
+  engines and by the API layer, and neither engine should have to import the other.
+- *Stage 8* is skipped when an earlier stage was not proven optimal: without a proven
+  cardinality the tiebreak is not well defined, and an arbitrary choice among near-ties is
+  worse than reporting the search was cut short.
+- *The reference solver was not edited by this session.* The frontend session had already
+  implemented D1, the sorted-id tiebreak, one-change-per-transaction, marginal
+  irredundancy and first-breach deadlines (`8dca802`, `0c6e0c5`), and made the three
+  parity fixes on request (`21c6ecf`). The D1 patch in the plan was therefore a no-op.
+- *AC6's instance count* reads 100 in the spec; parity runs 53 against the oracle and 200
+  against exhaustive search in a separate sweep.
+
+**One genuine disagreement with the reference solver**, asserted rather than tolerated:
+with an empty plan it always says "No changes needed. The schedule already clears." At
+tier 3 the schedule does not clear, so this service states the gap instead. A separate
+test fails if no instance exercises that branch.
+
+**Claude critique verdict:** _pending_
+**Codex audit grade:** _pending_
 
 ## Refinements from deep exploration (Sat ~01:50, before plan approval)
 
