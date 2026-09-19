@@ -3,8 +3,8 @@
 **Purpose of this chat:** The exact solver and `POST /api/solve` are finished, audited and
 committed. Build what feeds them — candidate generation and a synthetic account generator —
 then Nessie and the Vultr deploy. Read the two open questions at the bottom before planning
-anything: the Saturday 18:30 gate is currently disputed, and somebody other than the two
-known sessions has been writing to this tree.
+anything: the Saturday 18:30 gate is currently disputed, and Nathan is working in this same
+tree from a Codex session, so this is not a repo you have to yourself.
 
 ## Context
 
@@ -144,19 +144,23 @@ Frontend build needs the project-local npm cache:
 
 1. **The Saturday 18:30 gate is disputed.** `docs/ideas.md` now says the gate is "superseded
    by the current product-direction discussion", pointing at
-   `docs/vthacks-product-and-training-plan.md` — a document recording an expanded direction
-   (neural spending forecast, Gemini natural-language scenarios, automatic setup from
-   history) attributed to a product discussion with Nathan. Asked directly, Nathan said
-   **"finish the plan then we'll talk"**, so the gate is unresolved, not lifted. The memo's
-   position, recorded in memory, is that the kill criteria *are* the plan. **Ask before
-   treating either the gate or the expansion as settled.**
-2. **A third writer has been editing this tree.** Not this session and not the frontend
-   session — that one confirmed it has written nothing to `main` since moving to its own
-   worktree, and only two Claude sessions are live on this machine. It is either Nathan
-   editing directly or something not visible from here. Practical consequence: **scope
-   `git add` to explicit file paths, never to directories.** Two of this session's commits
-   (`92d9bb9`, `116f6f8`) swept that writer's docs in under solver commit messages — nothing
-   was lost, but the attribution is wrong and history was deliberately not rewritten.
+   `docs/vthacks-product-and-training-plan.md` — an expanded direction (neural spending
+   forecast, Gemini natural-language scenarios, automatic setup from history). **That
+   document is Nathan's own**, written from his Codex session, so it records what he wants
+   rather than a proposal from somewhere else. But asked directly he said **"finish the plan
+   then we'll talk"**, so the gate is unresolved, not lifted, and the expansion is not yet
+   scheduled. The memo's position, recorded in memory, is that the kill criteria *are* the
+   plan. **Ask before treating either as settled.** Note the pilot's own numbers are evidence
+   against building the product around the network this weekend — see Analytical notes.
+2. **Nathan is writing to this tree from a Codex session**, in parallel with the Claude
+   sessions. Confirmed, not a mystery. Practical consequences:
+   - **Scope `git add` to explicit file paths, never to directories.** Two of this session's
+     commits (`92d9bb9`, `116f6f8`) swept his in-flight docs in under solver commit messages.
+     Nothing was lost, the attribution is wrong, and history was deliberately not rewritten.
+   - **His work in this tree has no git protection.** As of this handoff that is an
+     uncommitted `README.md` change and the whole untracked `experiments/residual_forecast/`
+     directory, which holds model checkpoints and preserved data. Do not commit it for him
+     and do not delete it; if it still looks exposed, say so and let him decide.
 
 ## Pointers
 
