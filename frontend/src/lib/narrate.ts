@@ -92,10 +92,27 @@ export interface EmptyPlanText {
 // is simultaneously naming the money the user has to find.
 export function emptyPlanText(res: SolveResponse): EmptyPlanText {
   if (res.tier === 3) {
-    return {
-      heading: 'No changes available',
-      body: 'Everything is ruled out or too late to act. The gap stays.',
+    // Nothing was on the table at all: every change is ruled out or past its
+    // deadline. Only then can we say so.
+    if (res.meta.candidates_considered === 0) {
+      return {
+        heading: 'No changes available',
+        body: 'Everything is ruled out or too late to act. The gap stays.',
+      }
     }
+    // Changes remain, and none of them helps. Rule out all but Netflix on the
+    // $200 account and this is what happens: it is actionable, it just lands
+    // after the day the balance goes under. Claiming it was unavailable would
+    // be false, and the user can see the row sitting there.
+    return res.certificate.minimal_proven
+      ? {
+          heading: 'No change helps here',
+          body: 'None of the changes still on the table would leave you fewer days below zero.',
+        }
+      : {
+          heading: 'No change was found to help',
+          body: 'Nothing on the table helped in the time the solver had.',
+        }
   }
   return {
     heading: 'No changes needed',

@@ -2,28 +2,21 @@
 
 | Dimension | Grade | Notes |
 |-----------|-------|-------|
-| Plan adherence | Fail | AC12 still fails in two focus-restoration cases. |
-| Scope discipline | Excellent | Changes remain scoped; the corrected deadline wording is justified. |
-| Test coverage | Fail | 66 tests pass, but focus behavior remains untested and incompletely verified. |
-| Review compliance | Fail | The reviewed focus-preservation requirement remains partially unresolved. |
-| Freeze integrity | Excellent | No hashes present; frozen spec text is unchanged, with results appended. |
-| Regression check | Acceptable | No test assertion failures; one backend setup error is environmental. Protected files match `main`. |
-| Documentation | Acceptable | Minor stale figures and an overstated test-coverage claim. |
-| **Overall** | **Fail** | **Focus preservation remains incomplete.** |
+| Plan adherence | **Fail** | AC12 still fails for overlapping responses. |
+| Scope discipline | Excellent | Changes remain focused; protected files unchanged by these commits. |
+| Test coverage | **Fail** | 75 tests pass, but the remaining focus race is uncovered. |
+| Review compliance | **Fail** | The focus-restoration finding is only partially resolved. |
+| Freeze integrity | Excellent | No recorded hashes; frozen design text matches the initial commit. |
+| Regression check | Acceptable | 976 backend passes; one sandbox-related setup error. |
+| Documentation | Excellent | Declared updates are present; date-label deviation is documented. |
+| **Overall** | **Fail** | **AC12 remains unmet.** |
 
 ### Commentary
 
-1. **Plan adherence, Review compliance — downgrade to Fail: collapsed left-out rows cannot receive restored focus.**  
-   Collapse “other changes,” then keyboard-toggle the card minimum in the plan. Its checkbox moves into the closed [details element](/Users/nathanstough/Desktop/vthacks-frontend/frontend/src/components/PrescriptionList.tsx:125), while [restoration](/Users/nathanstough/Desktop/vthacks-frontend/frontend/src/App.tsx:106) merely calls `.focus()` without opening it. The hidden control cannot receive focus under the [HTML focus rules](https://html.spec.whatwg.org/multipage/interaction.html#focusable-area). This is a source-traced finding, not a browser reproduction. Reveal the destination before restoring focus, and verify Space → re-solve → Space with the section initially collapsed.
+1. **Plan adherence / Review compliance — downgrade to Fail.** [focus.ts:56](/Users/nathanstough/Desktop/vthacks-frontend/frontend/src/lib/focus.ts:56) clears the remembered checkbox whenever focus survives a response, even when `settled` is false. An older response can arrive during a newer toggle’s 150 ms debounce, leaving the checkbox mounted but clearing its remembered ID. The newer response then moves that row and loses focus permanently. Reproduced the helper sequence using the $200 fixture; the browser consequence is source-traced through [App.tsx:93](/Users/nathanstough/Desktop/vthacks-frontend/frontend/src/App.tsx:93). Preserve the still-focused row while newer input remains pending, while respecting deliberate navigation away.
 
-2. **Plan adherence — contributes to Fail: rapid undo loses focus on the second response.**  
-   Toggle the card, then undo while its request is in flight. If that response lands before the undo’s debounce expires, it moves the row and restores focus, consuming [the tracked reference](/Users/nathanstough/Desktop/vthacks-frontend/frontend/src/App.tsx:97). The final response moves the row back, but the reference is now empty, leaving focus on the body. Executing the extracted production handlers with a mocked document reproduced this sequence; actual solver responses confirmed both row movements. Preserve focus across successive commits or reject intermediate responses superseded by current input.
+2. **Test coverage — downgrade to Fail.** [focus.test.ts:46](/Users/nathanstough/Desktop/vthacks-frontend/frontend/tests/focus.test.ts:46) tests successive responses only when both lose focus. It misses `focusWasLost: false, settled: false`, which triggers finding 1. Add that transition and a delayed-response regression. AC12’s actual Space/Tab sequence also remains unverified; the recorded structural checks do not exercise keyboard activation or React focus-event wiring.
 
-3. **Test coverage — downgrade to Fail: the focus regression has no regression test.**  
-   The [latest results](/Users/nathanstough/Desktop/vthacks-frontend/docs/specs/2026-09-19_frontend-ux.md:337) claim all three previous findings gained tests. The seven additions cover narration and deadlines; none exercises focus. Recorded structural checks also do not establish the specified keyboard interaction. Add coverage for both cases above and perform the actual keyboard check. Browser replay here was unavailable: the in-app browser was absent and Chrome access was not approved.
+3. **Plan adherence — no additional downgrade; defect originates in D2a.** On $200, rule out everything except Netflix. The oracle returns tier 3, zero plan items, and **one actionable candidate considered**. Nevertheless, [narrate.ts:97](/Users/nathanstough/Desktop/vthacks-frontend/frontend/src/lib/narrate.ts:97) says “Everything is ruled out or too late to act.” Netflix is neither. The implementation follows the prescribed wording, but that wording overclaims. Record a spec correction and use neutral empty-plan text when actionable candidates remain.
 
-4. **Regression check — Acceptable due to incomplete independent verification, not a demonstrated regression.**  
-   On branch `frontend` in the supplied worktree, Node 22.17.1 passed `npm run lint`, both `tsc --noEmit -p` checks, and all **66 `npm test` tests**. A fresh Vite build with `write: false` matched the existing JavaScript bundle exactly and passed its wording gates. Python 3.14.7 running `.venv/bin/pytest backend/ -q -m 'not perf' -s -p no:cacheprovider` produced **976 passed, 6 deselected, 1 setup error**: [the fixture](/Users/nathanstough/Desktop/vthacks-frontend/backend/tests/test_api.py:28) requires a writable temporary directory unavailable in this sandbox.
-
-5. **Documentation — downgrade to Acceptable only.**  
-   The [demo checklist](/Users/nathanstough/Desktop/vthacks-frontend/docs/demo-script.md:22) retains the historical 59-test figure, and the [feature document](/Users/nathanstough/Desktop/vthacks-frontend/docs/features/frontend.md:169) says 619 kB versus approximately 620 kB now. Refresh those figures and append a correction to the regression-test claim in finding 3. These do not warrant Documentation Fail.
+4. **Regression check — Acceptable due to verification limits, not a demonstrated regression.** Audited `frontend@0a06757` in the supplied worktree. Under Node **22.17.1**, `npm run lint && npm test` passed all **75 tests**; both TypeScript checks passed, and an in-memory Vite build matched the existing JavaScript bundle. Under Python **3.14.7**, `.venv/bin/pytest backend/ -q -s -p no:cacheprovider -m 'not perf'` produced **976 passed, 6 deselected, 1 setup error**. [test_api.py:28](/Users/nathanstough/Desktop/vthacks-frontend/backend/tests/test_api.py:28) requires a writable temporary directory unavailable in this read-only sandbox; the reported 977-pass gate could not be fully reproduced here.

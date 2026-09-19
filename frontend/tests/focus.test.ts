@@ -52,6 +52,34 @@ test('a tick and a quick undo keep the row across both responses', () => {
   assert.deepEqual(second, { focus: 'c_card_min', clear: true })
 })
 
+test('a row still focused is remembered while newer input is pending', () => {
+  // Codex audit: an older response can land inside a newer toggle's debounce.
+  // The row is still mounted, so nothing is restored — but forgetting it here
+  // means the newer response moves that row with nothing left to focus.
+  const older = decideRestore({ refId: 'c_card_min', focusWasLost: false, settled: false })
+  assert.deepEqual(older, { focus: null, clear: false })
+  const newer = decideRestore({ refId: 'c_card_min', focusWasLost: true, settled: true })
+  assert.deepEqual(newer, { focus: 'c_card_min', clear: true })
+})
+
+test('overlapping responses never drop the row before the last one lands', () => {
+  // Three responses for two toggles: only the final, settled one forgets it.
+  const steps = [
+    { focusWasLost: false, settled: false },
+    { focusWasLost: true, settled: false },
+    { focusWasLost: true, settled: true },
+  ]
+  let ref: string | null = 'c_card_min'
+  const restored: (string | null)[] = []
+  for (const step of steps) {
+    const d = decideRestore({ refId: ref, ...step })
+    restored.push(d.focus)
+    if (d.clear) ref = null
+  }
+  assert.deepEqual(restored, [null, 'c_card_min', 'c_card_min'])
+  assert.equal(ref, null)
+})
+
 test('an unrelated re-solve after settling restores nothing', () => {
   const after = decideRestore({ refId: null, focusWasLost: true, settled: true })
   assert.equal(after.focus, null)

@@ -497,3 +497,68 @@ protected file. Untouched.
 | `.venv/bin/pytest backend/ -q -m "not perf"` | **977 passed**, 6 deselected |
 | oracle / types / contract / backend diff vs `main` | empty |
 | Focus sequences re-checked after the fix | all six as recorded above |
+
+## Codex audit, third pass (~04:10) — **Fail**, two findings, both real
+
+Ran after the usage limit reset. Scope discipline, Freeze integrity and Documentation graded
+Excellent; Plan adherence, Test coverage and Review compliance Fail on one focus defect and its
+missing test. Both findings accepted and fixed.
+
+1. **Overlapping responses could lose focus for good.** `decideRestore` forgot the remembered row
+   whenever focus survived a response, regardless of whether newer input was still pending. An
+   older response landing inside a newer toggle's 150 ms debounce leaves the row mounted, so
+   nothing is restored — and the row was forgotten, so when the newer response moved it there was
+   nothing left to focus. The rule is now: restore only focus that was lost, and forget the row
+   only once the answer on screen matches what the user last asked for. Two tests added,
+   including a three-response walk of the exact sequence. Verified in the browser with three
+   toggles inside the debounce: focus lands on the toggled row, plan at 7 changes.
+2. **The empty-plan wording overclaimed.** "Everything is ruled out or too late to act" is false
+   when changes remain on the table and simply do not help. Rule out all but Netflix on the $200
+   account: it is actionable, it just takes effect on Sep 29, after the Sep 24 dip, so the plan
+   is empty at tier 3 with one candidate considered — and the user can see the row sitting there.
+   The wording now splits on `meta.candidates_considered`: nothing considered keeps the original
+   sentence; changes still on the table get "No change helps here" / "None of the changes still
+   on the table would leave you fewer days below zero", which is what the first objective term
+   establishes, matching the tier-3 reason wording. An unproven solve gets a softer form. Four
+   tests added, one driving the real oracle. Both verified on screen.
+
+**Correction to D2a**, recorded here rather than editing frozen text: D2a gave a single tier-3
+empty-plan wording. There are two cases, and the one it specified is only correct when nothing
+was on the table at all.
+
+Test count 75 → 81.
+
+### Focus behaviour, seven sequences after this fix
+
+| Sequence | Result |
+|---|---|
+| Focus a row, toggle it, its row moves sections | restored to that row |
+| Focus a row, toggle it, tab to a row that survives | stays where the user went |
+| Activate with no prior focus, after an earlier restore | nothing grabbed |
+| A restore, then a later unrelated re-solve | nothing grabbed |
+| "Other changes" collapsed, then toggle a plan row | section opened, focus restored |
+| Tick, then undo inside the debounce | restored, plan back to 3 |
+| Three toggles inside the debounce, overlapping responses | restored, plan at 7 |
+
+### Final run
+
+| Command | Result |
+|---|---|
+| `npm run lint` | clean |
+| `npm run build` | clean, 620.76 kB / 184.10 kB gzip |
+| `npm test` | **81 passed, 0 failed** |
+| `.venv/bin/pytest backend/ -q -m "not perf"` | **977 passed**, 6 deselected |
+| oracle / types / contract / backend diff vs `main` | empty |
+
+On the audit's backend count: it measures 976 passed and 1 setup error every round, because its
+sandbox is read-only and one API test needs a writable temporary directory. Run normally here the
+suite is 977 passed.
+
+### Still open, and why
+
+AC12's keyboard activation is still verified by structure and by driving the controls
+programmatically, not by real key events: this pane reports `document.hasFocus()` false, so
+synthetic keys produce no default action and React focus events never fire. An arrow key on a
+native range input does nothing here either, which is how that was established. The focus rules
+themselves are now pure functions with 11 tests; what remains unexercised is the wiring between
+them and React's events.

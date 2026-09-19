@@ -87,15 +87,23 @@ and use it.
 
 ## The empty plan
 
-An empty plan means two opposite things, so `src/lib/narrate.ts`'s `emptyPlanText` is
-tier-aware. At tiers 1 and 2 it is "No changes needed" / "Nothing to change. The schedule
-already clears on its own." At tier 3 it is **"No changes available"** / "Everything is ruled
-out or too late to act. The gap stays."
+An empty plan means three different things, so `src/lib/narrate.ts`'s `emptyPlanText` splits on
+the tier and on how many changes were on the table:
 
-Saying "no changes needed" at tier 3 would be a flat contradiction of the verdict band directly
-above it, which is naming the money the user has to find by a date. That happens for real: rule
-out all eleven changes on the $200 account and the answer is tier 3, an empty plan, and $120.05
-needed by Sep 24.
+| Case | Heading | Body |
+|---|---|---|
+| Tier 1 or 2 | No changes needed | Nothing to change. The schedule already clears on its own. |
+| Tier 3, nothing considered | No changes available | Everything is ruled out or too late to act. The gap stays. |
+| Tier 3, changes still on the table | No change helps here | None of the changes still on the table would leave you fewer days below zero. |
+
+Saying "no changes needed" at tier 3 would flatly contradict the verdict band above it, which is
+naming money the user has to find by a date. Rule out all eleven changes on the $200 account:
+tier 3, empty plan, $120.05 needed by Sep 24.
+
+Saying "everything is ruled out or too late" when changes remain is equally false, and the user
+can see the rows. Rule out all but Netflix on the same account: it is actionable, it just takes
+effect on Sep 29, after the Sep 24 dip, so it cannot reduce the days below zero. That is what
+the third case says, and no more.
 
 ## Wording rules (from CLAUDE.md, binding)
 

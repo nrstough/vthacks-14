@@ -51,13 +51,17 @@ export interface RestoreDecision {
 export function decideRestore(input: RestoreInput): RestoreDecision {
   const { refId, focusWasLost, settled } = input
   if (!refId) return { focus: null, clear: false }
-  // The user moved focus somewhere that survived the re-solve. Leave it, and
-  // stop tracking: pulling it back would throw away their navigation.
-  if (!focusWasLost) return { focus: null, clear: true }
-  // Keep the id while more input is still being solved. A fast tick-untick
-  // produces two responses, and consuming the id on the first leaves the second
-  // with nothing to restore.
-  return { focus: refId, clear: settled }
+  return {
+    // Restore only focus that was lost. Focus that survived is where the user
+    // put it, and pulling it back would throw away their navigation.
+    focus: focusWasLost ? refId : null,
+    // Forget the row only once the answer on screen matches what the user last
+    // asked for. Letting go earlier loses focus for good when responses
+    // overlap: an older one arrives while the row is still mounted, so nothing
+    // is restored, and the newer one then moves that row with nothing left to
+    // put focus on.
+    clear: settled,
+  }
 }
 
 export function domId(candidateId: string): string {
