@@ -646,3 +646,42 @@ def test_a_short_month_does_not_swallow_semimonthly_income(client):
     # 15th is a Sunday and arrives Monday 03-16; March's month end is a
     # Tuesday.
     assert dates == ["2026-03-02", "2026-03-16", "2026-03-31"], dates
+
+
+def test_a_bill_paid_late_does_not_delete_next_months_bill(client):
+    # Rent due on the 1st, paid on the 2nd or 3rd some months. A period test
+    # puts that late payment inside the window ending at the NEXT 1st, so
+    # next month's rent vanishes and the account reads tier 1 when it is
+    # tier 3. A missing bill is the failure that reassures.
+    days = {1: 1, 2: 2, 3: 2, 4: 1, 5: 1, 6: 1, 7: 1, 8: 3}
+    rows = [H.row(datetime.date(2026, m, d), "OAKWOOD PROPERTIES", -100000) for m, d in days.items()]
+    rows += [H.row(datetime.date(2026, 8, 20 + i), f"KROGER #{i}", -2500) for i in range(11)]
+    out = imported(client, rows=rows, as_of="2026-08-31", horizon_days=30)
+    rent = next(s for s in out["streams"] if s["amount_cents"] == -100000)
+    assert rent["active"]
+    dates = sorted(t["date"] for t in out["scheduled"] if t["id"] in set(rent["projected_ids"]))
+    assert dates == ["2026-09-01"], dates
+
+
+def test_a_weekly_bill_paid_late_still_projects_the_next_one(client):
+    rows = []
+    for week in range(14):
+        due = datetime.date(2026, 6, 1) + datetime.timedelta(days=7 * week)
+        rows.append(H.row(due + datetime.timedelta(days=1 if week % 3 == 0 else 0), "ZZQ7K4 HOLDINGS", -4000))
+    rows += H.everyday_spending(datetime.date(2026, 6, 1), datetime.date(2026, 8, 31))
+    out = imported(client, rows=rows, as_of="2026-09-01", horizon_days=14)
+    bill = next(s for s in out["streams"] if s["amount_cents"] == -4000)
+    dates = sorted(t["date"] for t in out["scheduled"] if t["id"] in set(bill["projected_ids"]))
+    assert len(dates) == 2, dates
+
+
+def test_early_payment_suppression_still_holds(client):
+    # The mirror case must not regress: pay that arrived a day early is in
+    # the balance and must not be projected again.
+    rows = H.weekly_income(datetime.date(2026, 9, 4), weeks=12, weekday=4)
+    rows.append(H.row(datetime.date(2026, 9, 10), "ACME WIDGETS LLC", 50000))
+    rows += H.everyday_spending(datetime.date(2026, 6, 15), datetime.date(2026, 9, 10))
+    out = imported(client, rows=rows, as_of="2026-09-10", horizon_days=14)
+    income_dates = [t["date"] for t in out["scheduled"] if t["kind"] == "income"]
+    assert "2026-09-11" not in income_dates, income_dates
+    assert "2026-09-18" in income_dates, income_dates

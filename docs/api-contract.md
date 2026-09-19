@@ -440,13 +440,13 @@ them as transactions that exist.
 through `as_of`. An income occurrence due on `as_of` is therefore *not*
 projected — if it posted it is already in the balance, and if it has not,
 counting it is optimistic — and its stream id appears in
-`income_not_counted_today`. More generally, an occurrence is skipped when the
-export already contains a row for the PERIOD it represents — the span from
-that stream's previous occurrence to this one, both weekend-shifted so they
-compare against posted dates. That is what stops a paycheck which arrived a
-day early from being counted twice. It is per stream, never per payee: two
-subscriptions at one merchant share a payee and only one may have been
-taken.
+`income_not_counted_today`. More generally, an occurrence is skipped when a
+posted row in the export matches it: each row is assigned to the occurrence
+it is NEAREST to, so a payment that arrived early or late settles the
+occurrence it belongs to rather than its neighbour's. A row further than
+half an interval from every occurrence matches none. Matching is per
+stream, never per payee: two subscriptions at one merchant share a payee
+and only one may have been taken.
 
 `stale_days` is the raw gap between the last exported day and `as_of`, always
 present and often zero. It is a NUMBER, not a flag: do not read non-zero as

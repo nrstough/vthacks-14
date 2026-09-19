@@ -28,6 +28,39 @@ def _shift_for_kind(d: datetime.date, kind: str) -> datetime.date:
     return next_business_day(d) if kind == "income" else previous_business_day(d)
 
 
+def _assign_to_occurrences(
+    history: list[datetime.date],
+    occurrences: list[datetime.date],
+    stream: Stream,
+) -> set[datetime.date]:
+    """Which occurrences the export has already paid.
+
+    Every posted row is matched to the occurrence it is NEAREST to, and an
+    occurrence counts as paid only if some row chose it. Ties go to the
+    earlier occurrence.
+
+    A half-open period test fails in both directions and each failure is a
+    missing row in the plan. Rent due on the 1st but paid on the 3rd sits
+    inside the window ending at the NEXT 1st, so next month's rent
+    disappears; and a fixed day count cannot express a period at all,
+    because February to March is 28 days. Nearest-occurrence matching
+    tolerates jitter either way without ever letting one payment settle a
+    period it does not belong to.
+
+    A row further than half an interval from every occurrence matches none
+    of them: it is a one-off at that payee, not a payment of this stream.
+    """
+    if not occurrences:
+        return set()
+    half = datetime.timedelta(days=stream.interval_days) / 2
+    paid: set[datetime.date] = set()
+    for when in history:
+        nearest = min(occurrences, key=lambda o: (abs(o - when), o))
+        if abs(nearest - when) <= half:
+            paid.add(nearest)
+    return paid
+
+
 def _snap_to_weekday(d: datetime.date, weekday: int) -> datetime.date:
     """Nearest date with that weekday, ties going forward."""
     delta = (weekday - d.weekday()) % 7
@@ -113,31 +146,7 @@ def project(
 
     history = [row.date for row in stream.rows]
     ordered = sorted(raw)
-
-    def settled(index: int) -> bool:
-        """Is the period this occurrence represents already in the export?
-
-        The period runs from the PREVIOUS occurrence of this same series to
-        this one, exclusive of the first. Using a fixed number of days
-        instead is wrong for every cadence whose periods vary: February to
-        March is 28 days, a "monthly" 30-day window then reaches back over
-        the February payment, and March's rent silently disappears from the
-        plan. A missing bill makes an account look safe, which is the one
-        direction this product must never fail in.
-
-        Both boundaries are SHIFTED, because the rows they are compared
-        against are posted dates and a posted date is a shifted one. Mixing
-        the two misattributes a payment to its neighbour's period: a 15th
-        paid on Monday the 16th falls inside a nominal (15th, 28th] window
-        and deletes the month-end payment that is still to come.
-        """
-        occurrence = _shift_for_kind(ordered[index], stream.kind)
-        previous = (
-            _shift_for_kind(ordered[index - 1], stream.kind)
-            if index > 0
-            else occurrence - datetime.timedelta(days=stream.interval_days)
-        )
-        return any(previous < when <= occurrence for when in history)
+    posted = _assign_to_occurrences(history, [_shift_for_kind(d, stream.kind) for d in ordered], stream)
 
     seen: set[datetime.date] = set()
     expected_today = False
@@ -147,7 +156,7 @@ def project(
         shifted = _shift_for_kind(d, stream.kind)
         if shifted < as_of or shifted > horizon_end or shifted in seen:
             continue
-        if settled(index):
+        if shifted in posted:
             # Already in the balance the person typed. Two different facts
             # for income, and the screen says different things about them.
             if stream.kind == "income":
