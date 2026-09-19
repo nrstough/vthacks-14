@@ -206,8 +206,9 @@ export default function App() {
     loadCtl.current?.abort()
     const ctl = new AbortController()
     loadCtl.current = ctl
+    // One counter, handed to the reducer, so the two can never drift.
     const mine = ++seqRef.current
-    dispatch(start(kind))
+    dispatch(start(kind, mine))
     try {
       const loaded = await loadAccount(kind, ctl.signal)
       if (mine !== seqRef.current) return

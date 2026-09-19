@@ -15,25 +15,33 @@ export interface AccountState {
   base: SolveRequest
   loading: LoadKind | null
   error: string | null
-  // Bumped by every start and every preset. A result carrying an older number
-  // belongs to a request the user has already replaced.
+  // The token of the load currently in flight, handed in by the caller. A
+  // result carrying any other token belongs to a request the user has already
+  // replaced. The reducer never invents one: two counters, one here and one in
+  // the component, drift apart the first time a preset bumps only this one —
+  // after which every result is silently ignored and the buttons never
+  // re-enable. That happened; the browser found it and the unit tests did not.
   seq: number
 }
 
+// No load ever carries this token: the component's counter is pre-incremented,
+// so the first load is 1. It means "nothing in flight that may land".
+export const NO_LOAD = 0
+
 export type AccountAction =
-  | { type: 'start'; kind: LoadKind }
+  | { type: 'start'; kind: LoadKind; seq: number }
   | { type: 'succeed'; seq: number; account: LoadedAccount; base: SolveRequest }
   | { type: 'fail'; seq: number; message: string }
   | { type: 'preset'; base: SolveRequest }
 
 export function initial(base: SolveRequest): AccountState {
-  return { account: null, base, loading: null, error: null, seq: 0 }
+  return { account: null, base, loading: null, error: null, seq: NO_LOAD }
 }
 
 export function accountReducer(state: AccountState, action: AccountAction): AccountState {
   switch (action.type) {
     case 'start':
-      return { ...state, loading: action.kind, error: null, seq: state.seq + 1 }
+      return { ...state, loading: action.kind, error: null, seq: action.seq }
 
     case 'succeed':
       if (action.seq !== state.seq) return state
@@ -51,20 +59,24 @@ export function accountReducer(state: AccountState, action: AccountAction): Acco
 
     case 'preset':
       // Clearing `loading` is the whole reason a preset goes through the
-      // reducer. Without it, choosing a preset mid-load bumps the sequence,
-      // the in-flight load's result is then stale and skips its own cleanup,
-      // and both account buttons stay disabled until the page is reloaded.
+      // reducer. Without it, choosing a preset mid-load leaves the in-flight
+      // load stale, so it skips its own cleanup and both account buttons stay
+      // disabled until the page is reloaded.
       return {
         account: null,
         base: action.base,
         loading: null,
         error: null,
-        seq: state.seq + 1,
+        seq: NO_LOAD,
       }
   }
 }
 
-export const start = (kind: LoadKind): AccountAction => ({ type: 'start', kind })
+export const start = (kind: LoadKind, seq: number): AccountAction => ({
+  type: 'start',
+  kind,
+  seq,
+})
 export const succeed = (
   seq: number,
   account: LoadedAccount,
