@@ -115,7 +115,7 @@ export default function BalanceChart({
             dataKey="day"
             tickLine={false}
             axisLine={{ stroke: 'var(--line)' }}
-            tick={{ fill: 'var(--ink-3)', fontSize: 12 }}
+            tick={{ fill: 'var(--ink-3)', fontSize: 12, fontFamily: 'var(--mono)' }}
             interval={0}
           />
           <YAxis
@@ -123,7 +123,7 @@ export default function BalanceChart({
             tickLine={false}
             axisLine={false}
             width={56}
-            tick={{ fill: 'var(--ink-3)', fontSize: 12 }}
+            tick={{ fill: 'var(--ink-3)', fontSize: 12, fontFamily: 'var(--mono)' }}
           />
 
           <Tooltip content={<Tip plan={res.plan} />} cursor={{ stroke: 'var(--line-strong)' }} />

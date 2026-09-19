@@ -79,14 +79,14 @@
 
 :root {
   /* Values come from tailwind.config.ts, which is the design system Hrushi
-     shipped: a cool #f0f4f9 page, a warm brand ramp for anything going wrong,
-     an 18/24/32px radius scale, and a glass shadow so cards float off the
-     page rather than sitting in it. The variable NAMES are unchanged from the
-     previous generation on purpose, so every component rule in this file
+     shipped: a cool near-white page, a warm brand ramp for anything going
+     wrong, an 18/24/32px radius scale, and a glass shadow so cards float off
+     the page rather than sitting in it. The variable NAMES are unchanged from
+     the previous generation on purpose, so every component rule in this file
      retunes itself rather than being rewritten. */
 
   --bg: #ffffff;
-  --panel: #f0f4f9;
+  --panel: #f4f7fb;
   --panel-2: #e6edf6;
   --canvas: #faf6f0;
   --line: #e4eaf3;
@@ -94,16 +94,29 @@
 
   --ink: #111827;
   --ink-2: #374151;
-  --ink-3: #6b7280;
+  /* Was #6b7280, which measured 4.49:1 as a .stat-sub on the warm --canvas —
+     a rounding error short of AA on the one line that explains a figure.
+     Darkened until it clears 4.5:1 on white, --canvas, --panel and --panel-2. */
+  --ink-3: #646b78;
   --ink-dim: #9ca3af;
 
   /* The blue is the product's own: the config carries the cool background and
      the warm ramp, and leaves the primary to the app. */
   --accent: #2563eb;
   --accent-ink: #1d4ed8;
-  --accent-press: #1e3a8a;
+  --accent-press: #0b2545;
   --accent-wash: #e8effd;
   --accent-soft: #bfd4fb;
+
+  /* The navy the gradient starts in, and the ink that sits on it. Every white
+     on the gradient is one of these four, so the whole shell moves together
+     and no rule carries its own literal rgba any more. */
+  --navy: #071a33;
+  --navy-2: #0b2545;
+  --on-navy: #ffffff;
+  --on-navy-soft: rgba(255, 255, 255, 0.78);
+  --on-navy-wash: rgba(255, 255, 255, 0.14);
+  --on-navy-line: rgba(255, 255, 255, 0.26);
 
   /* brand.burnt / brand.peach. Red on this page is always the warm one. */
   --neg: #c63205;
@@ -132,8 +145,17 @@
   --topbar-h: 76px;
   --page-max: 1360px;
 
-  /* The gradient the nav and the hero sit on. */
-  --grad: linear-gradient(135deg, #1e3a8a 0%, #2563eb 55%, #3b82f6 100%);
+  /* The one gradient the nav and the hero sit on. Capital One's navy at the
+     top, easing into the product blue and then out to nothing, so the page
+     resolves into --panel rather than stopping at an edge. `.app` consumes
+     this; nothing else should re-declare it. */
+  --grad: linear-gradient(
+    180deg,
+    var(--navy) 0%,
+    var(--navy-2) 40%,
+    var(--accent) 78%,
+    rgba(37, 99, 235, 0) 100%
+  );
 
   /* Body copy and every sentence a person reads. */
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
@@ -206,10 +228,7 @@ body {
   /* The gradient belongs to the page, not to the bar: the nav sits on it, and
      the hero card lifts off the last of it. Below that it resolves into the
      cool background the cards float on. */
-  background:
-    linear-gradient(180deg, #1e3a8a 0%, #2563eb 46%, rgba(59, 130, 246, 0) 100%)
-      no-repeat top center / 100% 420px,
-    var(--panel);
+  background: var(--grad) no-repeat top center / 100% 460px, var(--panel);
 }
 
 /* ---------- nav ---------- */
@@ -224,7 +243,7 @@ body {
   max-width: var(--page-max);
   margin: 0 auto;
   padding: 0 var(--s4);
-  color: #fff;
+  color: var(--on-navy);
 }
 
 .navbar .brand {
@@ -238,7 +257,7 @@ body {
   font-weight: 700;
   font-synthesis-weight: none;
   letter-spacing: -0.01em;
-  color: #fff;
+  color: var(--on-navy);
   white-space: nowrap;
 }
 
@@ -249,8 +268,8 @@ body {
   width: 32px;
   height: 32px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: var(--on-navy-wash);
+  border: 1px solid var(--on-navy-line);
   font-size: 13px;
   font-weight: 700;
   flex: none;
@@ -264,8 +283,8 @@ body {
   gap: 4px;
   padding: 4px;
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: var(--on-navy-wash);
+  border: 1px solid var(--on-navy-line);
 }
 
 .pillnav button {
@@ -274,17 +293,17 @@ body {
   font: inherit;
   font-size: 14px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--on-navy-soft);
   padding: 7px 18px;
   border-radius: var(--radius-pill);
   cursor: pointer;
   white-space: nowrap;
 }
 
-.pillnav button:hover { color: #fff; }
+.pillnav button:hover { color: var(--on-navy); }
 
 .pillnav button.on {
-  background: #fff;
+  background: var(--on-navy);
   color: var(--accent-press);
   font-weight: 600;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
@@ -312,9 +331,9 @@ body {
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.02em;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: var(--on-navy);
+  background: var(--on-navy-wash);
+  border: 1px solid var(--on-navy-line);
   border-radius: var(--radius-pill);
   padding: 5px 12px;
   white-space: nowrap;
@@ -365,39 +384,29 @@ body {
 
 .hero-copy { min-width: 0; }
 
-.eyebrow {
-  display: inline-flex;
+/* The hero's status line: where this account's figures came from. A green dot
+   because it is a statement of health, not of tier — the tier has its own pill
+   below, drawn by the verdict. It sits ABOVE the verdict and outside its
+   aria-live region, so a re-solve never re-announces the provenance. */
+.eyebrow-note {
+  display: flex;
   align-items: center;
   gap: 8px;
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 6px 14px;
-  border-radius: var(--radius-pill);
-  background: var(--accent-wash);
-  color: var(--accent-ink);
-  margin-bottom: var(--s3);
-}
-
-.eyebrow::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.eyebrow.t2 { background: var(--warn-wash); color: var(--warn); }
-.eyebrow.t3 { background: var(--neg-wash); color: var(--neg); }
-
-.eyebrow-note {
   font-family: var(--mono);
   font-size: 12px;
   color: var(--ink-3);
   margin-left: var(--s2);
+  margin-bottom: var(--s2);
   letter-spacing: 0.01em;
+}
+
+.eyebrow-note::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--good);
+  flex: none;
 }
 
 /* ---------- stat boxes ---------- */
@@ -966,7 +975,7 @@ body {
 .cash-callout {
   margin-top: var(--s3);
   padding: var(--s3);
-  border: 1px solid rgba(198, 50, 5, 0.35);
+  border: 1px solid color-mix(in srgb, var(--neg) 35%, transparent);
   background: var(--neg-wash);
   border-radius: var(--radius-sm);
   max-width: 60ch;
@@ -1253,15 +1262,18 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 }
 .chat-form input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
 .chat-form input:disabled { background: var(--panel-2); color: var(--ink-3); }
+/* The one gradient button on the page: navy into the product blue, the same
+   two ends the shell's gradient runs between. Pill, because every other
+   affirmative control here is a pill. */
 .chat-form button {
   font: inherit;
   font-size: 14px;
   font-weight: 600;
   padding: 9px 18px;
-  border-radius: var(--radius);
-  border: 1px solid var(--accent-ink);
-  background: var(--accent);
-  color: #fff;
+  border-radius: var(--radius-pill);
+  border: 0;
+  background: linear-gradient(90deg, var(--accent-press), var(--accent-ink));
+  color: var(--on-navy);
   cursor: pointer;
 }
 .chat-form button:disabled { opacity: 0.45; cursor: default; }
@@ -1548,6 +1560,12 @@ details.considered[open] summary { margin-bottom: var(--s1); }
   outline-color: #fff;
 }
 
+/* Except on the lit pill, which IS white: there the ring has to go the other
+   way or it vanishes into the pill it is supposed to be marking. */
+.pillnav button.on:focus-visible {
+  outline-color: var(--navy-2);
+}
+
 /* ---------- motion ---------- */
 
 /* One easing curve and three durations. The curve decelerates hard at the end,
@@ -1560,10 +1578,12 @@ details.considered[open] summary { margin-bottom: var(--s1); }
   --dur-2: 200ms;
   --dur-3: 340ms;
 
-  /* The boxShadow scale from tailwind.config.ts, verbatim. */
-  --shadow-card: 0 2px 12px -2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+  /* The boxShadow scale from tailwind.config.ts, tinted: a shadow cast by a
+     card floating on a navy gradient is navy, not grey, and neutral black over
+     the blue reads as dirt on the screen. */
+  --shadow-card: 0 2px 12px -2px rgba(7, 26, 51, 0.06), 0 1px 3px rgba(7, 26, 51, 0.03);
   --shadow-card-hover: 0 8px 24px -4px rgba(0, 0, 0, 0.07), 0 2px 6px rgba(0, 0, 0, 0.03);
-  --shadow-glass: 0 20px 40px -15px rgba(0, 0, 0, 0.2);
+  --shadow-glass: 0 24px 48px -18px rgba(7, 26, 51, 0.35);
   --shadow-popover: 0 12px 32px -8px rgba(0, 0, 0, 0.24);
 }
 
@@ -1774,6 +1794,9 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 }
 
 @media (max-width: 640px) {
+  /* `.stats` goes to one column here, so the hero is roughly twice as tall and
+     the gradient would end partway up it. */
+  .app { background-size: 100% 620px; }
   .stats { grid-template-columns: minmax(0, 1fr); }
   .stat { text-align: left; }
   .stat .stat-value { font-size: 24px; }
