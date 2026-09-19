@@ -29,7 +29,13 @@ from app.main import create_app  # noqa: E402
 
 
 def cents(raw: str) -> int | None:
-    """The browser's grammar, in Python. String arithmetic, never a float."""
+    """String arithmetic, never a float.
+
+    DELIBERATELY looser than the browser's parser in `importCsv.ts`, which
+    validates grouping and sign notation before stripping. This script reads
+    one known-good export for a local check; it is not the product's input
+    path and must not be mistaken for it.
+    """
     text = raw.strip()
     negative = False
     if text.startswith("(") and text.endswith(")"):

@@ -159,12 +159,28 @@ def test_a_sunday_bill_lands_on_the_friday_inside_the_window():
 
 
 def test_saturday_income_arriving_monday_is_inside_a_window_that_starts_monday():
-    # Nominal 2026-09-19 is a Saturday; the credit lands Monday the 21st. A
-    # window starting the 20th must contain it.
-    data = H.weekly_income(datetime.date(2026, 9, 19), weeks=20, weekday=5)
-    stream = one(data, history_end=datetime.date(2026, 9, 19))
+    # Nominal 2026-09-19 is a Saturday and has NOT posted — the export ends
+    # the Saturday before — so the credit lands Monday the 21st, inside a
+    # window that starts on the 20th.
+    data = H.weekly_income(datetime.date(2026, 9, 12), weeks=20, weekday=5)
+    stream = one(data, history_end=datetime.date(2026, 9, 12))
     days, _ = dates(stream, as_of=datetime.date(2026, 9, 20), days=3)
     assert datetime.date(2026, 9, 21) in days, days
+
+
+def test_a_paycheck_that_posted_early_is_not_counted_again():
+    # Pay is anchored to Friday, but this week it posted on Thursday and is
+    # already in the balance the person typed. Projecting the Friday counts
+    # the same money twice.
+    data = H.weekly_income(datetime.date(2026, 9, 4), weeks=10, weekday=4)
+    data.append(H.row(datetime.date(2026, 9, 10), "ACME WIDGETS LLC", 50000))
+    stream = one(data, history_end=datetime.date(2026, 9, 10))
+    days, withheld = dates(stream, as_of=datetime.date(2026, 9, 10), days=5)
+    assert datetime.date(2026, 9, 11) not in days, days
+    assert withheld, "the person is looking for that payday; the panel must say why it is absent"
+    # The following week is untouched.
+    later, _ = dates(stream, as_of=datetime.date(2026, 9, 10), days=12)
+    assert datetime.date(2026, 9, 18) in later, later
 
 
 def test_a_biweekly_stream_keeps_both_margins():

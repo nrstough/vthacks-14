@@ -106,6 +106,24 @@ def project(
     else:
         raw = _monthly_dates(stream, as_of, horizon_end)
 
+    interval = datetime.timedelta(days=stream.interval_days)
+    history = [row.date for row in stream.rows]
+
+    def already_paid(occurrence: datetime.date) -> bool:
+        """Is the period this occurrence represents already in the export?
+
+        A paycheck that posts EARLY — Thursday when the anchor is Friday —
+        is in the balance the person typed, and projecting the Friday counts
+        it twice. The test is the period, not the day: an actual row strictly
+        inside (occurrence - interval, occurrence] settles that period.
+
+        Measured against the NOMINAL date, never the weekend-shifted one.
+        Shifting first moves the period boundary onto the previous payment
+        and suppresses a payday that is genuinely still to come.
+        """
+        return any(occurrence - interval < when <= occurrence for when in history)
+
+
     seen: set[datetime.date] = set()
     withheld = False
     out: list[tuple[str, datetime.date, int]] = []
@@ -113,12 +131,17 @@ def project(
         shifted = _shift_for_kind(d, stream.kind)
         if shifted < as_of or shifted > horizon_end or shifted in seen:
             continue
-        if shifted == as_of:
+        if already_paid(d):
+            # Already in the balance. For income say so, because the person
+            # is looking for a payday that will not appear in the plan.
             if stream.kind == "income":
                 withheld = True
-                continue
-            if any(row.date == as_of for row in stream.rows):
-                continue
+            continue
+        if shifted == as_of and stream.kind == "income":
+            # Not yet posted, and counting it is a guess in the optimistic
+            # direction; the balance the person typed is the truth.
+            withheld = True
+            continue
         seen.add(shifted)
         out.append(("", shifted, stream.amount_cents))
     return out, withheld

@@ -274,13 +274,19 @@ def _fit_semimonthly(dates: list[datetime.date]) -> tuple[int, int] | None:
             return (day.year - 1, 12) if day.month == 1 else (day.year, day.month - 1)
         return (day.year, day.month)
 
-    months = {pay_month(d) for d in dates}
+    # EVERY month of the span, not only the months that happen to contain a
+    # row. Counting only the latter lets six payments spread over January,
+    # May and September look like a flawless twice-a-month payroll, and the
+    # plan then promises two paydays a month that are not coming.
+    present = {pay_month(d) for d in dates}
+    first_month, last_month = min(present), max(present)
+    span = (last_month[0] - first_month[0]) * 12 + (last_month[1] - first_month[1]) + 1
     both = 0
-    for year, month in months:
+    for year, month in present:
         in_month = [d.day for d in dates if pay_month(d) == (year, month)]
         if any(d in first for d in in_month) and any(d in second for d in in_month):
             both += 1
-    if both / len(months) < SEMIMONTHLY_MONTH_COVERAGE:
+    if both / span < SEMIMONTHLY_MONTH_COVERAGE:
         return None
     return tuple(sorted((anchor_a, anchor_b)))  # type: ignore[return-value]
 

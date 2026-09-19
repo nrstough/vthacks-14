@@ -2,21 +2,28 @@
 
 | Dimension | Grade | Notes |
 |-----------|-------|-------|
-| Plan adherence | Fail | Semimonthly month-end pay can be projected early, violating A3/D4. |
-| Scope discipline | Excellent | Changes remain within the import workflow and its verification. |
-| Test coverage | Fail | Semimonthly tests miss incorrect dates; required browser screenshot is absent. |
-| Review compliance | Acceptable | Referenced Codex findings have corresponding implementation changes and tests. |
+| Plan adherence | **Fail** | Balance cutoff and cadence requirements have reproducible violations. |
+| Scope discipline | Excellent | Changes remain within the import feature and its supporting integration. |
+| Test coverage | **Fail** | Tests miss both defects below; required screenshot evidence is unavailable. |
+| Review compliance | **Fail** | Codex findings 2 and 3 remain incompletely resolved. |
 | Freeze integrity | Acceptable | Skipped: no P1/P2/P3 hashes present. |
-| Regression check | Acceptable | 2,272 backend tests passed; four environmental setup errors. Frontend: 304 passed. |
-| Documentation | Excellent | Declared documentation covers the changed behavior and limitations. |
-| **Overall** | **Fail** | |
+| Regression check | Acceptable | 2275 backend tests passed; four environmental setup errors. Frontend: 304 passed. |
+| Documentation | Acceptable | Declared documentation updated; minor internal wording drift. |
+| **Overall** | **Fail** | Two confirmed defects can introduce income that should not be projected. |
 
 ### Commentary
 
-1. **Plan adherence — causes Fail.** [detect.py:235](/Users/nathanstough/Desktop/vthacks-history-import/backend/app/history/detect.py:235) chooses a numeric day-of-month mode instead of preserving a month-end anchor. Reproduced through the import endpoint with equal income payments on April 15/30, May 15, June 1/15/30, 2026—the 15th/month-end pattern with weekend income shifted forward. With `as_of=2026-07-01`, it projects July 15 and **July 30**, rather than July 31. This makes income available a day early. Preserve month-end semantics when fitting anchors, then apply the weekend shift during projection.
+1. **Plan adherence, Review compliance, Test coverage — causes Fail.**  
+   [project.py:116](/Users/nathanstough/Desktop/vthacks-history-import/backend/app/history/project.py:116) suppresses income only when its **projected date** equals `as_of`. A paycheck posted early can therefore be counted again. Reproducer: nine Friday payments followed by the next payment posted Thursday, September 10; import with `as_of=2026-09-10` and a balance already including that payment. The endpoint projects another **50,000 cents on September 11**, with no withheld-income provenance. This violates the posted-today safeguard in A16 and leaves review finding 3 unresolved. Match historical occurrences to their cadence periods before projecting; add early-posting tests for weekly and biweekly income.
 
-2. **Test coverage — causes Fail.** The [detection test](/Users/nathanstough/Desktop/vthacks-history-import/backend/tests/test_history_detect.py:76) accepts any second anchor ≥28; the [projection test](/Users/nathanstough/Desktop/vthacks-history-import/backend/tests/test_history_project.py:135) checks count and spacing, not exact dates. Add endpoint regressions pinning dates for short semimonthly histories across different month lengths and weekend shifts.
+2. **Plan adherence, Review compliance, Test coverage — causes Fail.**  
+   [detect.py:277](/Users/nathanstough/Desktop/vthacks-history-import/backend/app/history/detect.py:277) calculates semimonthly coverage using only months containing transactions. Missing months disappear from the denominator, contrary to the review amendment requiring coverage across the stream’s span. Six equal inflows on January 15/30, May 15/29, and September 15/30 are classified as active semimonthly income. An October 1 import projects **50,000 cents on both October 15 and October 30**, reporting zero unscheduled inflows. Count every month in the span and reject unsupported gaps; add this sparse-history counterexample.
 
-3. **Test coverage — additional acceptance gap.** A10 requires browser verification with a screenshot, but the [results](/Users/nathanstough/Desktop/vthacks-history-import/docs/specs/2026-09-19_history-import.md:194) explicitly report none retained. DOM assertions do not verify layout. Retain a screenshot of the imported plan and provenance panel.
+3. **Test coverage — contributes to Fail.**  
+   A10 requires browser verification with a screenshot, but the [run results](/Users/nathanstough/Desktop/vthacks-history-import/docs/specs/2026-09-19_history-import.md:194) explicitly retain only DOM assertions. Capture reviewable screenshot evidence for the panel, untick interaction, and offline behavior.
 
-4. **Regression check — limits grade to Acceptable; no demonstrated test regression.** Audited HEAD `ec54b18` on `history-import` in the supplied worktree. Python 3.14.7: `.venv/bin/pytest backend/ -q -p no:cacheprovider --capture=sys` produced **2,272 passed, 10 deselected, four setup errors**, all from unavailable writable temporary directories. Node 22.17.1: `npm run lint && npm test` passed all **304 tests**; both TypeScript projects passed no-emit checks. A fresh production build was not run because the filesystem is read-only; bundle tests used the existing build.
+4. **Regression check — limits grade to Acceptable; no demonstrated suite regression.**  
+   On `history-import` at `fd3ef29`, Python 3.14.7 ran `.venv/bin/pytest backend/ -q --capture=sys -p no:cacheprovider` with bytecode writes disabled: **2275 passed, 10 deselected, four setup errors**, all caused by unavailable writable temporary directories. Node 22.17.1 ran frontend lint and **304 passing tests**. Both TypeScript configurations passed with `--noEmit --incremental false`. A fresh Vite build was not run under the read-only restriction; bundle tests used existing build artifacts.
+
+5. **Documentation — limits grade to Acceptable, not Fail.**  
+   [import_local.py:32](/Users/nathanstough/Desktop/vthacks-history-import/backend/tools/import_local.py:32) still calls its amount parser “The browser’s grammar,” although the browser now rejects malformed signs and separators that this script accepts. Correct that internal description or align the parsers. The declared feature and API documentation otherwise covers the changed behavior.

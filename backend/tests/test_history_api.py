@@ -576,3 +576,32 @@ def test_a_bill_on_the_twenty_eighth_is_not_dragged_to_the_month_end(client):
     ids = set(bill["projected_ids"])
     dates = sorted(t["date"] for t in out["scheduled"] if t["id"] in ids)
     assert dates and all(d.endswith("-28") for d in dates), dates
+
+
+def test_sparse_months_are_not_a_twice_a_month_payroll(client):
+    # Six payments spread over January, May and September look flawless if
+    # only the months that CONTAIN a payment are counted. Every month of the
+    # span has to count, or the plan promises two paydays a month that are
+    # not coming.
+    rows = []
+    for year, month in [(2026, 1), (2026, 5), (2026, 9)]:
+        for day in (15, 30 if month != 2 else 28):
+            rows.append(H.row(datetime.date(year, month, day), "SPORADIC CO", 50000))
+    rows += H.everyday_spending(datetime.date(2026, 6, 1), datetime.date(2026, 9, 30))
+    out = imported(client, rows=rows, as_of="2026-10-01", horizon_days=30)
+    assert [s for s in out["streams"] if s["cadence"] == "semimonthly"] == []
+    assert not [t for t in out["scheduled"] if t["kind"] == "income"]
+    assert out["provenance"]["unscheduled_inflow_count"] == 6
+
+
+def test_an_early_paycheck_is_not_counted_twice_through_the_endpoint(client):
+    # Pay is anchored to Friday; this week it posted Thursday and is already
+    # in the balance the person typed.
+    rows = H.weekly_income(datetime.date(2026, 9, 4), weeks=12, weekday=4)
+    rows.append(H.row(datetime.date(2026, 9, 10), "ACME WIDGETS LLC", 50000))
+    rows += H.everyday_spending(datetime.date(2026, 6, 15), datetime.date(2026, 9, 10))
+    out = imported(client, rows=rows, as_of="2026-09-10", horizon_days=14)
+    income_dates = [t["date"] for t in out["scheduled"] if t["kind"] == "income"]
+    assert "2026-09-11" not in income_dates, income_dates
+    assert out["provenance"]["income_not_counted_today"], "the panel must be able to explain the gap"
+    assert "2026-09-18" in income_dates, income_dates

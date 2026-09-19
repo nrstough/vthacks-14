@@ -78,6 +78,14 @@ adapters), `frontend/src/components/ProvenancePanel.tsx`.
   amount — it cannot prescribe, because prescribing would mean inventing a
   charge to cancel. Offering an everyday-spending *lever* the person sets is
   the honest way to close that, and it is not built.
+- **Income is projected conservatively, and that is deliberate.** A pay
+  period whose payment already appears in the export is never projected
+  again, measured against the nominal anchor date. When pay wobbles between
+  two weekdays this can push the named payday a few days later than it will
+  probably arrive — on the real consented export, to the 29th when the 24th
+  is likelier. Late is the safe direction: the failure it produces is a
+  warning the person did not need, and the failure the other way is telling
+  someone they are fine when they are not.
 - Detection is heuristic. The untick list exists because it will be wrong
   sometimes; a wrong stream is one click away from removal.
 - The same-weekday median is the forecast the research lane's three-model
