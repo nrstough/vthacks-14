@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "source": "moneydata",
+  "target": "total_posted_outflow",
+  "currency": "SOURCE_NATIVE",
+  "synthetic": false,
+  "experimental": true,
+  "context_days": 56,
+  "horizon_days": 14,
+  "amount_units": "major currency units",
+  "origin_units": "days since 1970-01-01; first forecast day",
+  "source_sha256": "8e9fba7059145342afa7f765165068e699fd75fe1468a9b299e59e58aa2b3c72",
+  "evaluation_sha256": "b2750d890d8d81a1327d1820717ab194ebef9a4b96c5b29013da3fefdc519738",
+  "source_manifest": "data/raw/moneydata-source.json",
+  "observation_assumption": "Absent posted dates are assumed observed zero from first through last published entry. Weekend transactions post on Monday; this measures posted debits rather than actual purchase timing.",
+  "bill_exclusion": "none; gross positive posted debits include bills, transfers, cash withdrawals, and discretionary purchases; credits never offset debits",
+  "real_world_validated": false,
+  "data_file": "moneydata_windows.npz",
+  "data_sha256": "c9a9e16bfbdd09e62602dd9a0b02dff4f2e9d26c2b60512fc243c15fb30f5c29",
+  "data_bytes": 16732,
+  "audit_file": "moneydata_audit.json",
+  "audit_sha256": "bf704c83dbc374c0f8fa9db6eadd2075cb56bb52d19d4547d2b8aed1bfe1a070",
+  "window_counts": {
+    "train": 96,
+    "validation": 24,
+    "test": 24
+  },
+  "preprocessing_seconds": 0.0356136669870466
+}

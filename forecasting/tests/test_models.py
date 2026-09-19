@@ -100,7 +100,8 @@ def fixture_predictor(tmp_path, kind="recent_28day_mean"):
     if kind == "neural":
         state.update(feature_mean=np.zeros(99), feature_std=np.ones(99))
     np.savez_compressed(weights, **state)
-    metadata = {"model_id": "unit-test", "kind": kind, "source": "test fixture", "target": "total_posted_outflow",
+    metadata = {"format_version": 1, "context_days": 56, "horizon_days": 14,
+                "model_id": "unit-test", "kind": kind, "source": "test fixture", "target": "total_posted_outflow",
                 "currency": "USD", "experimental": True, "weights": weights.name,
                 "weights_sha256": hashlib.sha256(weights.read_bytes()).hexdigest()}
     model = tmp_path / "model.json"
@@ -142,4 +143,30 @@ def test_changed_weights_fail_checksum(tmp_path):
     model, _ = fixture_predictor(tmp_path)
     (tmp_path / "weights.npz").write_bytes(b"corruption")
     with pytest.raises(ValueError, match="checksum"):
+        Predictor(model)
+
+
+@pytest.mark.parametrize("field,value", [("format_version", 2), ("format_version", True),
+                                        ("context_days", 55), ("horizon_days", 7),
+                                        ("experimental", "yes"), ("source", ""), ("kind", "unknown")])
+def test_incompatible_model_metadata_rejected(tmp_path, field, value):
+    model, _ = fixture_predictor(tmp_path)
+    metadata = json.loads(model.read_text())
+    metadata[field] = value
+    model.write_text(json.dumps(metadata))
+    with pytest.raises(ValueError):
+        Predictor(model)
+
+
+def test_invalid_standardizer_rejected_even_with_valid_checksum(tmp_path):
+    model, _ = fixture_predictor(tmp_path, "neural")
+    weights = tmp_path / "weights.npz"
+    with np.load(weights) as loaded:
+        state = dict(loaded)
+    state["feature_std"][0] = 0
+    np.savez_compressed(weights, **state)
+    metadata = json.loads(model.read_text())
+    metadata["weights_sha256"] = hashlib.sha256(weights.read_bytes()).hexdigest()
+    model.write_text(json.dumps(metadata))
+    with pytest.raises(ValueError, match="positive"):
         Predictor(model)

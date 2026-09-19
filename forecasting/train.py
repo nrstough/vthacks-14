@@ -26,10 +26,9 @@ def write_json(path, value):
     Path(path).write_text(json.dumps(value, indent=2, allow_nan=False) + "\n")
 
 
-def save_model(directory, filename, kind, state, source, run_id, config_hash, extra=None):
+def save_model(directory, filename, kind, state, source, run_id, config, config_hash, extra=None):
     weights_path = directory / (filename + ".npz")
     np.savez_compressed(weights_path, **state)
-    config = json.loads((ROOT / "evaluation.json").read_text())
     metadata = {
         "format_version": 1, "model_id": f"{source}-{run_id}-{filename}", "kind": kind,
         "source": "IBM TabFormer synthetic card transactions" if source == "ibm" else "MoneyData published single-person history",
@@ -50,7 +49,9 @@ def train(source, run_id):
     if not run_id or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-" for c in run_id):
         raise ValueError("run-id may contain only letters, digits, underscore, hyphen")
     config_path = ROOT / "evaluation.json"
-    config = json.loads(config_path.read_text())
+    config_bytes = config_path.read_bytes()
+    config_hash = hashlib.sha256(config_bytes).hexdigest()
+    config = json.loads(config_bytes)
     data_path = ROOT / "data" / "processed" / f"{source}_windows.npz"
     audit_path = data_path.with_name(f"{source}_audit.json")
     manifest_path = data_path.with_name(f"{source}_manifest.json")
@@ -60,7 +61,7 @@ def train(source, run_id):
         raise ValueError("audit blocks training")
     if (manifest.get("data_sha256") != digest(data_path)
             or manifest.get("audit_sha256") != digest(audit_path)
-            or manifest.get("evaluation_sha256") != digest(config_path)):
+            or manifest.get("evaluation_sha256") != config_hash):
         raise ValueError("processed data, audit, or frozen configuration changed")
     for key in ("currency", "target", "synthetic"):
         if manifest.get(key) != config[source][key]:
@@ -70,10 +71,10 @@ def train(source, run_id):
     directory = ROOT / "artifacts" / f"{source}-{run_id}"
     directory.mkdir(parents=True, exist_ok=False)
     # Freeze an exact record before model selection; never overwrite a prior run.
-    write_json(directory / "evaluation.json", config)
+    (directory / "evaluation.json").write_bytes(config_bytes)
     write_json(directory / "input-fingerprints.json", {
         "windows_sha256": digest(data_path), "audit_sha256": digest(audit_path),
-        "manifest_sha256": digest(manifest_path), "config_sha256": digest(config_path),
+        "manifest_sha256": digest(manifest_path), "config_sha256": config_hash,
         "source_code_sha256": {p.name: digest(p) for p in ROOT.glob("*.py")},
         "python": platform.python_version(), "numpy": np.__version__,
     })
@@ -121,7 +122,7 @@ def train(source, run_id):
         log["training_seconds"] = fit_times[name]
         runs.append(log)
         neural_names.append(name)
-        save_model(directory, name, "neural", state, source, run_id, digest(config_path), {"seed": seed})
+        save_model(directory, name, "neural", state, source, run_id, config, config_hash, {"seed": seed})
     neural = min(neural_names, key=lambda name: validation[name]["14day_total_mae"])
     selection = {"selected_baseline": baseline, "selected_neural": neural,
                  "criterion": "lowest validation 14-day total MAE", "validation": validation,
@@ -142,9 +143,9 @@ def train(source, run_id):
                                   representative_real_data=False, thresholds=config["promotion"])
     default_name = neural if decision["promote_neural"] else baseline
     kind, state = models[default_name]
-    save_model(directory, "default", kind, state, source, run_id, digest(config_path), {"selected_from": default_name})
+    save_model(directory, "default", kind, state, source, run_id, config, config_hash, {"selected_from": default_name})
     kind, state = models[neural]
-    save_model(directory, "neural-selected", kind, state, source, run_id, digest(config_path), {"selected_from": neural})
+    save_model(directory, "neural-selected", kind, state, source, run_id, config, config_hash, {"selected_from": neural})
     np.savez_compressed(directory / "predictions-test.npz", actual=final["y"], origin=final["origin"],
                         group=final["group"], **predictions)
     origin_date = date(1970, 1, 1) + timedelta(days=int(final["origin"][0]))

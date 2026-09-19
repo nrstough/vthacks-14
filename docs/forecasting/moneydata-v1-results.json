@@ -1,0 +1,409 @@
+{
+  "source": "moneydata",
+  "currency": "SOURCE_NATIVE",
+  "target": "total_posted_outflow",
+  "provenance": "real single-person posted history",
+  "selection": {
+    "selected_baseline": "ridge_alpha_100",
+    "selected_neural": "neural_seed_11",
+    "criterion": "lowest validation 14-day total MAE",
+    "validation": {
+      "recent_28day_mean": {
+        "daily_mae": 837.4464136904762,
+        "7day_total_mae": 6938.814374999999,
+        "14day_total_mae": 9604.602499999999,
+        "14day_bias_pred_minus_actual": -410.5825000000021,
+        "14day_mean_underprediction": 5007.592500000001
+      },
+      "weekday_8week_mean": {
+        "daily_mae": 842.6616071428573,
+        "7day_total_mae": 6948.892708333333,
+        "14day_total_mae": 9539.801875,
+        "14day_bias_pred_minus_actual": -583.3112500000001,
+        "14day_mean_underprediction": 5061.556562500001
+      },
+      "ridge_alpha_0.1": {
+        "daily_mae": 1851.0932293427434,
+        "7day_total_mae": 14495.829578873958,
+        "14day_total_mae": 22166.84392049999,
+        "14day_bias_pred_minus_actual": 13626.186385610961,
+        "14day_mean_underprediction": 4270.3287674445155
+      },
+      "ridge_alpha_1": {
+        "daily_mae": 1681.9487509112237,
+        "7day_total_mae": 13332.393845755369,
+        "14day_total_mae": 19818.46038099409,
+        "14day_bias_pred_minus_actual": 11235.626344102442,
+        "14day_mean_underprediction": 4291.417018445824
+      },
+      "ridge_alpha_10": {
+        "daily_mae": 1147.9699479014737,
+        "7day_total_mae": 9603.753142322907,
+        "14day_total_mae": 12508.17413638623,
+        "14day_bias_pred_minus_actual": 3702.8692091108664,
+        "14day_mean_underprediction": 4402.652463637682
+      },
+      "ridge_alpha_100": {
+        "daily_mae": 803.7587075184574,
+        "7day_total_mae": 6872.214568001734,
+        "14day_total_mae": 8515.932846918195,
+        "14day_bias_pred_minus_actual": -906.857461719119,
+        "14day_mean_underprediction": 4711.395154318657
+      },
+      "neural_seed_11": {
+        "daily_mae": 824.02711263857,
+        "7day_total_mae": 6865.360559495429,
+        "14day_total_mae": 9414.473561619629,
+        "14day_bias_pred_minus_actual": -652.2763090116991,
+        "14day_mean_underprediction": 5033.3749353156645
+      },
+      "neural_seed_23": {
+        "daily_mae": 828.6317639758765,
+        "7day_total_mae": 6873.9851058850045,
+        "14day_total_mae": 9494.912699604525,
+        "14day_bias_pred_minus_actual": -514.6381465200953,
+        "14day_mean_underprediction": 5004.77542306231
+      },
+      "neural_seed_47": {
+        "daily_mae": 858.3001919677944,
+        "7day_total_mae": 7151.931842626636,
+        "14day_total_mae": 9920.289037804005,
+        "14day_bias_pred_minus_actual": -28.28292077142791,
+        "14day_mean_underprediction": 4974.285979287717
+      }
+    },
+    "selected_before_final_test": true
+  },
+  "test": {
+    "recent_28day_mean": {
+      "daily_mae": 247.89946215986393,
+      "7day_total_mae": 1259.4880208333334,
+      "14day_total_mae": 1050.3902083333332,
+      "14day_bias_pred_minus_actual": -85.40145833333348,
+      "14day_mean_underprediction": 567.8958333333334
+    },
+    "weekday_8week_mean": {
+      "daily_mae": 230.45840029761902,
+      "7day_total_mae": 1218.9838541666666,
+      "14day_total_mae": 1067.8400000000001,
+      "14day_bias_pred_minus_actual": 41.69708333333324,
+      "14day_mean_underprediction": 513.0714583333335
+    },
+    "ridge_alpha_0.1": {
+      "daily_mae": 375.9792646653887,
+      "7day_total_mae": 1641.5755340407577,
+      "14day_total_mae": 2150.5234849216436,
+      "14day_bias_pred_minus_actual": 2116.733432482604,
+      "14day_mean_underprediction": 16.895026219519952
+    },
+    "ridge_alpha_1": {
+      "daily_mae": 363.85422331871985,
+      "7day_total_mae": 1539.1483518175464,
+      "14day_total_mae": 2012.8375923706901,
+      "14day_bias_pred_minus_actual": 1958.172462451407,
+      "14day_mean_underprediction": 27.332564959641633
+    },
+    "ridge_alpha_10": {
+      "daily_mae": 320.10820288891034,
+      "7day_total_mae": 1198.9793574928128,
+      "14day_total_mae": 1554.9021427565601,
+      "14day_bias_pred_minus_actual": 1315.8053139901122,
+      "14day_mean_underprediction": 119.54841438322387
+    },
+    "ridge_alpha_100": {
+      "daily_mae": 275.9795467879471,
+      "7day_total_mae": 990.5447366144921,
+      "14day_total_mae": 989.7435290029588,
+      "14day_bias_pred_minus_actual": 509.50158818956515,
+      "14day_mean_underprediction": 240.12097040669684
+    },
+    "neural_seed_11": {
+      "daily_mae": 246.49505322908811,
+      "7day_total_mae": 1266.3058195869114,
+      "14day_total_mae": 1055.4135761393516,
+      "14day_bias_pred_minus_actual": -161.66219624551846,
+      "14day_mean_underprediction": 608.537886192435
+    },
+    "neural_seed_23": {
+      "daily_mae": 248.14558572819013,
+      "7day_total_mae": 1262.13548874009,
+      "14day_total_mae": 1055.4595232050945,
+      "14day_bias_pred_minus_actual": -95.93104042431946,
+      "14day_mean_underprediction": 575.6952818147071
+    },
+    "neural_seed_47": {
+      "daily_mae": 251.22997196437933,
+      "7day_total_mae": 1262.8872011030535,
+      "14day_total_mae": 1050.577379181819,
+      "14day_bias_pred_minus_actual": 6.351796214964736,
+      "14day_mean_underprediction": 522.112791483427
+    }
+  },
+  "neural_runs": [
+    {
+      "seed": 11,
+      "best_epoch": 1,
+      "epochs_run": 11,
+      "validation_14day_mae": 9414.473561619629,
+      "validation_history": [
+        9414.473561619629,
+        9428.29244012018,
+        9442.25165205127,
+        9455.957212265688,
+        9470.415208353632,
+        9485.82745665578,
+        9502.612923915985,
+        9521.610988560635,
+        9541.461364514906,
+        9561.713834817027,
+        9582.113284685269
+      ],
+      "training_seconds": 0.02316679200157523
+    },
+    {
+      "seed": 23,
+      "best_epoch": 1,
+      "epochs_run": 11,
+      "validation_14day_mae": 9494.912699604525,
+      "validation_history": [
+        9494.912699604525,
+        9504.434449753404,
+        9514.440977332943,
+        9524.422878744128,
+        9534.833810238284,
+        9545.167724165825,
+        9554.934251249348,
+        9565.772628014,
+        9578.055352242272,
+        9593.026887536462,
+        9609.858138018464
+      ],
+      "training_seconds": 0.0026199589483439922
+    },
+    {
+      "seed": 47,
+      "best_epoch": 1,
+      "epochs_run": 11,
+      "validation_14day_mae": 9920.289037804005,
+      "validation_history": [
+        9920.289037804005,
+        9923.719303883723,
+        9929.939995807112,
+        9939.130140324747,
+        9951.51634563699,
+        9966.842598933603,
+        9984.803058960904,
+        10005.636484476536,
+        10031.409097046679,
+        10060.099670842983,
+        10091.57498128115
+      ],
+      "training_seconds": 0.002656750031746924
+    }
+  ],
+  "paired_uncertainty": {
+    "paired_improvement": -65.6700471363929,
+    "ci95": [
+      -393.9302845946691,
+      279.0921564628712
+    ],
+    "unit": "circular blocks of 4 consecutive origins; one-person temporal case study",
+    "groups": 1,
+    "replicates": 2000,
+    "sign": "positive favors neural; baseline MAE minus neural MAE",
+    "scope": "conditional on selected fitted models; excludes model-selection/training uncertainty"
+  },
+  "decision": {
+    "promote_neural": false,
+    "relative_mae_gain": -0.06635056983150679,
+    "checks": {
+      "at_least_required_mae_gain": false,
+      "paired_ci_excludes_zero_in_favor": false,
+      "underprediction_within_threshold": false,
+      "comparison_valid": true,
+      "representative_real_multicustomer_evidence": false,
+      "multiple_customer_groups": false
+    }
+  },
+  "default_model": "ridge_alpha_100",
+  "test_start_weekday": {
+    "0": {
+      "windows": 3,
+      "baseline": {
+        "daily_mae": 329.7527282992322,
+        "7day_total_mae": 1363.543052332071,
+        "14day_total_mae": 1774.6257571981903,
+        "14day_bias_pred_minus_actual": 1774.6257571981903,
+        "14day_mean_underprediction": 0.0
+      },
+      "neural": {
+        "daily_mae": 274.1233944993477,
+        "7day_total_mae": 1338.4567369359072,
+        "14day_total_mae": 975.7065795250252,
+        "14day_bias_pred_minus_actual": 491.25801482335646,
+        "14day_mean_underprediction": 242.2242823508344
+      }
+    },
+    "1": {
+      "windows": 3,
+      "baseline": {
+        "daily_mae": 291.33825367614054,
+        "7day_total_mae": 1825.437463376963,
+        "14day_total_mae": 1871.1647219122958,
+        "14day_bias_pred_minus_actual": 1276.8754781324826,
+        "14day_mean_underprediction": 297.14462188990655
+      },
+      "neural": {
+        "daily_mae": 229.0850913574824,
+        "7day_total_mae": 1618.4757544134827,
+        "14day_total_mae": 1841.3500523752416,
+        "14day_bias_pred_minus_actual": 493.4545574098197,
+        "14day_mean_underprediction": 673.947747482711
+      }
+    },
+    "2": {
+      "windows": 3,
+      "baseline": {
+        "daily_mae": 192.87305493928696,
+        "7day_total_mae": 635.8014007502453,
+        "14day_total_mae": 487.44896113147996,
+        "14day_bias_pred_minus_actual": 487.44896113147996,
+        "14day_mean_underprediction": 0.0
+      },
+      "neural": {
+        "daily_mae": 205.5823674177363,
+        "7day_total_mae": 902.7922389609327,
+        "14day_total_mae": 733.948467453907,
+        "14day_bias_pred_minus_actual": 120.17265717930711,
+        "14day_mean_underprediction": 306.8879051372999
+      }
+    },
+    "3": {
+      "windows": 3,
+      "baseline": {
+        "daily_mae": 265.15923890864184,
+        "7day_total_mae": 845.0897647941301,
+        "14day_total_mae": 327.12168811206084,
+        "14day_bias_pred_minus_actual": 320.33734182967174,
+        "14day_mean_underprediction": 3.392173141194538
+      },
+      "neural": {
+        "daily_mae": 250.68102669640385,
+        "7day_total_mae": 1480.4212612227664,
+        "14day_total_mae": 1100.387646753871,
+        "14day_bias_pred_minus_actual": -772.1345484321992,
+        "14day_mean_underprediction": 936.2610975930351
+      }
+    },
+    "4": {
+      "windows": 4,
+      "baseline": {
+        "daily_mae": 267.46692453377517,
+        "7day_total_mae": 885.0681932247578,
+        "14day_total_mae": 1190.5417540646163,
+        "14day_bias_pred_minus_actual": 1125.572917380433,
+        "14day_mean_underprediction": 32.48441834209166
+      },
+      "neural": {
+        "daily_mae": 229.56797059809628,
+        "7day_total_mae": 1387.4662326063624,
+        "14day_total_mae": 988.64777080882,
+        "14day_bias_pred_minus_actual": -28.5565131449668,
+        "14day_mean_underprediction": 508.6021419768934
+      }
+    },
+    "5": {
+      "windows": 4,
+      "baseline": {
+        "daily_mae": 291.2543820584964,
+        "7day_total_mae": 914.9991874989408,
+        "14day_total_mae": 679.5138993076645,
+        "14day_bias_pred_minus_actual": -347.04854408957783,
+        "14day_mean_underprediction": 513.2812216986212
+      },
+      "neural": {
+        "daily_mae": 260.7582419367879,
+        "7day_total_mae": 1260.8188784159795,
+        "14day_total_mae": 1140.460146248964,
+        "14day_bias_pred_minus_actual": -650.0666545062468,
+        "14day_mean_underprediction": 895.2634003776054
+      }
+    },
+    "6": {
+      "windows": 4,
+      "baseline": {
+        "daily_mae": 287.81351726793486,
+        "7day_total_mae": 640.7972780231968,
+        "14day_total_mae": 723.134674379952,
+        "14day_bias_pred_minus_actual": -615.9804978723328,
+        "14day_mean_underprediction": 669.5575861261424
+      },
+      "neural": {
+        "daily_mae": 269.04019686141686,
+        "7day_total_mae": 944.4403128493093,
+        "14day_total_mae": 714.8289801972925,
+        "14day_bias_pred_minus_actual": -540.9130205571101,
+        "14day_mean_underprediction": 627.8710003772013
+      }
+    }
+  },
+  "training_seconds": {
+    "recent_28day_mean": 0.0,
+    "weekday_8week_mean": 0.0,
+    "ridge_alpha_0.1": 0.00021587498486042023,
+    "ridge_alpha_1": 9.81249613687396e-05,
+    "ridge_alpha_10": 0.0001099160872399807,
+    "ridge_alpha_100": 8.875003550201654e-05,
+    "neural_seed_11": 0.02316679200157523,
+    "neural_seed_23": 0.0026199589483439922,
+    "neural_seed_47": 0.002656750031746924
+  },
+  "feature_preparation_seconds": 0.005268416949547827,
+  "inference": {
+    "recent_28day_mean": {
+      "batch_seconds": 0.0001035409513860941,
+      "windows": 24
+    },
+    "weekday_8week_mean": {
+      "batch_seconds": 7.220800034701824e-05,
+      "windows": 24
+    },
+    "ridge_alpha_0.1": {
+      "batch_seconds": 9.200000204145908e-05,
+      "windows": 24
+    },
+    "ridge_alpha_1": {
+      "batch_seconds": 0.00011404103133827448,
+      "windows": 24
+    },
+    "ridge_alpha_10": {
+      "batch_seconds": 9.708397556096315e-05,
+      "windows": 24
+    },
+    "ridge_alpha_100": {
+      "batch_seconds": 8.574989624321461e-05,
+      "windows": 24
+    },
+    "neural_seed_11": {
+      "batch_seconds": 9.612494613975286e-05,
+      "windows": 24
+    },
+    "neural_seed_23": {
+      "batch_seconds": 9.383296128362417e-05,
+      "windows": 24
+    },
+    "neural_seed_47": {
+      "batch_seconds": 9.370804764330387e-05,
+      "windows": 24
+    }
+  },
+  "total_run_seconds": 0.08440116699784994,
+  "serialization_roundtrip": "default and neural-selected matched one-row batch prediction within1e-10",
+  "limitations": [
+    "No validated known-bill exclusion",
+    "No calibrated prediction intervals or probability of solvency",
+    "Completeness of empty transaction dates is assumed, not independently proven",
+    "No representative real multi-customer validation; every artifact is experimental",
+    "Final test also reports other frozen models for transparency; they are not used to change selection"
+  ]
+}

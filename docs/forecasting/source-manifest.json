@@ -1,0 +1,301 @@
+{
+  "schema_version": 1,
+  "captured_utc": "2026-09-19T06:45:50.195722+00:00",
+  "sources": {
+    "ibm": {
+      "schema_version": 1,
+      "source": "ibm",
+      "acquired_utc": "2026-09-19T06:40:46.005470+00:00",
+      "source_description": {
+        "filename": "ibm-transactions.tgz",
+        "url": "https://media.githubusercontent.com/media/IBM/TabFormer/ebb7cd68ee1897599568107740bc452104bbbaf8/data/credit_card/transactions.tgz",
+        "sha256": "e9f589a0958f40d60f81b1a2e8428db86e00c05755caf44fb055827976c0efa2",
+        "bytes": 278576638,
+        "max_bytes": 278576638,
+        "source_page": "https://github.com/IBM/TabFormer",
+        "version": "ebb7cd68ee1897599568107740bc452104bbbaf8",
+        "provenance": "synthetic; simulated credit-card consumers, not real people",
+        "license": "Apache-2.0",
+        "license_url": "https://raw.githubusercontent.com/IBM/TabFormer/ebb7cd68ee1897599568107740bc452104bbbaf8/LICENSE",
+        "attribution": "IBM; Padhi et al., Tabular Transformers for Modeling Multivariate Time Series, ICASSP 2021"
+      },
+      "raw_relative_path": "ibm-transactions.tgz",
+      "modifications": "none; raw response retained untouched",
+      "download": {
+        "bytes": 278576638,
+        "sha256": "e9f589a0958f40d60f81b1a2e8428db86e00c05755caf44fb055827976c0efa2",
+        "resolved_url": "https://media.githubusercontent.com/media/IBM/TabFormer/ebb7cd68ee1897599568107740bc452104bbbaf8/data/credit_card/transactions.tgz",
+        "content_type": "application/octet-stream",
+        "etag": "\"e9f589a0958f40d60f81b1a2e8428db86e00c05755caf44fb055827976c0efa2\"",
+        "last_modified": "Sat, 19 Sep 2026 06:36:40 GMT",
+        "resumed_from": 0,
+        "url": "https://media.githubusercontent.com/media/IBM/TabFormer/ebb7cd68ee1897599568107740bc452104bbbaf8/data/credit_card/transactions.tgz",
+        "status": "downloaded",
+        "elapsed_seconds": 245.88470991607755
+      },
+      "scope_limit": "Acquisition verifies identity/integrity only, not model suitability or complete observation coverage.",
+      "frozen_source_spec": {
+        "filename": "ibm-transactions.tgz",
+        "url": "https://media.githubusercontent.com/media/IBM/TabFormer/ebb7cd68ee1897599568107740bc452104bbbaf8/data/credit_card/transactions.tgz",
+        "sha256": "e9f589a0958f40d60f81b1a2e8428db86e00c05755caf44fb055827976c0efa2",
+        "bytes": 278576638,
+        "max_bytes": 278576638,
+        "source_page": "https://github.com/IBM/TabFormer",
+        "version": "ebb7cd68ee1897599568107740bc452104bbbaf8",
+        "provenance": "synthetic; simulated credit-card consumers, not real people",
+        "license": "Apache-2.0",
+        "license_url": "https://raw.githubusercontent.com/IBM/TabFormer/ebb7cd68ee1897599568107740bc452104bbbaf8/LICENSE",
+        "attribution": "IBM; Padhi et al., Tabular Transformers for Modeling Multivariate Time Series, ICASSP 2021"
+      }
+    },
+    "moneydata": {
+      "schema_version": 1,
+      "source": "moneydata",
+      "acquired_utc": "2026-09-19T06:36:52.694015+00:00",
+      "source_description": {
+        "filename": "moneydata-author-sheet.csv",
+        "url": "https://docs.google.com/spreadsheets/d/1pYTMqRhEI48hv_zNWZriHW_0vRSrA9ZSQ31aLT4Vbk0/export?format=csv&gid=2010330240",
+        "sha256": null,
+        "bytes": null,
+        "max_bytes": 10000000,
+        "source_page": "https://data.mendeley.com/datasets/dnxtg6n4rv/1",
+        "version": "author-linked Google Sheet snapshot; related Mendeley record DOI 10.17632/dnxtg6n4rv.1",
+        "provenance": "real anonymized retail bank transactions from one customer; author-linked sheet snapshot",
+        "license": "CC-BY-4.0",
+        "license_url": "https://creativecommons.org/licenses/by/4.0/",
+        "attribution": "Robert Laramee, Bank Transactions Dataset, Mendeley Data V1, DOI 10.17632/dnxtg6n4rv.1; Firat et al., MoneyVis, EuroVis 2023, DOI 10.2312/evs.20231052"
+      },
+      "raw_relative_path": "moneydata-author-sheet.csv",
+      "modifications": "none; raw response retained untouched",
+      "download": {
+        "bytes": 466479,
+        "sha256": "8e9fba7059145342afa7f765165068e699fd75fe1468a9b299e59e58aa2b3c72",
+        "resolved_url": "https://doc-0s-64-sheets.googleusercontent.com/export/f3kk9gtum31ktuqh54kn7i1e14/efj1snmo8r3qvbb62uogj6cpuk/1789799810000/104274818475433156356/*/1pYTMqRhEI48hv_zNWZriHW_0vRSrA9ZSQ31aLT4Vbk0?format=csv&gid=2010330240",
+        "content_type": "text/csv; charset=utf-8",
+        "etag": null,
+        "last_modified": null,
+        "resumed_from": 0,
+        "url": "https://docs.google.com/spreadsheets/d/1pYTMqRhEI48hv_zNWZriHW_0vRSrA9ZSQ31aLT4Vbk0/export?format=csv&gid=2010330240",
+        "status": "downloaded",
+        "elapsed_seconds": 1.6275432499824092
+      },
+      "scope_limit": "Acquisition verifies identity/integrity only, not model suitability or complete observation coverage.",
+      "frozen_source_spec": {
+        "filename": "moneydata-author-sheet.csv",
+        "url": "https://docs.google.com/spreadsheets/d/1pYTMqRhEI48hv_zNWZriHW_0vRSrA9ZSQ31aLT4Vbk0/export?format=csv&gid=2010330240",
+        "sha256": "8e9fba7059145342afa7f765165068e699fd75fe1468a9b299e59e58aa2b3c72",
+        "bytes": 466479,
+        "max_bytes": 10000000,
+        "source_page": "https://data.mendeley.com/datasets/dnxtg6n4rv/1",
+        "version": "author-linked Google Sheet snapshot; related Mendeley record DOI 10.17632/dnxtg6n4rv.1",
+        "provenance": "real anonymized retail bank transactions from one customer; author-linked sheet snapshot",
+        "license": "CC-BY-4.0",
+        "license_url": "https://creativecommons.org/licenses/by/4.0/",
+        "attribution": "Robert Laramee, Bank Transactions Dataset, Mendeley Data V1, DOI 10.17632/dnxtg6n4rv.1; Firat et al., MoneyVis, EuroVis 2023, DOI 10.2312/evs.20231052"
+      }
+    },
+    "moneydata_mendeley": {
+      "schema_version": 1,
+      "source": "moneydata_mendeley",
+      "acquired_utc": "2026-09-19T06:38:35.874516+00:00",
+      "source_description": {
+        "filename": "laramee26openBankTransactionData.xlsx",
+        "url": "https://data.mendeley.com/public-files/datasets/dnxtg6n4rv/files/36b3d359-2491-4282-850f-3f03e00fbfe3/file_downloaded",
+        "sha256": "716eaf9ad4a3cf60dc9c9c8a20ed9a917c545a1b5f139f40ed91d2104faa3ff7",
+        "bytes": 507389,
+        "max_bytes": 507389,
+        "source_page": "https://data.mendeley.com/datasets/dnxtg6n4rv/1",
+        "version": "10.17632/dnxtg6n4rv.1; published 2026-01-14",
+        "provenance": "real anonymized retail bank transactions from one customer; Mendeley V1 workbook",
+        "license": "CC-BY-4.0",
+        "license_url": "https://creativecommons.org/licenses/by/4.0/",
+        "attribution": "Robert Laramee, Bank Transactions Dataset, Mendeley Data V1, DOI 10.17632/dnxtg6n4rv.1; Firat et al., MoneyVis, EuroVis 2023, DOI 10.2312/evs.20231052"
+      },
+      "raw_relative_path": "laramee26openBankTransactionData.xlsx",
+      "modifications": "none; raw response retained untouched",
+      "download": {
+        "bytes": 507389,
+        "sha256": "716eaf9ad4a3cf60dc9c9c8a20ed9a917c545a1b5f139f40ed91d2104faa3ff7",
+        "resolved_url": "https://prod-dcd-datasets-public-files-eu-west-1.s3.eu-west-1.amazonaws.com/1db174cb-b0fe-44d9-9a88-4e91de02ffd7",
+        "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "etag": "\"39306da29ed17b395e99874490c47c2d\"",
+        "last_modified": "Wed, 14 Jan 2026 16:57:58 GMT",
+        "resumed_from": 0,
+        "url": "https://data.mendeley.com/public-files/datasets/dnxtg6n4rv/files/36b3d359-2491-4282-850f-3f03e00fbfe3/file_downloaded",
+        "status": "downloaded",
+        "elapsed_seconds": 2.8569819170515984
+      },
+      "scope_limit": "Acquisition verifies identity/integrity only, not model suitability or complete observation coverage.",
+      "frozen_source_spec": {
+        "filename": "laramee26openBankTransactionData.xlsx",
+        "url": "https://data.mendeley.com/public-files/datasets/dnxtg6n4rv/files/36b3d359-2491-4282-850f-3f03e00fbfe3/file_downloaded",
+        "sha256": "716eaf9ad4a3cf60dc9c9c8a20ed9a917c545a1b5f139f40ed91d2104faa3ff7",
+        "bytes": 507389,
+        "max_bytes": 507389,
+        "source_page": "https://data.mendeley.com/datasets/dnxtg6n4rv/1",
+        "version": "10.17632/dnxtg6n4rv.1; published 2026-01-14",
+        "provenance": "real anonymized retail bank transactions from one customer; Mendeley V1 workbook",
+        "license": "CC-BY-4.0",
+        "license_url": "https://creativecommons.org/licenses/by/4.0/",
+        "attribution": "Robert Laramee, Bank Transactions Dataset, Mendeley Data V1, DOI 10.17632/dnxtg6n4rv.1; Firat et al., MoneyVis, EuroVis 2023, DOI 10.2312/evs.20231052"
+      }
+    }
+  },
+  "metadata": {
+    "ibm-LICENSE.txt": {
+      "bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    "ibm-README.md": {
+      "bytes": 3193,
+      "sha256": "d534666c5bdf65f8d83ac25647485dc1e739ea93860fb86bea7d9308e49ff1fc"
+    },
+    "ibm-repository.json": {
+      "bytes": 2220,
+      "sha256": "565e399daec7a488713790555741163ef34dae26a8790ca8ec92a31a77ffffe3"
+    },
+    "mendeley-record.html": {
+      "bytes": 125867,
+      "sha256": "6de8561e7776efe57b1c0ce892f4b6a68f191cdde9072a5b9024b07be4160481"
+    },
+    "mendeley-record.json": {
+      "bytes": 5300,
+      "sha256": "4295d40b7637c592ad3fc03c00589b1b026f074dd602660a7233f52e80944ebd"
+    },
+    "mendeley-file-list.json": {
+      "bytes": 783,
+      "sha256": "a61ab786bef94775bc33f0155e1fd18410a9e1c66c366a99c26351fe0e79f6b5"
+    },
+    "moneydata-CC-BY-4.0.txt": {
+      "bytes": 18657,
+      "sha256": "9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411"
+    }
+  },
+  "moneydata_version_comparison": {
+    "mendeley_nonempty_record_count": 6567,
+    "sheet_record_count": 6567,
+    "matching_normalized_records": 3946,
+    "different_field_counts": {
+      "1": 2621
+    },
+    "exact_day_month_swap_count": 2621,
+    "workbook_excel_serial_date_count": 2816,
+    "normalization": "Workbook dates: text dd/mm/yyyy or Excel1900-system serial; amounts/balance: Decimal quantization to .01 to remove binary float serialization; other cells exact match. No raw file changes.",
+    "currency": "Not explicitly encoded; GBP strongly indicated by UK-bank provenance and NON-GBP fee labels, but not independently verified.",
+    "decision": "Use the author-linked CSV snapshot; preserve but exclude the workbook from forecasting because of inconsistent dates."
+  },
+  "moneydata_sheet_inspection": {
+    "rows": 6567,
+    "headers": [
+      "Transaction Number",
+      "Transaction Date",
+      "Transaction Type",
+      "Transaction Description",
+      "Debit Amount",
+      "Credit Amount",
+      "Balance",
+      "Category",
+      "Location City",
+      "Location Country"
+    ],
+    "dates": [
+      "2015-07-27",
+      "2022-07-25"
+    ],
+    "transaction_id_duplicates": 0,
+    "exact_duplicates": 0,
+    "types": {
+      "BP": 1167,
+      "DEB": 3268,
+      "FPO": 307,
+      "FPI": 82,
+      "DD": 775,
+      "CPT": 448,
+      "BGC": 158,
+      "DEP": 55,
+      "PAY": 50,
+      "": 61,
+      "SO": 102,
+      "TFR": 44,
+      "CHQ": 16,
+      "FEE": 34
+    },
+    "missing": {
+      "Transaction Number": 0,
+      "Transaction Date": 0,
+      "Transaction Type": 61,
+      "Transaction Description": 0,
+      "Debit Amount": 445,
+      "Credit Amount": 6122,
+      "Balance": 0,
+      "Category": 24,
+      "Location City": 672,
+      "Location Country": 686
+    },
+    "negative": {
+      "Debit Amount": 0,
+      "Credit Amount": 0,
+      "Balance": 0
+    },
+    "both_debit_credit": 0,
+    "weekday_counts": {
+      "Monday": 2162,
+      "Friday": 1107,
+      "Thursday": 952,
+      "Wednesday": 1039,
+      "Tuesday": 1307
+    }
+  },
+  "ibm_initial_sample": {
+    "sample_size": 100000,
+    "archive_member": "card_transaction.v1.csv",
+    "member_bytes": 2354626737,
+    "header": [
+      "User",
+      "Card",
+      "Year",
+      "Month",
+      "Day",
+      "Time",
+      "Amount",
+      "Use Chip",
+      "Merchant Name",
+      "Merchant City",
+      "Merchant State",
+      "Zip",
+      "MCC",
+      "Errors?",
+      "Is Fraud?"
+    ],
+    "first_date_components": {
+      "Year": "2002",
+      "Month": "9",
+      "Day": "1",
+      "Time": "06:21"
+    },
+    "sample_users": 6,
+    "sample_user_card_pairs": 21,
+    "sample_negative_amounts": 2581,
+    "sample_error_counts": {
+      "": 98293,
+      "Technical Glitch,": 202,
+      "Insufficient Balance,": 974,
+      "Bad PIN,": 238,
+      "Bad PIN,Insufficient Balance,": 3,
+      "Bad Expiration,": 97,
+      "Bad PIN,Technical Glitch,": 2,
+      "Bad Card Number,": 98,
+      "Bad CVV,": 87,
+      "Bad Zipcode,": 1,
+      "Insufficient Balance,Technical Glitch,": 3,
+      "Bad Card Number,Insufficient Balance,": 1,
+      "Bad Card Number,Bad CVV,": 1
+    },
+    "sample_fraud_counts": {
+      "No": 99874,
+      "Yes": 126
+    },
+    "warning": "First100000rows only; order is grouped and not representative; comprehensive audit owned by preprocessing."
+  },
+  "retention": "Raw assets remain local under forecasting/data/raw and are ignored by git. Do not clean until verified artifact archive exists. IBM CSV is streamed from original TGZ; no extraction performed."
+}

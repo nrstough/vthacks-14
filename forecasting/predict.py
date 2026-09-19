@@ -27,9 +27,19 @@ class Predictor:
     def __init__(self, model_path):
         self.path = Path(model_path)
         self.metadata = json.loads(self.path.read_text())
-        required = {"model_id", "kind", "source", "target", "currency", "experimental", "weights", "weights_sha256"}
+        required = {"format_version", "context_days", "horizon_days", "model_id", "kind", "source", "target", "currency", "experimental", "weights", "weights_sha256"}
         if not required <= self.metadata.keys():
             raise ValueError("incomplete model metadata")
+        for field, expected in (("format_version", 1), ("context_days", 56), ("horizon_days", 14)):
+            if type(self.metadata[field]) is not int or self.metadata[field] != expected:
+                raise ValueError(f"unsupported model {field}")
+        for field in ("model_id", "source", "currency"):
+            if not isinstance(self.metadata[field], str) or not self.metadata[field].strip():
+                raise ValueError(f"model {field} must be nonempty text")
+        if self.metadata["target"] not in {"residual_outflow", "total_posted_outflow", "card_spending"}:
+            raise ValueError("unsupported model target")
+        if type(self.metadata["experimental"]) is not bool:
+            raise ValueError("experimental must be boolean")
         weights_name = self.metadata["weights"]
         if not isinstance(weights_name, str) or Path(weights_name).name != weights_name:
             raise ValueError("weights must be a filename next to the metadata")
@@ -38,6 +48,25 @@ class Predictor:
             raise ValueError("weights checksum mismatch")
         with np.load(weights_path, allow_pickle=False) as weights:
             self.state = {k: weights[k] for k in weights.files}
+        kind = self.metadata["kind"]
+        shapes = {}
+        if kind == "neural":
+            shapes = {"w1": (99, 64), "b1": (64,), "w2": (64, 32), "b2": (32,),
+                      "w3": (32, 14), "b3": (14,)}
+        elif kind == "ridge":
+            shapes = {"coef": (100, 14)}
+        elif kind not in {"recent_28day_mean", "weekday_8week_mean"}:
+            raise ValueError("unsupported model kind")
+        if kind in {"neural", "ridge"}:
+            shapes.update(feature_mean=(99,), feature_std=(99,))
+        if set(self.state) != set(shapes):
+            raise ValueError("model weight names do not match declared kind")
+        for key, shape in shapes.items():
+            value = self.state[key]
+            if value.shape != shape or value.dtype.kind not in "fiu" or not np.isfinite(value).all():
+                raise ValueError(f"invalid model weight: {key}")
+        if "feature_std" in self.state and np.any(self.state["feature_std"] <= 0):
+            raise ValueError("model feature standard deviations must be positive")
 
     def predict(self, history, *, currency):
         """Require exactly 56 observed calendar days ending immediately before horizon.

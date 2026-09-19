@@ -88,6 +88,12 @@ Completion means the owned branch contains reproducible code, data provenance/au
 
 ## Supporting records
 
+### User-requested follow-on design, September 19
+
+During execution Nathan asked for a realistic deadline plan, a conflict check against Claude's solver handoff, and a designed architecture bake-off. The design includes MLP, TCN, GRU and a **required tiny Transformer**, with a fair baseline comparison and fresh test policy. Nathan then proposed self-supervised transfer and assigned source roles: IBM/TabFormer (one dataset) for synthetic pretraining/control, audited Nedbank for real multi-customer fine-tuning/evaluation, and MoneyData only as an external one-person case study in the proposed v2—not training, SSL, fine-tuning or model selection. Preserve the already completed source-specific MoneyData v1 benchmark as historical evidence; do not pretend it was never fitted or evaluated.
+
+These design requests are delivered in `architecture-bakeoff.md`, `transfer-learning-design.md`, and `deadline-and-ownership.md`. They do not mean the extra architectures or pretraining runs have been executed. The v1 acceptance criteria above remain the implemented deliverable, and any execution of the new study must freeze a separate configuration and honor the latest source roles.
+
 In the worktree, read `docs/vthacks-dataset-research.md`, `docs/vthacks-training-pilot.md`, `docs/vthacks-product-and-training-plan.md`, `docs/api-contract.md`, and `docs/features/solver.md`. The older handoff's branch label says `main`; live git inspection shows the source checkout is now `backend`.
 
 The first pilot's complete archive is retained at `/Users/nathanstough/Documents/Codex/2026-09-18/i-x20/outputs/residual-forecast-pilot.zip`; its copied raw data and checkpoints are ignored by git in `experiments/residual_forecast/`. Source code, manifests, audits, and result summaries can be committed without the large binaries. Do not clean these run directories until their archives and hashes are verified.

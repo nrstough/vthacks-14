@@ -1,0 +1,972 @@
+{
+  "splits": {
+    "train": {
+      "windows": 26579,
+      "groups": 1113,
+      "shapes_history_y_group_origin": [
+        [
+          26579,
+          56
+        ],
+        [
+          26579,
+          14
+        ],
+        [
+          26579
+        ],
+        [
+          26579
+        ]
+      ],
+      "history_dtype": "float64",
+      "target_dtype": "float64",
+      "nonfinite": 0,
+      "negative": 0,
+      "all_zero_histories": 924,
+      "constant_histories": 924,
+      "duplicate_history_content_count": 923,
+      "duplicate_group_origin_count": 0,
+      "history_length_min_max_mean_median_p5_p95": [
+        56,
+        56,
+        56,
+        56,
+        56,
+        56
+      ],
+      "target_length_min_max_mean_median_p5_p95": [
+        14,
+        14,
+        14,
+        14,
+        14,
+        14
+      ],
+      "origin_weekdays_monday_first": [
+        3321,
+        3322,
+        3324,
+        3326,
+        4427,
+        4428,
+        4431
+      ],
+      "context_start_min": "2015-11-06",
+      "target_start_min": "2016-01-01",
+      "target_end_max": "2016-12-24",
+      "history_amounts": {
+        "min": 0.0,
+        "max": 4837.54,
+        "mean": 143.95181575948789,
+        "quantiles_p0_p50_p90_p95_p99_p100": [
+          0.0,
+          95.715,
+          336.13699999999955,
+          459.0639999999944,
+          830.71,
+          4837.54
+        ],
+        "zero_count": 183055
+      },
+      "target_total_14days": {
+        "min": 0.0,
+        "max": 13692.119999999999,
+        "mean": 2021.1836352007226,
+        "quantiles_p0_p50_p90_p95_p99_p100": [
+          0.0,
+          1721.84,
+          3747.902000000001,
+          4662.191,
+          7144.273400000001,
+          13692.119999999999
+        ],
+        "zero_count": 954
+      },
+      "target_heads": [
+        {
+          "day": 1,
+          "min": 0.0,
+          "max": 3377.38,
+          "mean": 144.891610293841,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            97.11,
+            341.80600000000004,
+            466.73199999999997,
+            822.8986000000012,
+            3377.38
+          ],
+          "zero_count": 3178
+        },
+        {
+          "day": 2,
+          "min": 0.0,
+          "max": 2588.68,
+          "mean": 143.32085368147787,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            94.67,
+            336.872,
+            460.4959999999998,
+            823.8170000000027,
+            2588.68
+          ],
+          "zero_count": 3192
+        },
+        {
+          "day": 3,
+          "min": 0.0,
+          "max": 3079.47,
+          "mean": 145.40679069942436,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            96.53,
+            338.99,
+            463.96399999999994,
+            851.9654000000002,
+            3079.47
+          ],
+          "zero_count": 3164
+        },
+        {
+          "day": 4,
+          "min": 0.0,
+          "max": 3394.96,
+          "mean": 143.28594830505284,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            94.89,
+            333.1320000000001,
+            452.08099999999996,
+            813.1540000000025,
+            3394.96
+          ],
+          "zero_count": 3210
+        },
+        {
+          "day": 5,
+          "min": 0.0,
+          "max": 2442.82,
+          "mean": 143.95812144926447,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            96.76,
+            335.312,
+            458.32899999999927,
+            836.9708000000019,
+            2442.82
+          ],
+          "zero_count": 3220
+        },
+        {
+          "day": 6,
+          "min": 0.0,
+          "max": 3013.35,
+          "mean": 144.97523721735206,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            96.75,
+            337.53400000000005,
+            461.12399999999997,
+            849.2588000000036,
+            3013.35
+          ],
+          "zero_count": 3264
+        },
+        {
+          "day": 7,
+          "min": 0.0,
+          "max": 4837.54,
+          "mean": 143.9597697430302,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            95.63,
+            335.78200000000004,
+            461.1239999999997,
+            822.3212000000011,
+            4837.54
+          ],
+          "zero_count": 3270
+        },
+        {
+          "day": 8,
+          "min": 0.0,
+          "max": 3393.73,
+          "mean": 143.9928812220174,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            96.24,
+            336.54,
+            456.1999999999999,
+            819.3324000000005,
+            3393.73
+          ],
+          "zero_count": 3242
+        },
+        {
+          "day": 9,
+          "min": 0.0,
+          "max": 2530.49,
+          "mean": 143.8643579517664,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            95.66,
+            334.2620000000001,
+            455.5659999999999,
+            844.8458000000004,
+            2530.49
+          ],
+          "zero_count": 3245
+        },
+        {
+          "day": 10,
+          "min": 0.0,
+          "max": 2212.43,
+          "mean": 144.63689115467096,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            95.9,
+            339.55800000000005,
+            459.9429999999997,
+            826.7170000000016,
+            2212.43
+          ],
+          "zero_count": 3174
+        },
+        {
+          "day": 11,
+          "min": 0.0,
+          "max": 3332.72,
+          "mean": 144.38396102185936,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            98.15,
+            333.59600000000006,
+            451.19399999999996,
+            828.2210000000007,
+            3332.72
+          ],
+          "zero_count": 3208
+        },
+        {
+          "day": 12,
+          "min": 0.0,
+          "max": 2909.65,
+          "mean": 144.97777230144098,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            95.47,
+            339.434,
+            462.36399999999963,
+            849.39,
+            2909.65
+          ],
+          "zero_count": 3199
+        },
+        {
+          "day": 13,
+          "min": 0.0,
+          "max": 3763.77,
+          "mean": 145.23079536476166,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            96.46,
+            337.772,
+            462.84699999999975,
+            825.7542000000025,
+            3763.77
+          ],
+          "zero_count": 3193
+        },
+        {
+          "day": 14,
+          "min": 0.0,
+          "max": 3180.93,
+          "mean": 144.29864479476277,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            95.66,
+            336.41400000000004,
+            457.4459999999998,
+            836.7420000000013,
+            3180.93
+          ],
+          "zero_count": 3241
+        }
+      ]
+    },
+    "validation": {
+      "windows": 5822,
+      "groups": 244,
+      "shapes_history_y_group_origin": [
+        [
+          5822,
+          56
+        ],
+        [
+          5822,
+          14
+        ],
+        [
+          5822
+        ],
+        [
+          5822
+        ]
+      ],
+      "history_dtype": "float64",
+      "target_dtype": "float64",
+      "nonfinite": 0,
+      "negative": 0,
+      "all_zero_histories": 370,
+      "constant_histories": 370,
+      "duplicate_history_content_count": 369,
+      "duplicate_group_origin_count": 0,
+      "history_length_min_max_mean_median_p5_p95": [
+        56,
+        56,
+        56,
+        56,
+        56,
+        56
+      ],
+      "target_length_min_max_mean_median_p5_p95": [
+        14,
+        14,
+        14,
+        14,
+        14,
+        14
+      ],
+      "origin_weekdays_monday_first": [
+        971,
+        971,
+        727,
+        727,
+        727,
+        728,
+        971
+      ],
+      "context_start_min": "2016-11-06",
+      "target_start_min": "2017-01-01",
+      "target_end_max": "2017-12-25",
+      "history_amounts": {
+        "min": 0.0,
+        "max": 4532.79,
+        "mean": 130.9045733240909,
+        "quantiles_p0_p50_p90_p95_p99_p100": [
+          0.0,
+          86.93,
+          304.09,
+          408.11,
+          772.81,
+          4532.79
+        ],
+        "zero_count": 45812
+      },
+      "target_total_14days": {
+        "min": 0.0,
+        "max": 12284.46,
+        "mean": 1835.044556853315,
+        "quantiles_p0_p50_p90_p95_p99_p100": [
+          0.0,
+          1636.9199999999996,
+          3375.3800000000006,
+          4105.924499999998,
+          5753.7396,
+          12284.46
+        ],
+        "zero_count": 373
+      },
+      "target_heads": [
+        {
+          "day": 1,
+          "min": 0.0,
+          "max": 1917.49,
+          "mean": 128.75861216076953,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            85.96000000000001,
+            300.5830000000002,
+            396.9949999999999,
+            726.0284999999998,
+            1917.49
+          ],
+          "zero_count": 799
+        },
+        {
+          "day": 2,
+          "min": 0.0,
+          "max": 4532.79,
+          "mean": 133.23333047062863,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            88.63,
+            309.16600000000005,
+            414.39849999999996,
+            811.2964999999999,
+            4532.79
+          ],
+          "zero_count": 819
+        },
+        {
+          "day": 3,
+          "min": 0.0,
+          "max": 1643.58,
+          "mean": 132.3163500515287,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            87.75999999999999,
+            310.25600000000003,
+            413.92149999999964,
+            807.3185999999995,
+            1643.58
+          ],
+          "zero_count": 838
+        },
+        {
+          "day": 4,
+          "min": 0.0,
+          "max": 2223.39,
+          "mean": 130.96738749570594,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            90.235,
+            300.522,
+            399.7544999999999,
+            736.1426,
+            2223.39
+          ],
+          "zero_count": 797
+        },
+        {
+          "day": 5,
+          "min": 0.0,
+          "max": 1815.41,
+          "mean": 130.80719683957403,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            84.07499999999999,
+            307.2560000000001,
+            413.48799999999994,
+            810.8683999999995,
+            1815.41
+          ],
+          "zero_count": 838
+        },
+        {
+          "day": 6,
+          "min": 0.0,
+          "max": 2629.48,
+          "mean": 129.73791137066303,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            83.37,
+            307.1420000000003,
+            408.7974999999996,
+            803.8081,
+            2629.48
+          ],
+          "zero_count": 862
+        },
+        {
+          "day": 7,
+          "min": 0.0,
+          "max": 1763.76,
+          "mean": 132.6787873582961,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            88.60499999999999,
+            306.40200000000016,
+            421.2629999999998,
+            804.7067999999998,
+            1763.76
+          ],
+          "zero_count": 835
+        },
+        {
+          "day": 8,
+          "min": 0.0,
+          "max": 3589.25,
+          "mean": 131.96879422878737,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            86.405,
+            301.71600000000007,
+            407.6459999999999,
+            783.4952999999999,
+            3589.25
+          ],
+          "zero_count": 797
+        },
+        {
+          "day": 9,
+          "min": 0.0,
+          "max": 1969.27,
+          "mean": 129.18813981449676,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            86.28999999999999,
+            303.9900000000002,
+            400.04649999999975,
+            735.958,
+            1969.27
+          ],
+          "zero_count": 842
+        },
+        {
+          "day": 10,
+          "min": 0.0,
+          "max": 2051.06,
+          "mean": 129.625036070079,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            87.275,
+            300.53600000000023,
+            404.20649999999995,
+            746.7501999999998,
+            2051.06
+          ],
+          "zero_count": 805
+        },
+        {
+          "day": 11,
+          "min": 0.0,
+          "max": 2425.04,
+          "mean": 132.3826004809344,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            87.88,
+            313.2230000000001,
+            415.3374999999999,
+            746.8952999999997,
+            2425.04
+          ],
+          "zero_count": 801
+        },
+        {
+          "day": 12,
+          "min": 0.0,
+          "max": 1882.73,
+          "mean": 133.39017691514942,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            89.09,
+            306.98500000000007,
+            411.866,
+            830.8479999999997,
+            1882.73
+          ],
+          "zero_count": 784
+        },
+        {
+          "day": 13,
+          "min": 0.0,
+          "max": 2027.31,
+          "mean": 131.5703040192374,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            84.805,
+            306.47300000000024,
+            426.86199999999985,
+            804.4658999999997,
+            2027.31
+          ],
+          "zero_count": 811
+        },
+        {
+          "day": 14,
+          "min": 0.0,
+          "max": 1713.62,
+          "mean": 128.4199295774648,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            85.765,
+            299.4590000000001,
+            396.26949999999994,
+            732.4534999999998,
+            1713.62
+          ],
+          "zero_count": 794
+        }
+      ]
+    },
+    "test": {
+      "windows": 5481,
+      "groups": 230,
+      "shapes_history_y_group_origin": [
+        [
+          5481,
+          56
+        ],
+        [
+          5481,
+          14
+        ],
+        [
+          5481
+        ],
+        [
+          5481
+        ]
+      ],
+      "history_dtype": "float64",
+      "target_dtype": "float64",
+      "nonfinite": 0,
+      "negative": 0,
+      "all_zero_histories": 294,
+      "constant_histories": 294,
+      "duplicate_history_content_count": 293,
+      "duplicate_group_origin_count": 0,
+      "history_length_min_max_mean_median_p5_p95": [
+        56,
+        56,
+        56,
+        56,
+        56,
+        56
+      ],
+      "target_length_min_max_mean_median_p5_p95": [
+        14,
+        14,
+        14,
+        14,
+        14,
+        14
+      ],
+      "origin_weekdays_monday_first": [
+        913,
+        913,
+        914,
+        685,
+        685,
+        685,
+        686
+      ],
+      "context_start_min": "2017-11-06",
+      "target_start_min": "2018-01-01",
+      "target_end_max": "2018-12-25",
+      "history_amounts": {
+        "min": 0.0,
+        "max": 5898.96,
+        "mean": 127.5422129368989,
+        "quantiles_p0_p50_p90_p95_p99_p100": [
+          0.0,
+          80.0,
+          305.87,
+          425.3,
+          775.23,
+          5898.96
+        ],
+        "zero_count": 43098
+      },
+      "target_total_14days": {
+        "min": 0.0,
+        "max": 10553.21,
+        "mean": 1786.6232238642585,
+        "quantiles_p0_p50_p90_p95_p99_p100": [
+          0.0,
+          1497.2600000000002,
+          3457.2599999999998,
+          4335.75,
+          6707.619999999999,
+          10553.21
+        ],
+        "zero_count": 300
+      },
+      "target_heads": [
+        {
+          "day": 1,
+          "min": 0.0,
+          "max": 1995.22,
+          "mean": 125.5160463419084,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            77.87,
+            300.45,
+            417.2,
+            737.9059999999994,
+            1995.22
+          ],
+          "zero_count": 776
+        },
+        {
+          "day": 2,
+          "min": 0.0,
+          "max": 2268.87,
+          "mean": 124.7241798941799,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            79.43,
+            290.1,
+            418.68,
+            767.5259999999994,
+            2268.87
+          ],
+          "zero_count": 773
+        },
+        {
+          "day": 3,
+          "min": 0.0,
+          "max": 2403.55,
+          "mean": 127.74939609560298,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            80.54,
+            306.46,
+            427.55,
+            746.7999999999989,
+            2403.55
+          ],
+          "zero_count": 761
+        },
+        {
+          "day": 4,
+          "min": 0.0,
+          "max": 3136.63,
+          "mean": 128.39320014595876,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            79.59,
+            307.84,
+            429.55,
+            779.4259999999979,
+            3136.63
+          ],
+          "zero_count": 755
+        },
+        {
+          "day": 5,
+          "min": 0.0,
+          "max": 2225.83,
+          "mean": 127.49484400656814,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            79.3,
+            297.29,
+            426.63,
+            789.4259999999997,
+            2225.83
+          ],
+          "zero_count": 737
+        },
+        {
+          "day": 6,
+          "min": 0.0,
+          "max": 2505.03,
+          "mean": 128.00152526911148,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            80.63,
+            310.94,
+            430.06,
+            757.5979999999995,
+            2505.03
+          ],
+          "zero_count": 763
+        },
+        {
+          "day": 7,
+          "min": 0.0,
+          "max": 2269.48,
+          "mean": 132.17571246122972,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            81.59,
+            319.42,
+            451.3,
+            818.7099999999989,
+            2269.48
+          ],
+          "zero_count": 765
+        },
+        {
+          "day": 8,
+          "min": 0.0,
+          "max": 1915.88,
+          "mean": 131.5479018427294,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            80.68,
+            324.61,
+            438.53,
+            788.9959999999996,
+            1915.88
+          ],
+          "zero_count": 756
+        },
+        {
+          "day": 9,
+          "min": 0.0,
+          "max": 5898.96,
+          "mean": 128.63599890530924,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            80.0,
+            307.56,
+            420.97,
+            753.2039999999998,
+            5898.96
+          ],
+          "zero_count": 800
+        },
+        {
+          "day": 10,
+          "min": 0.0,
+          "max": 2551.09,
+          "mean": 125.89037219485495,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            76.49,
+            300.33,
+            425.64,
+            765.285999999998,
+            2551.09
+          ],
+          "zero_count": 804
+        },
+        {
+          "day": 11,
+          "min": 0.0,
+          "max": 2156.03,
+          "mean": 125.90581280788177,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            80.59,
+            305.48,
+            405.26,
+            723.8899999999996,
+            2156.03
+          ],
+          "zero_count": 745
+        },
+        {
+          "day": 12,
+          "min": 0.0,
+          "max": 2062.34,
+          "mean": 127.4028206531655,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            81.23,
+            303.14,
+            426.08,
+            809.4119999999999,
+            2062.34
+          ],
+          "zero_count": 788
+        },
+        {
+          "day": 13,
+          "min": 0.0,
+          "max": 1701.22,
+          "mean": 125.79198321474183,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            79.46,
+            299.25,
+            413.26,
+            784.078,
+            1701.22
+          ],
+          "zero_count": 768
+        },
+        {
+          "day": 14,
+          "min": 0.0,
+          "max": 3139.62,
+          "mean": 127.39343003101624,
+          "quantiles_p0_p50_p90_p95_p99_p100": [
+            0.0,
+            80.49,
+            309.18,
+            422.67,
+            741.1499999999994,
+            3139.62
+          ],
+          "zero_count": 788
+        }
+      ]
+    }
+  },
+  "blocking_items": [],
+  "warnings": [
+    "train: 924/26579 histories entirely zero; retained under causal activity/completeness policy, not treated as missing automatically",
+    "validation: 370/5822 histories entirely zero; retained under causal activity/completeness policy, not treated as missing automatically",
+    "test: 294/5481 histories entirely zero; retained under causal activity/completeness policy, not treated as missing automatically"
+  ],
+  "split_integrity": {
+    "train_vs_validation": {
+      "shared_groups": 0,
+      "identical_group_origin_records": 0,
+      "shared_history_content_hashes": 1,
+      "all_target_dates_strictly_ordered": true
+    },
+    "train_vs_test": {
+      "shared_groups": 0,
+      "identical_group_origin_records": 0,
+      "shared_history_content_hashes": 1,
+      "all_target_dates_strictly_ordered": true
+    },
+    "validation_vs_test": {
+      "shared_groups": 0,
+      "identical_group_origin_records": 0,
+      "shared_history_content_hashes": 1,
+      "all_target_dates_strictly_ordered": true
+    }
+  },
+  "group_overlap_policy": "No customer may cross splits",
+  "content_duplicate_policy": "Identical numeric histories alone do not prove record leakage (especially all-zero histories). Report content overlap separately from group/origin keys.",
+  "train_verdict": "train_for_limited_research_only",
+  "source": "ibm",
+  "raw": {
+    "raw_rows": 24386900,
+    "qualifying_rows": 22751208,
+    "error_rows": 388431,
+    "nonpositive_rows": 1264896,
+    "error_and_nonpositive_rows": 17635,
+    "positive_fraud_rows_kept": 27376,
+    "negative_refund_rows": 1244683,
+    "zero_amount_rows": 20213,
+    "raw_groups": 2000,
+    "qualifying_groups": 2000,
+    "raw_exact_duplicate_estimate": 66,
+    "duplicate_method": "All rows/all columns; pandas 64-bit row hash, collision possibility. Retain every row because no unique event identifier proves duplication.",
+    "raw_weekday_counts_monday_first": [
+      3480263,
+      3468169,
+      3475771,
+      3495004,
+      3482897,
+      3499591,
+      3485205
+    ],
+    "archive_member": "card_transaction.v1.csv",
+    "missing_day_policy": "Observed-zero assumption from first qualifying successful positive transaction through global dataset end. Account-specific closure or missing coverage is unverified; no future last-activity eligibility filter.",
+    "bill_exclusion": "none; target is synthetic card spending, not residual checking-account outflow",
+    "fraud_policy": "Positive successful charges retained regardless of fraud annotation; annotation is neither feature nor eligibility signal."
+  },
+  "source_start": "1991-01-02",
+  "source_end": "2020-02-28",
+  "eligibility": {
+    "train": {
+      "candidate_windows": 33264,
+      "outside_global_observation_span": 0,
+      "first_qualifying_transaction_after_context_start": 6685,
+      "included_windows": 26579
+    },
+    "validation": {
+      "candidate_windows": 7608,
+      "outside_global_observation_span": 0,
+      "first_qualifying_transaction_after_context_start": 1786,
+      "included_windows": 5822
+    },
+    "test": {
+      "candidate_windows": 7128,
+      "outside_global_observation_span": 0,
+      "first_qualifying_transaction_after_context_start": 1647,
+      "included_windows": 5481
+    }
+  },
+  "elapsed_seconds": 84.87494916608557
+}

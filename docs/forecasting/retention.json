@@ -1,0 +1,15 @@
+{
+  "archive": "/Users/nathanstough/Documents/Codex/2026-09-18/i-x20/outputs/vthacks-forecasting-v1-data.zip",
+  "bytes": 288404777,
+  "sha256": "c54b6da6178e604dc195f917d9e1d086851d3e5fa7666e0d36c1cac29193e6ee",
+  "file_count": 62,
+  "verified": "Every retained file checked against original SHA256 plus ZIP CRC",
+  "excluded": [
+    "Python environments",
+    "__pycache__",
+    "uncompleted .part downloads"
+  ],
+  "contains": "Untouched public raw sources and license evidence, processed windows/audits/manifests, saved models and predictions",
+  "source_worktree": "/Users/nathanstough/Documents/Codex/worktrees/vthacks-forecast",
+  "no_cleanup_performed": true
+}
