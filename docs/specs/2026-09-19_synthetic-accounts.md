@@ -231,3 +231,65 @@ Three further defects surfaced only because the deploy was actually executed:
   substitutes `:80` and serves plain HTTP.
 - **On-screen provenance**: shipped as API fields only, per D8. The frontend lane
   renders them.
+
+---
+
+## Audit round — dated note (2026-09-19, after commit `4e82dcf`)
+
+Per this spec's own header, corrections go here rather than by rewriting a line
+above. The adversarial pre-audit graded the change **Fail**. It was right.
+
+**Gate after the fixes: 1987 passed, 1 skipped, 8 deselected** (from 1979).
+Fixes committed as `587da10`.
+
+### Correctness bugs that 1979 passing tests did not catch
+
+- **`as_of` was a hard 500.** `schemas.py` called `iso(v, "as_of")` against a
+  one-argument helper. Every endpoint test sent `{}`, `{"seed": n}` or
+  `{"horizon_days": n}` — not one passed a documented field. Five `as_of` tests
+  added, including the 422-not-500 case the contract promises.
+- **The scrubber was defeated by caller data.** Protected spans come from request
+  descriptions, so a client naming a transaction "guaranteed savings" kept the
+  banned word in the reply. Protection now requires the descriptor to be upper
+  case and multi-token; a final check falls back to scrubbing everything if a
+  banned word survives outside a restored descriptor.
+- **The scrubber's output depended on `PYTHONHASHSEED`.** `sorted(set, key=len)`
+  ties broke on set iteration order. The plan cited `lexicon.py:16-19` for
+  exactly this hazard and then reproduced it.
+- **`to_cents(True)` returned 100.** `bool` is an `int` subclass.
+- **The D-A fix reintroduced D-A** for an `APP_DIR` named `backend`. Production
+  no longer infers: `deploy.sh` writes `OVERDRAFT_DIST` explicitly.
+
+### Tests that passed without testing
+
+- **The dip test was vacuous.** Four seeds in 300 drew every charge on or after
+  the first payday, so `opening` clamped to 0 and the test asserted `0 < 2500`
+  over an empty loop.
+- **The `test_wording` counterfactual was circular** — it rebuilt `user_facing`'s
+  field list inline, so deleting a field from the real sweep left it green.
+
+### Claims struck as untrue
+
+- **D8 is not met.** The Nessie fallback-disclosure flag does not ship. `source`
+  is the only provenance field this change delivers.
+- **Plan steps 4.4a, 4.5 and 4.6 were never implemented.** `app/nessie/` is
+  verified and tested but wired to no route; the seed-and-read-back workflow and
+  `not_round_tripped` do not exist. `docs/features/accounts.md` said otherwise
+  and has been corrected.
+- **Step 3.4a (D-F eviction) and Step 3.5 (D-G perf guard) were not done.** They
+  are struck from this change rather than claimed: D-F needs a truncation-and-
+  refetch test in `test_candidates_roundtrip.py`, and D-G needs the dead
+  `continue` at `:208-209` replaced. Both belong to a follow-up.
+- **"Always something to solve" was too strong.** A dip is not a solvable dip;
+  about 7% of seeds reach tier 3 with an empty plan, which is a wanted outcome.
+  A distribution test now pins it.
+- **The contract's "post it straight to the other two endpoints"** is false under
+  `extra="forbid"`. Corrected in the contract and the schema docstring.
+
+### Confirmed sound by the audit
+
+`to_cents` and the whole decimal path; D4 write-then-read and its tests;
+`_redact` and the key-never-logged test; D1's move, with a golden hash that is
+real and non-vacuous; the `nessie` marker double-guard; `test_requirements.py`;
+and `deploy.sh`'s preflights plus the public-origin checks. No secrets, no TODOs,
+no debug code in `backend/app/`.
