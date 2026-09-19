@@ -20,19 +20,23 @@ gives no warning and no conflict.
 
 ### Starting work
 
-```bash
-git worktree add -b <name> /Users/nathanstough/Desktop/vthacks-<name> HEAD
-```
-
-Branch from `HEAD`, not from `origin/main`. The remote runs well behind.
-
-`node_modules` and `.venv` are gitignored and will not be in the new worktree.
-Reinstalling on hotel wifi is not an option, so link them:
+Branch off `main`, in this directory. Not a separate checkout.
 
 ```bash
-ln -s "/Users/nathanstough/Desktop/VT Hacks/frontend/node_modules" <worktree>/frontend/node_modules
-ln -sfn "/Users/nathanstough/Desktop/VT Hacks/.venv" <worktree>/.venv
+git switch -c <name> main
 ```
+
+Use `git switch`, not `git checkout`. The branch `frontend` and the directory
+`frontend/` share a name, and `checkout` cannot always tell which you mean;
+`switch` only ever looks at branches.
+
+Branch from `main`, not `origin/main`. The remote runs well behind.
+
+Only one branch can be checked out here at a time. If two sessions are live at
+once, agree who holds the checkout. A separate worktree is the escape hatch for
+that case, not the default; if you take one, remember `node_modules` and
+`.venv` are gitignored and will not come with it, and reinstalling on hotel
+wifi is not an option, so symlink them from here.
 
 ### While working
 
@@ -49,6 +53,12 @@ ln -sfn "/Users/nathanstough/Desktop/VT Hacks/.venv" <worktree>/.venv
 Merge `main` into your branch first and resolve there, where it is safe. That
 turns the merge into `main` into a fast-forward. Check with the other sessions
 before fast-forwarding `main`, because it rewrites files under them.
+
+**Check what branch you are actually on before you merge.** `git branch
+--show-current`, every time. Someone else may have switched this checkout
+since you last looked. That has already happened once: a merge intended for
+`main` landed on `backend` because the directory had moved underneath and
+nobody checked.
 
 ## Layout
 
