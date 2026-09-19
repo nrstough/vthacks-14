@@ -1,4 +1,4 @@
-# API contract — `POST /api/solve` and `POST /api/candidates`
+# API contract — `POST /api/solve`, `POST /api/candidates` and `POST /api/accounts/sample`
 
 Frozen shape. The frontend builds against this; the solver targets it. All money is
 **integer cents**, all dates are `YYYY-MM-DD` strings in local time (no timezones,
@@ -216,3 +216,52 @@ payday. That is legal input, not an error: both engines choose at most one chang
 
 Responses: `200` with the body above; `422` with the same `{"detail": [{type, loc, msg,
 input}]}` shape as `/api/solve`. No `503` — this endpoint runs no solver.
+
+## `POST /api/accounts/sample`
+
+Additive: the `/api/solve` and `/api/candidates` contracts above are unchanged,
+and this endpoint is optional — the client can carry its own accounts and never
+call it.
+
+Returns one **modelled** account, shaped so it can be posted straight to the
+other two endpoints with no translation step to drift out of step.
+
+```jsonc
+{
+  "seed": 12345,          // optional; omit and the server picks one
+  "as_of": "2026-09-19",  // optional; defaults to the demo date
+  "horizon_days": 30      // optional; 14..45, default 30
+}
+```
+
+`seed` is echoed on the response. That is the point of it: any account a person
+is shown can be regenerated exactly from the response alone, which is the
+difference between a demo and a party trick.
+
+`horizon_days` is bounded well inside `MAX_T`. The ceiling is 45 rather than the
+schema's because candidate count grows with the window and the exhaustive engine
+is 2^n.
+
+```jsonc
+{
+  "seed": 12345,
+  "as_of": "2026-09-19",
+  "horizon_end": "2026-10-18",
+  "opening_balance_cents": 19892,
+  "buffer_cents": 2500,
+  "scheduled": [ /* ScheduledTxn, exactly as /api/solve takes them */ ],
+  "source": "modelled"
+}
+```
+
+**`source` is required and is always the literal `"modelled"`.** It is not
+decoration. This is generated data and nothing downstream may present it as a
+bank's. A client that renders an account from this endpoint must say so on
+screen, in the same spirit as the offline-solver chip.
+
+Every account carries a payday inside the horizon and a dip below `buffer_cents`
+before the first one, so there is always something to solve. Amounts are integer
+cents, heavy-tailed rather than uniform; pay lands on business days.
+
+Responses: `200` with the body above, or `422` when `horizon_days` is out of
+range, `as_of` is not an ISO date, or an unknown field is sent.

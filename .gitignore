@@ -10,3 +10,5 @@ Checking.csv
 .npm-cache/
 .pytest_cache/
 .deploy.env
+.claude/settings.local.json
+.vultr-instance.json

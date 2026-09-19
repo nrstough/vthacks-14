@@ -22,11 +22,18 @@ Exact solver (OR-Tools CP-SAT), stateless server, no accounts, no database.
 ## Local setup
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt
+python3 -m venv .venv && .venv/bin/pip install -r backend/requirements-dev.txt
 cd frontend && npm install
 ```
 
-Offline: `.venv/bin/pip install --no-index --find-links wheels -r backend/requirements.txt`
+`requirements.txt` is production only — what `backend/app/` imports, and what
+`deploy.sh` installs on the box. `requirements-dev.txt` adds pytest and the
+experiment tooling; rebuild the local venv from that one, or the gate will not run.
+
+Offline: `.venv/bin/pip install --no-index --find-links wheels -r backend/requirements-dev.txt`.
+`wheels/` is gitignored and macOS arm64 only, so it exists in the original
+checkout and in no clone or worktree, and it is never used on the server — the
+box installs from PyPI and needs working network.
 
 ## Run
 
