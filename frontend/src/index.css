@@ -1,5 +1,39 @@
 /* Stripe-inspired design tokens. One indigo, deep-navy ink, tabular money. */
 
+/* ---------- the typographic engine ---------- */
+
+/* Clash Display carries every heading, the wordmark and the KPI figures. The
+   variable file is one request for the whole 200-700 range; the static
+   Semibold is the fallback for engines without variable-font support. */
+@font-face {
+  font-family: 'Clash Display';
+  src: url('/fonts/ClashDisplay-Variable.woff2') format('woff2-variations'),
+       url('/fonts/ClashDisplay-Variable.woff') format('woff-variations');
+  font-weight: 200 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Clash Display Static';
+  src: url('/fonts/ClashDisplay-Semibold.woff2') format('woff2'),
+       url('/fonts/ClashDisplay-Semibold.woff') format('woff');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Doto is a dot-matrix face. It is decorative, so it is kept off every figure
+   a judge has to read and used only for the topbar's solve timestamp. */
+@font-face {
+  font-family: 'Doto';
+  src: url('/fonts/Doto-Variable.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+
 :root {
   --bg: #ffffff;
   --panel: #f6f9fc;
@@ -41,7 +75,13 @@
   --sidebar-w: 232px;
   --topbar-h: 64px;
 
-  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  /* Body copy, every control and every figure. Arial GT first so a machine
+     that has it licensed uses it; Arial is the metric-compatible fallback
+     everywhere else, so the layout is identical either way. */
+  --sans: 'Arial GT', Arial, 'Helvetica Neue', Helvetica, sans-serif;
+  /* Headings, wordmark and KPI figures. */
+  --display: 'Clash Display', 'Clash Display Static', var(--sans);
+  --dotted: 'Doto', var(--sans);
 
   font-family: var(--sans);
   font-size: 16px;
@@ -55,9 +95,33 @@
 
 * { box-sizing: border-box; }
 
-body {
-  margin: 0;
-  background: var(--bg);
+/* One display face, one text face. Clash Display is structural: it marks the
+   things a judge's eye should land on first — the wordmark, every panel
+   heading, the verdict and the KPI figures. Everything a person has to READ,
+   and every figure they have to trust, stays in the text face. */
+.sidebar-brand,
+.topbar h1,
+.panel-head h2,
+.band-head h2,
+.verdict h1,
+.kpi-card .kpi-value,
+h1, h2, h3 {
+  font-family: var(--display);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  font-synthesis-weight: none;
+}
+
+/* Money is data, not decoration. Tabular figures in the text face, so columns
+   line up and a digit never changes width as a slider moves. */
+.num,
+.kpi-card .kpi-value,
+.t-num,
+.t-amount {
+  font-family: var(--sans);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: -0.01em;
 }
 
 .num {
@@ -648,17 +712,6 @@ body {
 
 .controls-panel .band-head h2 { font-size: 15px; }
 
-.controls {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--s3);
-  padding: 0;
-  margin: 0;
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-}
-
 .controls .ctl {
   padding: var(--s2);
   background: var(--panel);
@@ -743,15 +796,15 @@ body {
 
 /* ---------- what-if controls ---------- */
 
+/* Declared once. An earlier generation of this file declared `.controls` twice at
+   equal specificity, so the later copy won and drew a panel well inside the
+   white .controls-panel card. The card chrome is the panel's job, not the
+   grid's. */
 .controls {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--s3);
-  padding: var(--s2) var(--s3);
-  margin-bottom: var(--s4);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  margin: 0;
 }
 
 .ctl { display: block; }
@@ -1076,28 +1129,11 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 }
 .reset:hover { color: var(--ink); border-color: var(--ink-3); }
 
-.meta-local {
-  color: var(--warn);
-  background: var(--warn-wash);
-  border-radius: 999px;
-  padding: 1px 10px;
-  font-weight: 600;
-}
-
-.meta {
-  margin-top: var(--s4);
-  padding-top: var(--s2);
-  border-top: 1px solid var(--line);
-  font-size: 12px;
-  color: var(--ink-3);
-  display: flex;
-  gap: var(--s3);
-  flex-wrap: wrap;
-}
 
 @media (max-width: 720px) {
   .verdict h1 { font-size: 28px; }
   .rx-row { grid-template-columns: 56px 1fr; }
+  .rx-panel .rx-row { grid-template-columns: 56px 1fr; }
   .rx-amount, .rx-pain { text-align: left; grid-column: 2; }
   .cant { grid-column: 2; justify-self: start; }
 }
@@ -1422,6 +1458,285 @@ details.considered[open] summary { margin-bottom: var(--s1); }
   margin-top: 0;
 }
 
+/* ---------- markup the rewrite introduced ---------- */
+
+/* The window the whole page is about, parked next to the title. */
+.topbar-horizon {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+/* The sidebar is hidden below 900px. Anything carrying this class is the
+   replacement for something that lives there, and appears only at that width. */
+.only-narrow { display: none; }
+
+/* The topbar packs a title, the scenario switch, the disclosure chip and the
+   account into 64px. Nothing in it may wrap: the bar has a fixed height, so a
+   second line escapes the bar rather than growing it. */
+.topbar h1,
+.topbar .switcher,
+.topbar .tabs,
+.topbar-user { flex: none; }
+
+.topbar .meta-local {
+  white-space: nowrap;
+  margin: 0;
+  padding: 3px 12px;
+  border: 0;
+}
+
+/* The horizon is the first thing to go when the bar gets tight — the chart
+   heading names the same window a few hundred pixels below. */
+@media (max-width: 1200px) {
+  .topbar-horizon { display: none; }
+}
+
+/* The controls sit in the narrow column of a .duo, so the two sliders stack
+   rather than being squeezed side by side. */
+.controls-panel .controls { grid-template-columns: 1fr; }
+
+/* `.duo` stretches both columns to the taller one. That is right for the chart
+   row, where both panels have something to fill the height with, and wrong for
+   the plan row: the prescription list runs to eleven changes and would drag a
+   short chat panel out into 400px of empty white. Here each panel keeps its own
+   height instead. */
+.duo-start { align-items: start; }
+
+/* And once it is only as tall as it needs to be, it can follow the list down.
+   Only in two columns — in one column a sticky panel would pin itself over the
+   list the reader is trying to scroll. */
+@media (min-width: 1281px) {
+  .duo-start > .chat-panel {
+    position: sticky;
+    top: 0;
+  }
+}
+
+/* The denominator in "2 of 5 days": same line, quieter, so the figure that
+   matters still reads at a glance. */
+.kpi-of {
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--ink-3);
+  letter-spacing: 0;
+}
+
+.kpi-card.accent .kpi-of { color: rgba(255, 255, 255, 0.7); }
+
+/* A .kpi-sub holds an optional delta pill and then a phrase; without a wrap
+   rule a long phrase pushes the pill off the card at narrow widths. */
+.kpi-sub { flex-wrap: wrap; }
+
+/* The one-column page behind the crash card, replacing the old `.shell`. */
+.crash-shell {
+  display: block;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: var(--s4) var(--s3) var(--s5);
+}
+
+/* The verdict is a panel of its own, so the band's own bottom margin would
+   double the 32px gap `.main` already applies between sections. */
+.verdict-panel .verdict { margin-bottom: 0; }
+
+/* The chart's ResponsiveContainer resolves its height against this box. In a
+   flex column a child will not shrink below its content without this, which is
+   what turns a chart resize into a growth loop. */
+.chart-panel .chart-wrap { min-height: 0; }
+
+/* ---------- gaps the imported sheet left open ---------- */
+
+/* The rail avatar had size and weight but no fill, so it rendered as a
+   transparent circle. It carries a date, so it takes the accent wash. */
+.rail-item .avatar {
+  background: var(--accent-wash);
+  color: var(--accent-ink);
+}
+
+/* A pale green or red wash pill on the indigo accent card is unreadable.
+   On that card the delta borrows the card's own light. */
+.kpi-card.accent .kpi-sub .delta.up,
+.kpi-card.accent .kpi-sub .delta.down {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+/* The sheet removes borders from most controls but defined :focus-visible on
+   only four of them. One ring, everywhere, so keyboard use is never invisible. */
+.sidebar-item:focus-visible,
+.sidebar-promo button:focus-visible,
+.icon-btn:focus-visible,
+.panel-menu:focus-visible,
+.topbar-user:focus-visible,
+.rail-btn:focus-visible,
+.t-action:focus-visible,
+.switcher button:focus-visible,
+.ctl-presets button:focus-visible,
+.chips button:focus-visible,
+.reset:focus-visible,
+.crash button:focus-visible,
+.ctl input[type='range']:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- motion ---------- */
+
+/* One easing curve and three durations. The curve decelerates hard at the end,
+   so a panel settles rather than stopping dead. Everything below is a
+   compositor-only property — transform, opacity, colour — so a re-solve never
+   competes with the solver for the main thread. */
+:root {
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 340ms;
+
+  /* Matches the boxShadow scale in tailwind.config.ts, so the two files agree. */
+  --shadow-card: 0 2px 12px -2px rgba(13, 37, 61, 0.05), 0 1px 3px rgba(13, 37, 61, 0.03);
+  --shadow-card-hover: 0 8px 24px -4px rgba(13, 37, 61, 0.09), 0 2px 6px rgba(13, 37, 61, 0.04);
+  --shadow-popover: 0 12px 32px -8px rgba(13, 37, 61, 0.24);
+}
+
+/* Every ghost control answers a pointer at the same speed. */
+.sidebar-item,
+.icon-btn,
+.panel-menu,
+.t-action,
+.rail-btn,
+.chips button,
+.ctl-presets button,
+.switcher button,
+.reset,
+.tabs button,
+.topbar-user,
+.sidebar-promo button,
+.chat-form button,
+.crash button {
+  transition:
+    background var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease),
+    border-color var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
+}
+
+.chips button:hover:not(:disabled),
+.ctl-presets button:hover,
+.rail-btn:hover,
+.reset:hover { transform: translateY(-1px); }
+
+.sidebar-item:active,
+.icon-btn:active,
+.chips button:active:not(:disabled),
+.ctl-presets button:active,
+.rail-btn:active,
+.tabs button:active { transform: translateY(0) scale(0.985); }
+
+/* The active nav item grows a rule rather than appearing with one. */
+.sidebar-item {
+  position: relative;
+  overflow: hidden;
+}
+
+.sidebar-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
+  transform: scaleY(0);
+  transform-origin: center;
+  transition: transform var(--dur-2) var(--ease);
+}
+
+.sidebar-item.on::before { transform: scaleY(1); }
+
+/* Cards lift towards the pointer. The border darkens with the shadow so the
+   edge does not wash out as the card rises. */
+.kpi-card,
+.panel,
+.verdict-panel,
+.controls-panel {
+  box-shadow: var(--shadow-card);
+  transition:
+    box-shadow var(--dur-2) var(--ease),
+    border-color var(--dur-2) var(--ease),
+    transform var(--dur-2) var(--ease);
+}
+
+.kpi-card:hover,
+.panel:hover {
+  box-shadow: var(--shadow-card-hover);
+  border-color: var(--line-strong);
+  transform: translateY(-2px);
+}
+
+.kpi-card.accent:hover { border-color: var(--accent); }
+
+.tip { box-shadow: var(--shadow-popover); }
+
+/* The whole dashboard arrives in one pass: each section of `.main` rises a few
+   pixels into place, staggered, so the eye is walked down the page instead of
+   being handed all of it at once. It runs on mount only — a re-solve replaces
+   text inside these sections, not the sections themselves. */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+.main > * {
+  /* `.main` is a flex column inside a 100vh grid that does not scroll, so its
+     children shrink below their own content by default. The verdict panel has
+     no min-height of its own and was being crushed to 66px and then clipped by
+     its own overflow:hidden. Nothing in this column may shrink; the column
+     scrolls instead. */
+  flex: none;
+  animation: rise var(--dur-3) var(--ease) both;
+}
+
+.main > *:nth-child(1) { animation-delay: 0ms; }
+.main > *:nth-child(2) { animation-delay: 45ms; }
+.main > *:nth-child(3) { animation-delay: 90ms; }
+.main > *:nth-child(4) { animation-delay: 135ms; }
+.main > *:nth-child(5) { animation-delay: 180ms; }
+.main > *:nth-child(6) { animation-delay: 225ms; }
+
+/* The KPI tiles land in their own left-to-right sweep inside the first row. */
+.kpi-row .kpi-card { animation: rise var(--dur-3) var(--ease) both; }
+.kpi-row .kpi-card:nth-child(1) { animation-delay: 60ms; }
+.kpi-row .kpi-card:nth-child(2) { animation-delay: 110ms; }
+.kpi-row .kpi-card:nth-child(3) { animation-delay: 160ms; }
+.kpi-row .kpi-card:nth-child(4) { animation-delay: 210ms; }
+
+/* A figure that has just been re-solved ticks over rather than swapping. The
+   element is keyed on its own text in the JSX, so React remounts it and the
+   animation replays only when the number actually changed. */
+@keyframes tick {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: none; }
+}
+
+.kpi-card .kpi-value { animation: tick var(--dur-2) var(--ease) both; }
+
+/* The verdict is the one thing on screen that can reverse meaning between two
+   solves, so it fades rather than snapping. Keyed on the tier in the JSX. */
+.verdict-panel .verdict { animation: rise var(--dur-3) var(--ease) both; }
+
+/* Panels dim slightly while a solve is in flight. It reads as the page
+   thinking, and it is the only cue that the number under a moving slider is
+   not the answer yet. */
+.main.is-solving .panel,
+.main.is-solving .verdict-panel {
+  opacity: 0.82;
+  transition: opacity var(--dur-2) var(--ease);
+}
+
 /* ---------- responsive ---------- */
 
 @media (max-width: 1280px) {
@@ -1430,7 +1745,42 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 }
 
 @media (max-width: 900px) {
-  .app { grid-template-columns: 1fr; grid-template-areas: "sidebar" "topbar" "main"; }
+  .only-narrow { display: flex; }
+  /* The bar cannot hold the title, the scenario switch, the disclosure chip,
+     the view tabs and the account at once. The scenario switch is the one that
+     goes: the three presets under "Starting balance" are the same control, and
+     they are a short scroll away in the page itself. Nothing is lost, and the
+     view tabs stay reachable without a sideways scroll. */
+  .topbar { gap: var(--s2); padding: 0 var(--s3); }
+  .topbar .switcher { display: none; }
+  .topbar-horizon { display: none; }
+  .topbar h1 { font-size: 16px; overflow: hidden; text-overflow: ellipsis; }
+  .app {
+    /* minmax(0, 1fr) rather than 1fr: a grid track's automatic minimum is its
+       content, so the topbar's nowrap row was widening the only column past
+       the viewport and pushing the view tabs off the right edge. */
+    grid-template-columns: minmax(0, 1fr);
+    /* And the bar is allowed a second line here, because the disclosure chip
+       is not optional and does not fit beside the tabs at phone width. */
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "topbar" "main";
+  }
+
+  .topbar {
+    height: auto;
+    min-height: var(--topbar-h);
+    flex-wrap: wrap;
+    padding: var(--s2) var(--s3);
+    row-gap: var(--s1);
+  }
+
+  /* The actions group is itself a nowrap flex row, so wrapping the bar alone
+     still clipped the Wallet tab off the right edge. */
+  .topbar-actions {
+    margin-left: 0;
+    flex-wrap: wrap;
+    row-gap: var(--s1);
+  }
   .sidebar { display: none; }
   .main { padding: var(--s3); gap: var(--s3); }
   .topbar-search { display: none; }
@@ -1444,7 +1794,13 @@ details.considered[open] summary { margin-bottom: var(--s1); }
   .kpi-row { grid-template-columns: 1fr; }
   .controls { grid-template-columns: 1fr; }
   .verdict h1 { font-size: 22px; }
+  .verdict-panel .verdict h1 { font-size: 22px; }
   .rx-row { grid-template-columns: 1fr; }
+  .rx-panel .rx-row { grid-template-columns: 1fr; }
+  /* The 720px rules pin these to column 2. At one column that placement
+     conjures an implicit second column and the row silently goes back to two,
+     so the placement has to be released here, not just the alignment. */
+  .rx-amount, .rx-pain, .cant { grid-column: 1; }
   .rx-amount, .rx-pain { text-align: left; }
   .cant { justify-self: start; }
   .panel { padding: var(--s2); }
@@ -1454,4 +1810,28 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 @media (prefers-reduced-motion: reduce) {
   .rx-row.is-new { animation: none; }
   .msg-pending span { animation: none; }
+  .main > *,
+  .kpi-row .kpi-card,
+  .kpi-card .kpi-value,
+  .verdict-panel .verdict { animation: none; }
+  .sidebar-item::before { transition: none; }
+  .kpi-card:hover,
+  .panel:hover { transform: none; }
+  .chips button:hover:not(:disabled),
+  .ctl-presets button:hover,
+  .rail-btn:hover,
+  .reset:hover,
+  .sidebar-item:active,
+  .icon-btn:active,
+  .chips button:active:not(:disabled),
+  .ctl-presets button:active,
+  .rail-btn:active,
+  .tabs button:active { transform: none; }
+  /* Including the one the imported sheet already had, which the old
+     reduced-motion block never covered. */
+  .rx-row,
+  .kpi-card,
+  .panel,
+  .verdict-panel,
+  .controls-panel { transition: none; }
 }

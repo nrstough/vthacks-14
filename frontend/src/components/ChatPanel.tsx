@@ -86,8 +86,8 @@ export default function ChatPanel({
   const disabled = state !== 'ready' || pending
 
   return (
-    <section className="band chat" aria-label="Ask about this plan">
-      <div className="band-head">
+    <section className="panel chat-panel" aria-label="Ask about this plan">
+      <div className="panel-head">
         <h2>Ask about this plan</h2>
         {state === 'off' && <span className="chat-off">Explainer off: no Gemini key on the server</span>}
         {state === 'unreachable' && <span className="chat-off">Explainer unreachable</span>}

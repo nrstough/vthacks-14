@@ -23,6 +23,21 @@
         "8000"
       ],
       "port": 8000
+    },
+    {
+      "name": "frontend-ui",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "frontend",
+        "--",
+        "--port",
+        "5174",
+        "--strictPort"
+      ],
+      "port": 5174
     }
   ]
 }

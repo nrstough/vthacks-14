@@ -2,11 +2,14 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import BalanceChart from './components/BalanceChart'
 import ErrorBoundary from './components/ErrorBoundary.tsx'
 import ChatPanel from './components/ChatPanel'
+import KpiRow from './components/KpiRow'
 import PrescriptionList from './components/PrescriptionList'
+import Sidebar from './components/Sidebar'
+import Topbar from './components/Topbar'
 import VerdictBand from './components/VerdictBand'
 import { SCENARIOS } from './fixtures/scenarios'
 import { solveViaApi } from './lib/api'
-import { money } from './lib/format'
+import { money, shortDate } from './lib/format'
 import { emptyPlanText, footerLines, narrateChart } from './lib/narrate'
 import type { Overrides } from './lib/overrides'
 import { NONE, count, fromIds, toLocks, toggle } from './lib/overrides'
@@ -163,180 +166,198 @@ export default function App() {
 
   const locked = count(ruledOut)
   const narration = narrateChart(res).join(' ')
+  // True when what is on screen answers exactly what is being asked right now.
+  // While it is false a slider is still moving or a solve is in flight, and the
+  // panels dim to say so.
+  const settled = solvedRequest !== null && sameInputs(solvedRequest, request)
 
   return (
-    <main className="shell">
-      <header className="topbar">
-        <div>
-          <p className="wordmark">
-            Overdraft Guard <span>&nbsp;/&nbsp; the smallest plan that clears</span>
-          </p>
-          <p className="tagline">
-            Sample checking account, September 19 to October 2, 2026. Move a slider or rule a change
-            out, and the plan is re-solved from scratch.
-          </p>
-        </div>
-        <nav className="tabs" aria-label="Views">
-          <button
-            type="button"
-            className={tab === 'plan' ? 'on' : ''}
-            aria-pressed={tab === 'plan'}
-            onClick={() => setTab('plan')}
-          >
-            Checking account
-          </button>
-          <button
-            type="button"
-            className={tab === 'wallet' ? 'on' : ''}
-            aria-pressed={tab === 'wallet'}
-            onClick={() => setTab('wallet')}
-          >
-            Demo wallet
-          </button>
-        </nav>
-      </header>
+    <div className="app">
+      <Sidebar
+        tab={tab}
+        onTab={setTab}
+        opening={opening}
+        buffer={buffer}
+        onScenario={preset}
+        res={res}
+        locked={locked}
+        onClearOverrides={() => setRuledOut(NONE)}
+      />
 
-      {tab === 'wallet' ? (
-        // Its OWN boundary, not the root one. A lazy chunk that fails to load
-        // throws into the nearest boundary, and if that were the root the whole
-        // planning demo would be replaced by a crash card over a side screen
-        // the judge was not even looking at.
-        <ErrorBoundary
-          inline={(detail) => (
-            <section className="wallet-down" role="alert">
-              <h2>The demo wallet did not load</h2>
-              <p>The checking account view is unaffected — switch back to it.</p>
-              <details>
-                <summary>What went wrong</summary>
-                <p className="crash-detail">{detail}</p>
-              </details>
+      <Topbar
+        tab={tab}
+        onTab={setTab}
+        req={request}
+        opening={opening}
+        buffer={buffer}
+        onScenario={preset}
+        source={source}
+        notice={notice}
+      />
+
+      <main className={`main${settled ? '' : ' is-solving'}`}>
+        {tab === 'wallet' ? (
+          // Its OWN boundary, not the root one. A lazy chunk that fails to load
+          // throws into the nearest boundary, and if that were the root the whole
+          // planning demo would be replaced by a crash card over a side screen
+          // the judge was not even looking at.
+          <ErrorBoundary
+            inline={(detail) => (
+              <section className="wallet-down" role="alert">
+                <h2>The demo wallet did not load</h2>
+                <p>The checking account view is unaffected — switch back to it.</p>
+                <details>
+                  <summary>What went wrong</summary>
+                  <p className="crash-detail">{detail}</p>
+                </details>
+              </section>
+            )}
+          >
+            <Suspense fallback={<p className="wallet-loading">Loading the demo wallet…</p>}>
+              <WalletView />
+            </Suspense>
+          </ErrorBoundary>
+        ) : (
+          <>
+            <KpiRow res={res} req={request} />
+
+            {/* Keyed on the tier, so a verdict that reverses meaning between two
+                solves fades in rather than swapping under the eye. */}
+            <section
+              className={`verdict-panel${res.tier === 2 ? ' t2' : ''}${res.tier === 3 ? ' t3' : ''}`}
+              key={`tier-${res.tier}`}
+            >
+              <VerdictBand res={res} req={request} />
             </section>
-          )}
-        >
-          <Suspense fallback={<p className="wallet-loading">Loading the demo wallet…</p>}>
-            <WalletView />
-          </Suspense>
-        </ErrorBoundary>
-      ) : (
-      <>
-      <section className="controls">
-        <label className="ctl">
-          <span className="ctl-head">
-            Starting balance
-            <b className="num">{money(opening)}</b>
-          </span>
-          <input
-            type="range"
-            min={2000}
-            max={30000}
-            step={500}
-            value={opening}
-            onChange={(e) => setOpening(Number(e.target.value))}
-          />
-          <span className="ctl-presets">
-            {SCENARIOS.map((s) => (
-              <button
-                key={s.key}
-                type="button"
-                title={`${money(s.request.opening_balance_cents)} to start, ${money(
-                  s.request.buffer_cents,
-                )} cushion`}
-                aria-pressed={
-                  s.request.opening_balance_cents === opening && s.request.buffer_cents === buffer
-                }
-                onClick={() => preset(s.request.opening_balance_cents, s.request.buffer_cents)}
-              >
-                {money(s.request.opening_balance_cents)}
-              </button>
-            ))}
-          </span>
-        </label>
 
-        <label className="ctl">
-          <span className="ctl-head">
-            Cushion to keep
-            <b className="num">{money(buffer)}</b>
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={10000}
-            step={500}
-            value={buffer}
-            onChange={(e) => setBuffer(Number(e.target.value))}
-          />
-          <span className="ctl-note">How much you want left over on the worst day.</span>
-        </label>
-      </section>
+            <div className="duo">
+              <section className="panel chart-panel">
+                <div className="panel-head">
+                  <h2>
+                    Daily balance, {shortDate(request.as_of)} to {shortDate(request.horizon_end)}
+                  </h2>
+                  <div className="legend">
+                    <span>
+                      <i className="l-base" />
+                      Do nothing
+                    </span>
+                    <span>
+                      <i className="l-plan" />
+                      With the plan
+                    </span>
+                    <span>
+                      <i className="l-zero" />
+                      Zero
+                    </span>
+                    <span>
+                      <i className="l-buffer" />
+                      {money(buffer)} cushion
+                    </span>
+                  </div>
+                </div>
+                <p className="narration" id="chart-text">
+                  {narration}
+                </p>
+                <BalanceChart res={res} req={request} describedBy="chart-text" />
+              </section>
 
-      <VerdictBand res={res} req={request} />
+              <section className="controls-panel" aria-label="What if">
+                <div className="panel-head">
+                  <h2>What if</h2>
+                </div>
+                <div className="controls">
+                  <label className="ctl">
+                    <span className="ctl-head">
+                      Starting balance
+                      <b className="num">{money(opening)}</b>
+                    </span>
+                    <input
+                      type="range"
+                      min={2000}
+                      max={30000}
+                      step={500}
+                      value={opening}
+                      onChange={(e) => setOpening(Number(e.target.value))}
+                    />
+                    <span className="ctl-presets">
+                      {SCENARIOS.map((s) => (
+                        <button
+                          key={s.key}
+                          type="button"
+                          title={`${money(s.request.opening_balance_cents)} to start, ${money(
+                            s.request.buffer_cents,
+                          )} cushion`}
+                          aria-pressed={
+                            s.request.opening_balance_cents === opening &&
+                            s.request.buffer_cents === buffer
+                          }
+                          onClick={() =>
+                            preset(s.request.opening_balance_cents, s.request.buffer_cents)
+                          }
+                        >
+                          {money(s.request.opening_balance_cents)}
+                        </button>
+                      ))}
+                    </span>
+                  </label>
 
-      <section className="band">
-        <div className="band-head">
-          <h2>Daily balance, September 19 to October 2</h2>
-          <div className="legend">
-            <span>
-              <i className="l-base" />
-              Do nothing
-            </span>
-            <span>
-              <i className="l-plan" />
-              With the plan
-            </span>
-            <span>
-              <i className="l-zero" />
-              Zero
-            </span>
-            <span>
-              <i className="l-buffer" />
-              {money(buffer)} cushion
-            </span>
-          </div>
-        </div>
-        <p className="narration" id="chart-text">
-          {narration}
-        </p>
-        <BalanceChart res={res} req={request} describedBy="chart-text" />
-      </section>
+                  <label className="ctl">
+                    <span className="ctl-head">
+                      Cushion to keep
+                      <b className="num">{money(buffer)}</b>
+                    </span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={10000}
+                      step={500}
+                      value={buffer}
+                      onChange={(e) => setBuffer(Number(e.target.value))}
+                    />
+                    <span className="ctl-note">How much you want left over on the worst day.</span>
+                  </label>
+                </div>
+              </section>
+            </div>
 
-      <section className="band">
-        <div className="band-head">
-          <h2>
-            {res.plan.length === 0
-              ? emptyPlanText(res).heading
-              : `${res.plan.length} change${res.plan.length === 1 ? '' : 's'}, in the order they take effect`}
-          </h2>
-          {locked > 0 && (
-            <button type="button" className="reset" onClick={() => setRuledOut(NONE)}>
-              Clear {locked} override{locked === 1 ? '' : 's'}
-            </button>
-          )}
-        </div>
-        <PrescriptionList
-          req={request}
-          res={res}
-          ruledOut={ruledOut}
-          solvedRuledOut={solvedRuledOut}
-          newIds={newIds}
-          onToggle={onToggle}
-          onFocusRow={onFocusRow}
-        />
-      </section>
+            <div className="duo duo-start">
+              <section className="panel rx-panel">
+                <div className="panel-head">
+                  <h2>
+                    {res.plan.length === 0
+                      ? emptyPlanText(res).heading
+                      : `${res.plan.length} change${res.plan.length === 1 ? '' : 's'}, in the order they take effect`}
+                  </h2>
+                  {locked > 0 && (
+                    <div className="panel-actions">
+                      <button type="button" className="reset" onClick={() => setRuledOut(NONE)}>
+                        Clear {locked} override{locked === 1 ? '' : 's'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <PrescriptionList
+                  req={request}
+                  res={res}
+                  ruledOut={ruledOut}
+                  solvedRuledOut={solvedRuledOut}
+                  newIds={newIds}
+                  onToggle={onToggle}
+                  onFocusRow={onFocusRow}
+                />
+              </section>
 
-      <ChatPanel req={request} res={res} source={source} />
-      </>
-      )}
-
-      <footer className="meta num">
-        {footerLines(res).map((line) => (
-          <span key={line}>{line}</span>
-        ))}
-        {source === 'local' && (
-          <span className="meta-local" title={notice ?? undefined}>
-            Running on the built-in solver
-          </span>
+              <ChatPanel req={request} res={res} source={source} />
+            </div>
+          </>
         )}
-      </footer>
-    </main>
+
+        <footer className="meta num">
+          {footerLines(res).map((line) => (
+            <span key={line}>{line}</span>
+          ))}
+        </footer>
+      </main>
+    </div>
   )
 }
