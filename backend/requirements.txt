@@ -7,3 +7,4 @@ python-multipart==0.0.32
 RapidFuzz==3.14.6
 scipy==1.18.1
 uvicorn==0.53.0
+httpx2==2.13.0
