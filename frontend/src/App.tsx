@@ -127,7 +127,7 @@ export default function App() {
     // toggle tells us where focus is at the moment of the change, which works
     // even where focus events do not fire; the onFocus handler below keeps it
     // current if the user tabs on while the answer is still being solved.
-    focused.current = armOnToggle(focused.current, {
+    focused.current = armOnToggle({
       activeElementId: document.activeElement?.id ?? null,
       toggledId: id,
     })

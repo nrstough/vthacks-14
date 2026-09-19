@@ -3,24 +3,23 @@ import assert from 'node:assert/strict'
 import { armOnToggle, decideRestore, domId } from '../src/lib/focus.ts'
 
 test('toggling the row you are standing on remembers it', () => {
-  assert.equal(armOnToggle(null, { activeElementId: 'cant-c_gym', toggledId: 'c_gym' }), 'c_gym')
+  assert.equal(armOnToggle({ activeElementId: 'cant-c_gym', toggledId: 'c_gym' }), 'c_gym')
 })
 
 test('activating a row without focusing it forgets any older row', () => {
   // Safari does not focus a checkbox when you click it. Holding an older id
   // here is how focus ends up jumping to a row the user left minutes ago.
-  assert.equal(armOnToggle('c_gym', { activeElementId: null, toggledId: 'c_card_min' }), null)
+  assert.equal(armOnToggle({ activeElementId: null, toggledId: 'c_card_min' }), null)
   assert.equal(
-    armOnToggle('c_gym', { activeElementId: 'some-other-control', toggledId: 'c_card_min' }),
+    armOnToggle({ activeElementId: 'some-other-control', toggledId: 'c_card_min' }),
     null,
   )
 })
 
 test('toggling one row while standing on another keeps the one you are on', () => {
-  assert.equal(
-    armOnToggle('c_gym', { activeElementId: 'cant-c_amzn', toggledId: 'c_card_min' }),
-    'c_gym',
-  )
+  // Read from the DOM rather than trusting the remembered row: focus events do
+  // not fire in every environment, so `onFocusRow` cannot be the only source.
+  assert.equal(armOnToggle({ activeElementId: 'cant-c_amzn', toggledId: 'c_card_min' }), 'c_amzn')
 })
 
 test('nothing is restored when no row is remembered', () => {

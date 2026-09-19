@@ -13,8 +13,13 @@ export interface ArmInput {
   toggledId: string
 }
 
-/** The id to remember when a row is toggled, or null to stop tracking. */
-export function armOnToggle(current: string | null, input: ArmInput): string | null {
+/**
+ * The id to remember when a row is toggled, or null to stop tracking.
+ *
+ * It is derived entirely from where focus is at that moment, so it does not
+ * depend on focus events having fired.
+ */
+export function armOnToggle(input: ArmInput): string | null {
   const { activeElementId, toggledId } = input
   // The usual case: the user is standing on the checkbox they just activated.
   if (activeElementId === domId(toggledId)) return toggledId
@@ -22,8 +27,10 @@ export function armOnToggle(current: string | null, input: ArmInput): string | n
   // focus checkboxes. There is no focus to preserve, and holding on to an older
   // id would later yank focus to a row the user left long ago.
   if (!activeElementId || !activeElementId.startsWith('cant-')) return null
-  // Focus is on some other row; that is what to restore if it moves.
-  return current
+  // Focus is on some other row. That is the one to restore if it moves, and
+  // reading it from the DOM here means the rule holds even where focus events
+  // never fire and `onFocusRow` has not run.
+  return activeElementId.slice('cant-'.length)
 }
 
 export interface RestoreInput {

@@ -338,9 +338,15 @@ genuine, were reproduced before fixing, and each now has a regression test. Test
 
 1. **The narration called two changes one change.** `narrate.ts` picked the singular by counting
    the number of *dates* changes fell on, not the number of changes. Two changes landing on one
-   day read "One change takes effect, on Sep 22." This fires on the **shipped $200 demo
-   account**, where `c_dd_chipotle` and `c_gym` both take effect on Sep 22 — the narration a
-   screen reader hears, and the line to read aloud to a judge. Now counts `changes_here` entries.
+   day read "One change takes effect, on Sep 22." Reachable on the shipped $200 account's
+   candidate set, where `c_dd_chipotle` and `c_gym` both take effect on Sep 22, but **not** in
+   its default state and **not** on the demo script's one-override beat: a later sweep of all
+   2,048 override states across the three presets found the false singular in 31 of 6,144,
+   every one of them needing eight or nine of the eleven changes ruled out. The correction below
+   replaces an earlier sentence in this section that said it "fires on the shipped $200 demo
+   account", which overstated the reach — someone replaying the demo would see correct plural
+   narration and conclude the finding was invented. The bug and the fix are both real; only that
+   sentence was wrong. Now counts `changes_here` entries.
    Three tests, including one asserting the fixture genuinely lands two changes on one day.
 2. **Restoring focus re-armed the reference it had just consumed.** The programmatic `.focus()`
    dispatches the checkbox's own focus event, which wrote the id straight back through
@@ -440,3 +446,54 @@ doc's bundle size.
 | `npm test` | **75 passed, 0 failed** |
 | `.venv/bin/pytest backend/ -q -m "not perf"` | **977 passed**, 6 deselected |
 | oracle / types / contract / backend diff vs `main` | empty |
+
+## Claude critique, final pass (~04:05) — **Acceptable**
+
+Run as the standing gate after Codex hit its usage limit part-way through a third pass. Scope
+discipline, Review compliance, Freeze integrity and Regression check graded Excellent; Plan
+adherence, Test coverage and Documentation Acceptable; nothing material outstanding. The agent
+re-derived the act-by arithmetic independently across month, year and leap boundaries, swept all
+2,048 override states per preset to establish the narration bug's true reach, confirmed the
+heading matches the oracle's sort order, and drove five focus sequences live including three not
+recorded here. Three findings, all handled:
+
+1. **`focus.ts` said one thing and did another.** The comment and the test name said the rule
+   keeps the row the user is standing on; the code returned the remembered row instead. Safe
+   only because a second mechanism kept the two in step. Fixed so all three agree: the row is
+   read from the DOM at toggle time, which also means the rule holds where focus events never
+   fire. `armOnToggle` no longer takes the previous value at all.
+2. **This spec overstated the narration bug's reach** — corrected in place above, with the sweep
+   numbers.
+3. **The CSS figure drifted** by 0.08 kB after `.rx-notice` — corrected.
+
+### Recorded honestly, not fixed: one path cannot be exercised here
+
+`onFocusRow` in `App.tsx` never runs in the verification pane. The agent established why:
+`document.hasFocus()` is false there and `visibilityState` is hidden, so calling `.focus()`
+updates `activeElement` without dispatching a single focus event. None of the recorded browser
+sequences can have exercised it, and `focus.test.ts` covers the pure rules rather than the
+wiring. The visible consequence, measured: toggle a row, then move to a row that the *same*
+re-solve promotes, and focus returns to the row that was toggled rather than following the user.
+In a real browser `onFocusRow` would have updated the remembered row first. That cannot be
+confirmed from here, so it is written down as unverified rather than claimed. The failure mode
+is focus landing in the wrong place, never a wrong number or a wrong date.
+
+Fixing finding 1 narrows this: the remembered row is now read from the DOM on every toggle, so
+`onFocusRow` only matters when focus moves **without** a toggle following it.
+
+### For the backend lane, alongside the contract note
+
+`frontend/src/solver/mockSolver.ts` comments its plan sort as "Sort by the day you must act",
+which is the same effective-date-versus-deadline conflation this round fixed in the UI, in a
+protected file. Untouched.
+
+### Final run
+
+| Command | Result |
+|---|---|
+| `npm run lint` | clean |
+| `npm run build` | clean, 620.50 kB JS / 8.67 kB CSS |
+| `npm test` | **75 passed, 0 failed** |
+| `.venv/bin/pytest backend/ -q -m "not perf"` | **977 passed**, 6 deselected |
+| oracle / types / contract / backend diff vs `main` | empty |
+| Focus sequences re-checked after the fix | all six as recorded above |
