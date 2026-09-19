@@ -9,9 +9,10 @@ import { money } from './lib/format'
 import { emptyPlanText, footerLines, narrateChart } from './lib/narrate'
 import type { Overrides } from './lib/overrides'
 import { NONE, count, fromIds, toLocks, toggle } from './lib/overrides'
+import { armOnToggle, decideRestore, domId, sameInputs } from './lib/focus'
 import { useDebounced } from './lib/useDebounced'
 import { solve } from './solver/mockSolver'
-import type { SolveResponse } from './types'
+import type { SolveRequest, SolveResponse } from './types'
 
 const BASE = SCENARIOS[0].request
 
@@ -39,12 +40,20 @@ export default function App() {
   // under the left-out changes are statements about THAT solve, so they cannot
   // be computed from a set the solver has not seen yet.
   const [solvedRuledOut, setSolvedRuledOut] = useState<Overrides>(NONE)
+  // The whole request the displayed answer came from, not just its overrides: a
+  // slider still moving means the answer on screen is not the one being waited
+  // for, even though the checkboxes match.
+  const [solvedRequest, setSolvedRequest] = useState<SolveRequest | null>(null)
   const [source, setSource] = useState<'local' | 'server'>('local')
   const [notice, setNotice] = useState<string | null>(null)
   const seq = useRef(0)
-  // The toggled row moves between the plan and the left-out list, so its
-  // checkbox unmounts and focus would land back on the document body.
-  const refocus = useRef<string | null>(null)
+  // A re-solve moves rows between the plan and the left-out list, unmounting
+  // their checkboxes. Track the row the user is actually on rather than the one
+  // they toggled: the response can move a different row out from under them.
+  const focused = useRef<string | null>(null)
+  // Restoring focus dispatches the checkbox's own focus event, which would
+  // write the id straight back into the ref we just consumed.
+  const restoring = useRef(false)
 
   // A drag of the balance slider steps through dozens of values. Debounce the
   // request, not the slider, so the number under the thumb still tracks it.
@@ -64,6 +73,7 @@ export default function App() {
       previousPlan.current = next.plan.map((p) => p.candidate_id)
       setRes(next)
       setSolvedRuledOut(sentOverrides)
+      setSolvedRequest(debounced)
       setNewIds(next.plan.map((p) => p.candidate_id).filter((id) => !before.includes(id)))
       setSource(from)
       setNotice(msg)
@@ -87,15 +97,53 @@ export default function App() {
   }, [debounced])
 
   useEffect(() => {
-    const id = refocus.current
-    if (!id) return
-    refocus.current = null
-    document.getElementById(`cant-${id}`)?.focus()
+    const active = document.activeElement
+    const decision = decideRestore({
+      refId: focused.current,
+      // Focus parked on the body (or the root) means it was lost when a row
+      // unmounted, not moved there by the user.
+      focusWasLost: !active || active === document.body || active === document.documentElement,
+      // Nothing else is in flight: what is on screen answers exactly what the
+      // user is asking now, sliders included.
+      settled: solvedRequest !== null && sameInputs(solvedRequest, request),
+    })
+    if (decision.clear) focused.current = null
+    if (!decision.focus) return
+
+    const el = document.getElementById(domId(decision.focus))
+    if (!el) return
+    // The row may have landed inside the collapsed "other changes" section, and
+    // nothing inside a closed <details> can take focus.
+    const section = el.closest('details')
+    if (section && !section.open) section.open = true
+    // Focusing dispatches the checkbox's own focus event, which would write the
+    // id straight back into the ref this just consumed.
+    restoring.current = true
+    el.focus()
+    restoring.current = false
+    // Deliberately keyed on the response alone. Running this when `ruledOut`
+    // changes would fire it at the moment of the toggle, while the row is still
+    // mounted and focus has not been lost, and it would throw the remembered
+    // row away before the answer that unmounts it ever arrives. The values it
+    // reads are this render's, which is the render the response produced.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [res])
 
   function onToggle(id: string) {
-    if (document.activeElement?.id === `cant-${id}`) refocus.current = id
+    // Two signals feed the same ref, because neither covers everything. The
+    // toggle tells us where focus is at the moment of the change, which works
+    // even where focus events do not fire; the onFocus handler below keeps it
+    // current if the user tabs on while the answer is still being solved.
+    focused.current = armOnToggle({
+      activeElementId: document.activeElement?.id ?? null,
+      toggledId: id,
+    })
     setRuledOut((prev) => toggle(prev, id))
+  }
+
+  function onFocusRow(id: string) {
+    if (restoring.current) return
+    focused.current = id
   }
 
   function preset(cents: number, cushion: number) {
@@ -207,7 +255,7 @@ export default function App() {
           <h2>
             {res.plan.length === 0
               ? emptyPlanText(res).heading
-              : `${res.plan.length} change${res.plan.length === 1 ? '' : 's'}, in the order you have to make them`}
+              : `${res.plan.length} change${res.plan.length === 1 ? '' : 's'}, in the order they take effect`}
           </h2>
           {locked > 0 && (
             <button type="button" className="reset" onClick={() => setRuledOut(NONE)}>
@@ -222,6 +270,7 @@ export default function App() {
           solvedRuledOut={solvedRuledOut}
           newIds={newIds}
           onToggle={onToggle}
+          onFocusRow={onFocusRow}
         />
       </section>
 

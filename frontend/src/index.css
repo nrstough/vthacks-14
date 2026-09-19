@@ -313,8 +313,6 @@ body {
 .rx-row:last-child { border-bottom: 0; }
 .rx-row { border-left: 3px solid transparent; transition: background 180ms ease, border-color 180ms ease; }
 
-.rx-row.is-pinned { border-left-color: var(--accent); background: var(--accent-wash); }
-
 .rx-row.is-new { animation: land 900ms ease-out; }
 
 @keyframes land {
@@ -323,32 +321,11 @@ body {
   100% { background: transparent; }
 }
 
-.rx-row.is-pinned.is-new { animation: land-pinned 900ms ease-out; }
-@keyframes land-pinned {
-  0% { transform: translateY(-4px); opacity: 0.4; }
-  30% { transform: translateY(0); opacity: 1; }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .rx-row.is-new, .rx-row.is-pinned.is-new { animation: none; }
+  .rx-row.is-new { animation: none; }
 }
 
-.tag {
-  display: inline-block;
-  margin-left: 8px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  text-transform: uppercase;
-  color: var(--accent-ink);
-  background: var(--bg);
-  border: 1px solid var(--accent);
-  border-radius: 999px;
-  padding: 1px 8px;
-  vertical-align: 1px;
-}
-
-.tag-out { color: var(--ink-3); border-color: var(--line-strong); background: var(--bg); }
+.rx-row.is-pending { opacity: 0.72; }
 
 .rx-row.is-out { background: var(--panel); }
 .rx-row.is-out .rx-label { color: var(--ink-3); text-decoration: line-through; }
@@ -375,6 +352,7 @@ body {
 .rx-detail { font-size: 13px; color: var(--ink-3); margin: 0; }
 .rx-reason { font-size: 13px; color: var(--ink-2); margin: 6px 0 0; }
 .rx-reason.soft { color: var(--ink-3); }
+.rx-notice { font-size: 13px; color: var(--warn); margin: 4px 0 0; font-weight: 600; }
 
 .rx-amount { font-size: 16px; font-weight: 600; text-align: right; white-space: nowrap; }
 .rx-pain { font-size: 11px; color: var(--ink-3); text-align: right; margin-top: 2px; white-space: nowrap; }

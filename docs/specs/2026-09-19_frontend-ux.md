@@ -210,3 +210,456 @@ outside this lane, and `mockSolver.ts` is the parity oracle, so nothing was chan
 here for the backend lane. `tests/fixtures.test.ts` deliberately asserts only that the sentence
 is non-empty, so this run does not pin the defect in place. The demo script now carries a
 one-line fallback answer if a judge reads the box closely on Sunday.
+
+## Audit round 1 (adversarial Claude critique, ~03:50) — **Fail**, twelve findings
+
+Test coverage and Documentation both graded Fail. All findings addressed; the substantive ones
+are below with what was verified before and after.
+
+1. **`tests/bundle.test.ts` could not read the bundle in the real checkout (Fail driver).**
+   `new URL(...).pathname` percent-encodes a space, and the canonical checkout is
+   `/Users/nathanstough/Desktop/VT Hacks`. The suite passed here only because this worktree's
+   path has no space; merged to `main` it would have errored 3/3 and the AC7 forbidden-word
+   gate would never have run. Fixed with `fileURLToPath`, and **reproduced both ways**: copied
+   under `/tmp/space test dir/` it failed with `ENOENT … VT%20Hacks …` before the fix and
+   passes 3/3 after.
+2. **`docs/features/frontend.md` documented the tier-3 wording Codex finding 2 removed** ("would
+   not shrink the gap or lift another day above zero"). The doc was written before the review
+   resolutions and never updated. It now states the shipped wording and why the stronger claim
+   is false.
+3. **The same doc gave the check order finding 6 exists to forbid** (`lint && test && build`).
+   Corrected to lint → build → test, with the reason spelled out.
+4. **The same doc repeated "only the gas deferral is strictly needed"**, which this change's own
+   `fixtures.test.ts:47` disproves: three of the seven are load-bearing. Corrected, and the doc
+   now carries the certificate-sentence defect and its fallback.
+5. **The documented reason precedence omitted `same_txn` entirely** — the reason added to
+   resolve finding 2. A developer extending the module against the doc could have shadowed it,
+   making blocked candidates read "Not needed". Precedence corrected to the six shipped steps.
+6. **`pendingIds` was exported, unit-tested, and never called** (AC13 cited it as evidence).
+   `PrescriptionList.tsx` now uses it, so the cited test covers the shipped path.
+7. **Focus restoration stole focus.** The effect fired on every response, so a user who tabbed
+   on during the debounce was yanked back. Now it restores only when focus was lost to the
+   document body. Verified in the browser: focus stays put → restored to `cant-c_card_min`;
+   focus moved to `cant-c_gym` first → stays on `cant-c_gym`.
+8. **Plan rows had no pending state** — the mirror of finding 5. Ticking a chosen row left it in
+   the plan section still showing the solver's reason for picking a change the user had just
+   said they cannot do. Plan rows now show "Re-solving…" too. Verified: 60 ms after ticking, the
+   row has `is-pending` and reads "Re-solving…"; after the response, no pending rows remain.
+9. **D2's precedence sentence in this spec is garbled** — it prints "tier/proof" twice, putting
+   the tier branch ahead of `same_txn`. The plan and the code both order it ruled_out >
+   too_late > same_txn > tier, and the code is correct. Recorded here rather than editing D2,
+   because the spec is frozen after commit.
+10. Stale strings in the feature doc (an old reason quote, the pre-change bundle figure):
+    corrected.
+11. **The aria-live chatter risk the plan flagged was never measured.** Now measured: a
+    13-step slider drag produced **one** live-region change, because the request is debounced
+    and applied once. No fallback needed.
+12. **`.sr-only` appears in this spec's "What will change" but was never added.** Struck: the
+    narration is visible text, so the class had no use. No other listed file was left unwritten.
+
+Not accepted as defects: the browser-only evidence for AC5, AC10 and the on-screen halves of
+AC2/AC9 is reported honestly in Deviations and is inherent to having no DOM test runner
+installable on this connection; the critique records the same limitation rather than disputing
+it.
+
+### Re-run after the fixes
+
+| Command | Result |
+|---|---|
+| `npm run lint` | clean |
+| `npm run build` | clean, 619.45 kB / 183.67 kB gzip, pre-existing Recharts warning only |
+| `npm test` | **59 passed, 0 failed** |
+| `.venv/bin/pytest backend/ -q -m "not perf"` | **977 passed** |
+| `tests/bundle.test.ts` under a path containing a space | **3 passed** (failed 3/3 before the fix) |
+| oracle / types / contract / backend diff vs `main` | empty |
+
+## Audit round 2 (same critique agent, re-checking its own findings, ~04:05) — **Acceptable**
+
+All twelve round-1 findings verified resolved against the files, not the claims; the agent
+re-reproduced the space-path test both ways (0/3 before, 3/3 after) and re-ran the full suite.
+Both Fail dimensions cleared: Test coverage and Documentation → Acceptable, Freeze integrity and
+Regression check → Excellent. Three new findings, all judged non-material by the agent; all three
+were fixed anyway, and one of them turned out to hide two further real defects.
+
+1. **`is-pending` was applied to plan rows only**, not left-out rows, so the two sections were
+   styled asymmetrically although both showed "Re-solving…". Class now applied in both.
+2. **Pinning styles orphaned by D1** — `.rx-row.is-pinned`, `@keyframes land-pinned`, `.tag`,
+   `.tag-out` — nothing could match them once the three-way control went. Removed; the CSS
+   bundle drops 9.16 → 8.59 kB. They would have told a later reader that pinning still exists.
+3. **The tier-aware empty state was undocumented** in the feature doc although it is the fix for
+   Codex critical finding 1 and a hard wording rule. Added, with the case that produces it.
+
+### Two defects found while fixing the focus edge
+
+The agent also reported a residual focus edge: tabbing onto a row that the *same* re-solve moves
+leaves focus restored to the toggled row instead of following the user. Fixing it properly
+exposed two more problems, both caught by verifying rather than assuming:
+
+- **Tracking focus only through React's `onFocus` broke restoration entirely** in the automation
+  pane, because the document there is not focused and focus events never fire. Case A regressed
+  from "restored" to "focus lost" and the browser check caught it. The ref is now fed by **both**
+  signals: the toggle records where focus is at the moment of the change (works without focus
+  events), and `onFocus` keeps it current if the user tabs on.
+- **The ref persisted across interactions.** Safari does not focus a checkbox when you click it,
+  so a later re-solve could have pulled focus to whichever row was focused last, minutes earlier.
+  The ref is now consumed once per response.
+
+Focus behaviour, all four cases verified in the browser after the fix:
+
+| Sequence | Result |
+|---|---|
+| Focus a row, toggle it, its row moves sections | restored to that row |
+| Focus a row, toggle it, tab to a row that survives | stays where the user went |
+| Activate without focusing, after an earlier focus elsewhere | nothing grabbed (focus stays on body) |
+| Focus a row, then drag the slider | stays where the user went |
+
+### Final run
+
+| Command | Result |
+|---|---|
+| `npm run lint` | clean |
+| `npm run build` | clean, 619.53 kB JS / 8.59 kB CSS |
+| `npm test` | **59 passed, 0 failed** |
+| `.venv/bin/pytest backend/ -q -m "not perf"` | **977 passed** |
+| oracle / types / contract / backend diff vs `main` | empty |
+
+### Still open, by choice
+
+`AC12`'s keyboard half and the focus cases are verified by browser observation, not by an
+automated test, because no DOM test runner can be installed on this connection. The four cases
+above are written down so they can be re-checked by hand, or turned into tests the moment a
+runner is available. The test count stays at 59.
+
+## Codex audit (~04:15) — **Fail**, three real findings the Claude critique missed
+
+Full output: `docs/specs/2026-09-19_frontend-ux-audit.md`. Scope discipline, Freeze integrity and
+Documentation graded Excellent; Plan adherence and Test coverage Fail. All three findings are
+genuine, were reproduced before fixing, and each now has a regression test. Test count 59 → 66.
+
+1. **The narration called two changes one change.** `narrate.ts` picked the singular by counting
+   the number of *dates* changes fell on, not the number of changes. Two changes landing on one
+   day read "One change takes effect, on Sep 22." Reachable on the shipped $200 account's
+   candidate set, where `c_dd_chipotle` and `c_gym` both take effect on Sep 22, but **not** in
+   its default state and **not** on the demo script's one-override beat: a later sweep of all
+   2,048 override states across the three presets found the false singular in 31 of 6,144,
+   every one of them needing eight or nine of the eleven changes ruled out. The correction below
+   replaces an earlier sentence in this section that said it "fires on the shipped $200 demo
+   account", which overstated the reach — someone replaying the demo would see correct plural
+   narration and conclude the finding was invented. The bug and the fix are both real; only that
+   sentence was wrong. Now counts `changes_here` entries.
+   Three tests, including one asserting the fixture genuinely lands two changes on one day.
+2. **Restoring focus re-armed the reference it had just consumed.** The programmatic `.focus()`
+   dispatches the checkbox's own focus event, which wrote the id straight back through
+   `onFocusRow`, defeating the consume-once fix from round 2. Codex derived this from the event
+   path without being able to replay it; it is correct, and it is invisible in this automation
+   pane because the document there is never focused. A `restoring` flag now suppresses tracking
+   for the duration of the restore.
+3. **"Act by" was false for every change that needs notice.** This round's own new label put
+   "act by" under the date the change *takes effect*, but `lead_time_days` means the change must
+   be actioned that many days ahead. The gym bills on Sep 22 and needs three days, so the
+   deadline is **Sep 19**; the screen said Sep 22. Someone following it would miss the
+   cancellation and lose the plan — the exact class of false claim this project refuses
+   elsewhere. The date chip now says "takes effect", which is what `plan[].date` actually is, and
+   a row that needs notice carries its real deadline: "Act by Sep 19: it needs 3 days of
+   notice." Verified on screen. The section heading became "in the order they take effect",
+   because the plan is ordered by effect date and "the order you have to make them" is a
+   different order once lead times differ.
+
+Contract note for the backend lane, not changed here: `docs/api-contract.md:58` describes
+`plan[].date` as "the day the user must act", but both solvers return `effective_date`. The
+frontend now derives the deadline itself from `lead_time_days`, which is dates-only arithmetic
+and touches no money. If the backend later returns a true deadline field, this derivation should
+be replaced by it.
+
+Deviation from D4, recorded rather than hidden: D4 said the date chip reads "act by". It reads
+"takes effect", because "act by" there was false. The deadline is still shown, on the rows that
+have one.
+
+### Focus behaviour re-verified after the fix
+
+| Sequence | Result |
+|---|---|
+| Focus a row, toggle it, its row moves sections | restored to that row |
+| Focus a row, toggle it, tab to a row that survives | stays where the user went |
+| Activate with no prior focus, after an earlier restore | nothing grabbed |
+| A restore, then a second unrelated re-solve | nothing grabbed the second time |
+
+### Final run
+
+| Command | Result |
+|---|---|
+| `npm run lint` | clean |
+| `npm run build` | clean, 620.07 kB / 183.85 kB gzip |
+| `npm test` | **66 passed, 0 failed** |
+| `.venv/bin/pytest backend/ -q -m "not perf"` | **977 passed**, 6 deselected |
+| oracle / types / contract / backend diff vs `main` | empty |
+
+On the audit's own regression note: it measured 976 passed and 1 setup error, because its
+sandbox is read-only and one test needs a writable temporary directory. Run normally in this
+worktree the suite is 977 passed, reproduced after every commit in this run.
+
+## Codex re-audit (~04:25) — **Fail**, two further focus defects, both real
+
+Full output: `docs/specs/2026-09-19_frontend-ux-audit.md` (overwritten per round). The three
+findings from the first Codex round were accepted as fixed. Two new ones, both source-traced
+rather than reproduced by the auditor, and both correct:
+
+1. **A restored checkbox inside the collapsed "other changes" section cannot take focus.** If the
+   user collapses that section and then toggles a plan row, the row lands inside a closed
+   `details`, and nothing inside one is focusable. Reproduced in the browser: focus went to the
+   body. The restore now opens the section first. Re-checked: focus lands on the row and the
+   section is open.
+2. **A quick tick-and-undo lost focus on the second response.** The first response restored focus
+   and consumed the remembered row; the second moved the row back with nothing left to restore.
+   The memory is now kept until the answer on screen matches the user's current input.
+   Reproduced and re-checked: focus ends on the toggled row, plan back to 3 changes.
+3. **The focus rules had no tests** — correct, and the reason was that they were tangled up in a
+   React effect. They now live in `src/lib/focus.ts`, apart from React, with **9 unit tests**
+   covering every rule including both defects above. Test count 66 → 75.
+
+A regression was caught while fixing 2, by re-running the earlier cases rather than assuming:
+adding `ruledOut` and `solvedRuledOut` to the effect's dependencies made it run at the moment of
+the toggle, while the row was still mounted, and throw the remembered row away before the
+response that unmounts it arrived. Case A went from "restored" to "focus lost". The effect is
+keyed on the response alone, with a comment saying why.
+
+Stale figures the audit flagged, both corrected: the demo checklist's test count and the feature
+doc's bundle size.
+
+### Focus behaviour, all six sequences re-verified after the fixes
+
+| Sequence | Result |
+|---|---|
+| Focus a row, toggle it, its row moves sections | restored to that row |
+| Focus a row, toggle it, tab to a row that survives | stays where the user went |
+| Activate with no prior focus, after an earlier restore | nothing grabbed |
+| A restore, then a later unrelated re-solve | nothing grabbed |
+| "Other changes" collapsed, then toggle a plan row | section opened, focus restored |
+| Tick, then undo inside the debounce | restored, plan back to 3 changes |
+
+### Final run
+
+| Command | Result |
+|---|---|
+| `npm run lint` | clean |
+| `npm run build` | clean, 620.51 kB / 184.04 kB gzip |
+| `npm test` | **75 passed, 0 failed** |
+| `.venv/bin/pytest backend/ -q -m "not perf"` | **977 passed**, 6 deselected |
+| oracle / types / contract / backend diff vs `main` | empty |
+
+## Claude critique, final pass (~04:05) — **Acceptable**
+
+Run as the standing gate after Codex hit its usage limit part-way through a third pass. Scope
+discipline, Review compliance, Freeze integrity and Regression check graded Excellent; Plan
+adherence, Test coverage and Documentation Acceptable; nothing material outstanding. The agent
+re-derived the act-by arithmetic independently across month, year and leap boundaries, swept all
+2,048 override states per preset to establish the narration bug's true reach, confirmed the
+heading matches the oracle's sort order, and drove five focus sequences live including three not
+recorded here. Three findings, all handled:
+
+1. **`focus.ts` said one thing and did another.** The comment and the test name said the rule
+   keeps the row the user is standing on; the code returned the remembered row instead. Safe
+   only because a second mechanism kept the two in step. Fixed so all three agree: the row is
+   read from the DOM at toggle time, which also means the rule holds where focus events never
+   fire. `armOnToggle` no longer takes the previous value at all.
+2. **This spec overstated the narration bug's reach** — corrected in place above, with the sweep
+   numbers.
+3. **The CSS figure drifted** by 0.08 kB after `.rx-notice` — corrected.
+
+### Recorded honestly, not fixed: one path cannot be exercised here
+
+`onFocusRow` in `App.tsx` never runs in the verification pane. The agent established why:
+`document.hasFocus()` is false there and `visibilityState` is hidden, so calling `.focus()`
+updates `activeElement` without dispatching a single focus event. None of the recorded browser
+sequences can have exercised it, and `focus.test.ts` covers the pure rules rather than the
+wiring. The visible consequence, measured: toggle a row, then move to a row that the *same*
+re-solve promotes, and focus returns to the row that was toggled rather than following the user.
+In a real browser `onFocusRow` would have updated the remembered row first. That cannot be
+confirmed from here, so it is written down as unverified rather than claimed. The failure mode
+is focus landing in the wrong place, never a wrong number or a wrong date.
+
+Fixing finding 1 narrows this: the remembered row is now read from the DOM on every toggle, so
+`onFocusRow` only matters when focus moves **without** a toggle following it.
+
+### For the backend lane, alongside the contract note
+
+`frontend/src/solver/mockSolver.ts` comments its plan sort as "Sort by the day you must act",
+which is the same effective-date-versus-deadline conflation this round fixed in the UI, in a
+protected file. Untouched.
+
+### Final run
+
+| Command | Result |
+|---|---|
+| `npm run lint` | clean |
+| `npm run build` | clean, 620.50 kB JS / 8.67 kB CSS |
+| `npm test` | **75 passed, 0 failed** |
+| `.venv/bin/pytest backend/ -q -m "not perf"` | **977 passed**, 6 deselected |
+| oracle / types / contract / backend diff vs `main` | empty |
+| Focus sequences re-checked after the fix | all six as recorded above |
+
+## Codex audit, third pass (~04:10) — **Fail**, two findings, both real
+
+Ran after the usage limit reset. Scope discipline, Freeze integrity and Documentation graded
+Excellent; Plan adherence, Test coverage and Review compliance Fail on one focus defect and its
+missing test. Both findings accepted and fixed.
+
+1. **Overlapping responses could lose focus for good.** `decideRestore` forgot the remembered row
+   whenever focus survived a response, regardless of whether newer input was still pending. An
+   older response landing inside a newer toggle's 150 ms debounce leaves the row mounted, so
+   nothing is restored — and the row was forgotten, so when the newer response moved it there was
+   nothing left to focus. The rule is now: restore only focus that was lost, and forget the row
+   only once the answer on screen matches what the user last asked for. Two tests added,
+   including a three-response walk of the exact sequence. Verified in the browser with three
+   toggles inside the debounce: focus lands on the toggled row, plan at 7 changes.
+2. **The empty-plan wording overclaimed.** "Everything is ruled out or too late to act" is false
+   when changes remain on the table and simply do not help. Rule out all but Netflix on the $200
+   account: it is actionable, it just takes effect on Sep 29, after the Sep 24 dip, so the plan
+   is empty at tier 3 with one candidate considered — and the user can see the row sitting there.
+   The wording now splits on `meta.candidates_considered`: nothing considered keeps the original
+   sentence; changes still on the table get "No change helps here" / "None of the changes still
+   on the table would leave you fewer days below zero", which is what the first objective term
+   establishes, matching the tier-3 reason wording. An unproven solve gets a softer form. Four
+   tests added, one driving the real oracle. Both verified on screen.
+
+**Correction to D2a**, recorded here rather than editing frozen text: D2a gave a single tier-3
+empty-plan wording. There are two cases, and the one it specified is only correct when nothing
+was on the table at all.
+
+Test count 75 → 81.
+
+### Focus behaviour, seven sequences after this fix
+
+| Sequence | Result |
+|---|---|
+| Focus a row, toggle it, its row moves sections | restored to that row |
+| Focus a row, toggle it, tab to a row that survives | stays where the user went |
+| Activate with no prior focus, after an earlier restore | nothing grabbed |
+| A restore, then a later unrelated re-solve | nothing grabbed |
+| "Other changes" collapsed, then toggle a plan row | section opened, focus restored |
+| Tick, then undo inside the debounce | restored, plan back to 3 |
+| Three toggles inside the debounce, overlapping responses | restored, plan at 7 |
+
+### Final run
+
+| Command | Result |
+|---|---|
+| `npm run lint` | clean |
+| `npm run build` | clean, 620.76 kB / 184.10 kB gzip |
+| `npm test` | **81 passed, 0 failed** |
+| `.venv/bin/pytest backend/ -q -m "not perf"` | **977 passed**, 6 deselected |
+| oracle / types / contract / backend diff vs `main` | empty |
+
+On the audit's backend count: it measures 976 passed and 1 setup error every round, because its
+sandbox is read-only and one API test needs a writable temporary directory. Run normally here the
+suite is 977 passed.
+
+### Still open, and why
+
+AC12's keyboard activation is still verified by structure and by driving the controls
+programmatically, not by real key events: this pane reports `document.hasFocus()` false, so
+synthetic keys produce no default action and React focus events never fire. An arrow key on a
+native range input does nothing here either, which is how that was established. The focus rules
+themselves are now pure functions with 11 tests; what remains unexercised is the wiring between
+them and React's events.
+
+## Codex audit, fourth pass (~04:20) — **Fail**, one finding, real
+
+One substantive finding and one stale count. Scope discipline and Freeze integrity Excellent.
+
+1. **"Settled" was derived from the overrides alone.** It compared the ruled-out set of the
+   displayed answer with the current one, and ignored the starting balance and the cushion — both
+   of which also start a new solve. So dragging the slider while a toggle was in flight looked
+   settled, the remembered row was dropped, and the next response moved that row with nothing
+   left to focus. Codex's sequence: unexclude the gym at $200, then move the balance to $300
+   while the first solve is pending.
+
+   Fixed by comparing the whole question rather than one part of it. The app now keeps the
+   request that produced the displayed answer and compares it against the current one through
+   `sameInputs` in `focus.ts`: balance, cushion, horizon and both lock lists. Six tests added,
+   including the balance-differs and cushion-differs cases that the previous shape could not
+   express, because `settled` was handed to the helper as a boolean and the wrong value was
+   computed by the caller.
+
+   Verified on screen with Codex's exact sequence: focus stays on the gym checkbox and the
+   balance lands at $300.
+
+2. The demo checklist's frontend test count was stale again. Corrected to 87.
+
+Test count 81 → 87.
+
+### Focus behaviour, seven sequences after this fix
+
+Re-checked in the browser, all correct: toggled row moves; user moves to a surviving row;
+activation with no prior focus; collapsed section; tick then undo; three toggles inside the
+debounce; and a balance drag landing between two responses.
+
+### Final run
+
+| Command | Result |
+|---|---|
+| `npm run lint` | clean |
+| `npm run build` | clean, 621.08 kB / 184.18 kB gzip |
+| `npm test` | **87 passed, 0 failed** |
+| `.venv/bin/pytest backend/ -q -m "not perf"` | **977 passed**, 6 deselected |
+| oracle / types / contract / backend diff vs `main` | empty |
+
+## Codex audit, fifth pass (~04:30) — **Acceptable**
+
+Plan adherence, Scope discipline, Review compliance and Freeze integrity all **Excellent**;
+Test coverage, Regression check and Documentation Acceptable. Verdict: "No substantive
+implementation defect identified."
+
+One documentation nit, fixed: the feature doc's empty-plan table gave the proven tier-3 wording
+without marking it proven-only or listing the softened alternative, although both are
+implemented and tested. The table now has a row for each and states the rule.
+
+The other two notes are the standing verification limits, both already disclosed in this record
+and neither an implementation defect:
+
+- **AC12's keyboard integration.** The focus rules are pure functions with 17 tests, but the
+  wiring between them and React's focus events is not exercised, because no DOM test runner can
+  be installed on this connection and the verification pane reports `document.hasFocus()` false,
+  so synthetic keys produce no default action and focus events never fire. Established by
+  measurement: an arrow key on a native range input does nothing there either. Every focus rule
+  was instead driven through the live app by activating controls directly, seven sequences, all
+  recorded above with their outcomes.
+- **The backend count.** The audit sandbox is read-only and one API test needs a writable
+  temporary directory, so it measures 976 passed and 1 setup error every round. Run normally in
+  this worktree it is 977 passed, reproduced after every commit.
+
+## Close
+
+Five Codex rounds and three Claude critique rounds. Eleven defects found and fixed, six of them
+user-visible: a false act-by date, a plan described as one change when it was two, a page saying
+no changes were needed while naming the money needed, a wording that claimed changes were gone
+while their rows were on screen, reasons computed against an answer that never saw the user's
+override, and a forbidden-word gate that could not read the bundle in the real checkout. Final
+state: **87 frontend tests, 977 backend tests**, lint and build clean, the parity oracle and the
+API contract byte-identical to `main`.
+
+## Merged `main` into `frontend` (~04:35)
+
+`main` moved during this run. It had already taken this lane's **first** commit (`9faa8e1`) —
+the one the audits went on to find six defects in — and another lane built a Gemini chat panel
+on top of it (`c28bf0e`, `9219453`). The eight fix commits were not there.
+
+Merged `main` into `frontend`, which is the direction `CLAUDE.md` prescribes and touches no
+other checkout. **No conflicts.** The overlap was two files: `App.tsx`, where that lane added a
+`ChatPanel` import and element in regions this lane did not touch, and `index.css`, where it
+appended its own block.
+
+Verified on the merged tree:
+
+| Check | Result |
+|---|---|
+| `npm run lint` | clean |
+| `npm run build` | clean, 624.92 kB JS / 10.96 kB CSS |
+| `npm test` | **87 passed** |
+| `.venv/bin/pytest backend/ -q -m "not perf"` | **1011 passed** (977 + the chat lane's 34) |
+| Screen | 11 checkboxes none ticked, chat panel renders, gym deadline "Act by Sep 19", fallback chip present, no forbidden words |
+| Demo beat | 3 → 7 changes, focus held on the toggled row |
+
+**Not merged into `main`, deliberately.** `CLAUDE.md` says to check with the other sessions before
+fast-forwarding `main`, because it rewrites files under them, and another lane is live in that
+checkout right now. `frontend` is a fast-forward away whenever Nathan wants it.

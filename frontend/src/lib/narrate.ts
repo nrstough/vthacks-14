@@ -65,10 +65,14 @@ export function narrateChart(res: SolveResponse): string[] {
       : `Payday lands on ${list(paydays)}.`,
   )
 
-  const changeDays = res.balances.filter((r) => r.changes_here.length > 0).map((r) => r.date)
-  if (changeDays.length === 0) {
+  // Count the changes, not the days they fall on: two changes on one date is
+  // still two changes, and the singular sentence would be false.
+  const changeRows = res.balances.filter((r) => r.changes_here.length > 0)
+  const changeDays = changeRows.map((r) => r.date)
+  const changeCount = changeRows.reduce((n, r) => n + r.changes_here.length, 0)
+  if (changeCount === 0) {
     out.push('No changes take effect.')
-  } else if (changeDays.length === 1) {
+  } else if (changeCount === 1) {
     out.push(`One change takes effect, on ${shortDate(changeDays[0])}.`)
   } else {
     out.push(`Changes take effect on ${list(changeDays)}.`)
@@ -88,10 +92,27 @@ export interface EmptyPlanText {
 // is simultaneously naming the money the user has to find.
 export function emptyPlanText(res: SolveResponse): EmptyPlanText {
   if (res.tier === 3) {
-    return {
-      heading: 'No changes available',
-      body: 'Everything is ruled out or too late to act. The gap stays.',
+    // Nothing was on the table at all: every change is ruled out or past its
+    // deadline. Only then can we say so.
+    if (res.meta.candidates_considered === 0) {
+      return {
+        heading: 'No changes available',
+        body: 'Everything is ruled out or too late to act. The gap stays.',
+      }
     }
+    // Changes remain, and none of them helps. Rule out all but Netflix on the
+    // $200 account and this is what happens: it is actionable, it just lands
+    // after the day the balance goes under. Claiming it was unavailable would
+    // be false, and the user can see the row sitting there.
+    return res.certificate.minimal_proven
+      ? {
+          heading: 'No change helps here',
+          body: 'None of the changes still on the table would leave you fewer days below zero.',
+        }
+      : {
+          heading: 'No change was found to help',
+          body: 'Nothing on the table helped in the time the solver had.',
+        }
   }
   return {
     heading: 'No changes needed',

@@ -77,6 +77,19 @@ test('the empty plan at tier 3 is never described as "no changes needed"', () =>
   assert.doesNotMatch(text.body, /already clears/)
 })
 
+test('leaving only a change that lands too late gives an empty plan with one on the table', () => {
+  // The case behind the wording fix: Netflix is actionable but takes effect on
+  // Sep 29, after the Sep 24 dip, so it cannot reduce the days below zero.
+  const others = clears.request.candidates.map((c) => c.id).filter((id) => id !== 'c_netflix')
+  const res = solve({ ...clears.request, locks: { in: [], out: others } }, [])
+  assert.equal(res.tier, 3)
+  assert.equal(res.plan.length, 0)
+  assert.equal(res.meta.candidates_considered, 1)
+  const text = emptyPlanText(res)
+  assert.equal(text.heading, 'No change helps here')
+  assert.doesNotMatch(text.body, /ruled out|too late/)
+})
+
 test('every fixture offers eleven changes, so the request shape is unchanged', () => {
   for (const scenario of SCENARIOS) {
     assert.equal(scenario.request.candidates.length, 11)

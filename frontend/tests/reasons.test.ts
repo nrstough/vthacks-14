@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { PENDING, daysBetween, reasonFor } from '../src/lib/reasons.ts'
+import { PENDING, actByNotice, daysBetween, reasonFor } from '../src/lib/reasons.ts'
 import type { ReasonKind } from '../src/lib/reasons.ts'
 import { SCENARIOS } from '../src/fixtures/scenarios.ts'
 import { solve } from '../src/solver/mockSolver.ts'
@@ -236,6 +236,47 @@ test('the same inputs always give the same reason', () => {
     assert.deepEqual(first, second)
   }
 })
+
+test('a change needing notice states the real deadline, not its effect date', () => {
+  // Codex audit finding: labelling the effect date "act by" is false whenever a
+  // change needs notice. The gym bills on the 22nd and needs three days, so the
+  // user has to act by the 19th; saying the 22nd would cost them the plan.
+  const gym = candidate({ effective_date: '2026-09-22', lead_time_days: 3 })
+  const text = actByNotice(gym)
+  assert.equal(text, 'Act by Sep 19: it needs 3 days of notice.')
+})
+
+test('a change with no lead time has no deadline to state', () => {
+  assert.equal(actByNotice(candidate({ lead_time_days: 0 })), null)
+})
+
+test('one day of notice is singular, and the deadline crosses a month end', () => {
+  assert.equal(
+    actByNotice(candidate({ effective_date: '2026-10-01', lead_time_days: 1 })),
+    'Act by Sep 30: it needs 1 day of notice.',
+  )
+})
+
+test('every fixture candidate with lead time gets a deadline before its effect date', () => {
+  for (const c of SCENARIOS[0].request.candidates) {
+    const text = actByNotice(c)
+    if (c.lead_time_days === 0) {
+      assert.equal(text, null)
+      continue
+    }
+    assert.ok(text, `${c.id} needs a deadline`)
+    assert.match(text, /^Act by /)
+    // The stated day must be strictly earlier than the day it takes effect.
+    const stated = /Act by (\w+ \d+)/.exec(text)![1]
+    assert.notEqual(stated, shortDateOf(c.effective_date))
+  }
+})
+
+function shortDateOf(iso: string): string {
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  const [, m, d] = iso.split('-').map(Number)
+  return `${months[m - 1]} ${d}`
+}
 
 test('a pending row says it is re-solving and claims nothing', () => {
   assert.equal(PENDING.kind, 'pending')

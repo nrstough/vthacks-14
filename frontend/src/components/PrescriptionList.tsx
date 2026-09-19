@@ -1,7 +1,7 @@
 import type { Candidate, SolveRequest, SolveResponse } from '../types'
 import type { Overrides } from '../lib/overrides'
-import { isRuledOut } from '../lib/overrides'
-import { PENDING, reasonFor } from '../lib/reasons'
+import { isRuledOut, pendingIds } from '../lib/overrides'
+import { PENDING, actByNotice, reasonFor } from '../lib/reasons'
 import { emptyPlanText } from '../lib/narrate'
 import { money, shortDate } from '../lib/format'
 
@@ -15,11 +15,13 @@ function CantDo({
   label,
   checked,
   onToggle,
+  onFocus,
 }: {
   id: string
   label: string
   checked: boolean
   onToggle: (id: string) => void
+  onFocus: (id: string) => void
 }) {
   return (
     <label className="cant" htmlFor={`cant-${id}`}>
@@ -28,6 +30,7 @@ function CantDo({
         type="checkbox"
         checked={checked}
         onChange={() => onToggle(id)}
+        onFocus={() => onFocus(id)}
         // Eleven identical labels are indistinguishable to a screen reader, so
         // the accessible name carries the change it belongs to.
         aria-label={`Can't do this: ${label}`}
@@ -53,6 +56,7 @@ export default function PrescriptionList({
   solvedRuledOut,
   newIds,
   onToggle,
+  onFocusRow,
 }: {
   req: SolveRequest
   res: SolveResponse
@@ -60,28 +64,46 @@ export default function PrescriptionList({
   solvedRuledOut: Overrides
   newIds: string[]
   onToggle: (id: string) => void
+  onFocusRow: (id: string) => void
 }) {
+  const byId = new Map(req.candidates.map((c) => [c.id, c]))
   const used = new Set(res.plan.map((p) => p.candidate_id))
   const rest: Candidate[] = req.candidates.filter((c) => !used.has(c.id))
+  // Rows whose override has moved since the answer on screen was solved. Every
+  // sentence we could write about them describes a solve that never saw the
+  // user's current answer, so they say nothing until the next response lands.
+  const pending = pendingIds(ruledOut, solvedRuledOut)
 
   return (
     <>
       <div className="rx">
         {res.plan.length === 0 && <p className="rx-empty">{emptyPlanText(res).body}</p>}
         {res.plan.map((p) => {
-          const cls = ['rx-row', newIds.includes(p.candidate_id) ? 'is-new' : '']
+          const stale = pending.has(p.candidate_id)
+          const candidate = byId.get(p.candidate_id)
+          const notice = candidate ? actByNotice(candidate) : null
+          const cls = [
+            'rx-row',
+            newIds.includes(p.candidate_id) ? 'is-new' : '',
+            stale ? 'is-pending' : '',
+          ]
             .filter(Boolean)
             .join(' ')
           return (
             <div key={p.candidate_id} className={cls}>
               <div className="rx-date num">
                 {shortDate(p.date)}
-                <small>act by</small>
+                <small>takes effect</small>
               </div>
               <div>
                 <p className="rx-label">{p.label}</p>
                 <p className="rx-detail num">{p.detail}</p>
-                <p className={`rx-reason num${p.strictly_needed ? '' : ' soft'}`}>{p.reason}</p>
+                {stale ? (
+                  <p className="rx-reason soft">{PENDING.text}</p>
+                ) : (
+                  <p className={`rx-reason num${p.strictly_needed ? '' : ' soft'}`}>{p.reason}</p>
+                )}
+                {notice && <p className="rx-notice num">{notice}</p>}
               </div>
               <div>
                 <div className="rx-amount num">+{money(p.freed_cents)}</div>
@@ -92,6 +114,7 @@ export default function PrescriptionList({
                 label={p.label}
                 checked={isRuledOut(ruledOut, p.candidate_id)}
                 onToggle={onToggle}
+                onFocus={onFocusRow}
               />
             </div>
           )
@@ -107,13 +130,17 @@ export default function PrescriptionList({
           <div className="rx">
             {rest.map((c) => {
               const out = isRuledOut(ruledOut, c.id)
-              const solvedOut = isRuledOut(solvedRuledOut, c.id)
               // The response on screen was solved with `solvedRuledOut`. If the
               // user has since changed this row, no reason we could give would
               // be about the answer they are looking at.
-              const reason = out !== solvedOut ? PENDING : reasonFor(c, req, res, solvedOut)
+              const reason = pending.has(c.id)
+                ? PENDING
+                : reasonFor(c, req, res, isRuledOut(solvedRuledOut, c.id))
               return (
-                <div key={c.id} className={`rx-row${out ? ' is-out' : ''}`}>
+                <div
+                  key={c.id}
+                  className={`rx-row${out ? ' is-out' : ''}${pending.has(c.id) ? ' is-pending' : ''}`}
+                >
                   <div className="rx-date num">{shortDate(c.effective_date)}</div>
                   <div>
                     <p className="rx-label">{c.label}</p>
@@ -124,7 +151,13 @@ export default function PrescriptionList({
                     <div className="rx-amount num">+{money(c.freed_cents)}</div>
                     <Pain n={c.pain} />
                   </div>
-                  <CantDo id={c.id} label={c.label} checked={out} onToggle={onToggle} />
+                  <CantDo
+                    id={c.id}
+                    label={c.label}
+                    checked={out}
+                    onToggle={onToggle}
+                    onFocus={onFocusRow}
+                  />
                 </div>
               )
             })}

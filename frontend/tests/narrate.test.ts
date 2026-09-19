@@ -117,6 +117,33 @@ test('three change days are listed with commas and a final and', () => {
   assert.match(narrate(r), /Changes take effect on Sep 20, Sep 22 and Sep 24\./)
 })
 
+test('two changes on one day are not described as one change', () => {
+  // Codex audit finding: the singular was keyed on the number of DATES, so two
+  // changes landing together read "One change takes effect".
+  const r = res({
+    balances: [
+      row({ date: '2026-09-22', changes_here: ['c_dd_chipotle', 'c_gym'] }),
+      row({ date: '2026-09-25', is_payday: true }),
+    ],
+  })
+  const text = narrate(r)
+  assert.doesNotMatch(text, /One change takes effect/)
+  assert.match(text, /Changes take effect on Sep 22\./)
+})
+
+test('exactly one change anywhere in the window is singular', () => {
+  const r = res({ balances: [row({ date: '2026-09-22', changes_here: ['c_gym'] })] })
+  assert.match(narrate(r), /One change takes effect, on Sep 22\./)
+})
+
+test('the clears fixture has two changes on Sep 22 and never says "one change"', () => {
+  const response = solve(SCENARIOS[0].request, [])
+  const sameDay = response.balances.find((b) => b.changes_here.length > 1)
+  assert.ok(sameDay, 'the fixture should land two changes on one day')
+  assert.deepEqual(sameDay.changes_here, ['c_dd_chipotle', 'c_gym'])
+  assert.doesNotMatch(narrate(response), /One change takes effect/)
+})
+
 test('an empty window says there is no payday and nothing takes effect', () => {
   const text = narrate(res())
   assert.match(text, /No payday falls in this window\./)
@@ -139,11 +166,48 @@ test('an empty plan at tier 1 or 2 says no changes are needed', () => {
 })
 
 test('an empty plan at tier 3 never says no changes are needed', () => {
-  const t = emptyPlanText(res({ tier: 3 }))
-  assert.equal(t.heading, 'No changes available')
-  assert.match(t.body, /The gap stays\./)
-  assert.doesNotMatch(t.heading, /needed/)
-  assert.doesNotMatch(t.body, /clears/)
+  // True whatever the reason the plan is empty: nothing on the table, or
+  // nothing that helps.
+  const r = res()
+  for (const considered of [0, 1, 11]) {
+    const t = emptyPlanText({ ...r, tier: 3, meta: { ...r.meta, candidates_considered: considered } })
+    assert.doesNotMatch(t.heading, /needed/)
+    assert.doesNotMatch(t.body, /clears/)
+    assert.ok(t.heading.length > 0 && t.body.length > 0)
+  }
+})
+
+test('an empty plan with changes still on the table does not claim they are gone', () => {
+  // Codex audit: rule out all but Netflix on the $200 account. It is
+  // actionable, it just lands after the day the balance goes under, so the
+  // plan is empty at tier 3 with one candidate considered. Saying everything
+  // was ruled out or too late would be false, and the row is visible.
+  const r = res()
+  const withOne = { ...r, tier: 3 as const, meta: { ...r.meta, candidates_considered: 1 } }
+  const t = emptyPlanText(withOne)
+  assert.equal(t.heading, 'No change helps here')
+  assert.doesNotMatch(t.body, /ruled out|too late/)
+  assert.match(t.body, /fewer days below zero/)
+})
+
+test('an unproven empty plan at tier 3 claims nothing about what would help', () => {
+  const r = res()
+  const unproven = {
+    ...r,
+    tier: 3 as const,
+    meta: { ...r.meta, candidates_considered: 3 },
+    certificate: { irredundant: true, minimal_proven: false, sentence: '', per_item: [] },
+  }
+  const t = emptyPlanText(unproven)
+  assert.match(t.body, /in the time the solver had/)
+  assert.doesNotMatch(t.body, /would leave you fewer/)
+})
+
+test('the all-ruled-out wording survives only when nothing was considered', () => {
+  const r = res()
+  const none = { ...r, tier: 3 as const, meta: { ...r.meta, candidates_considered: 0 } }
+  assert.equal(emptyPlanText(none).heading, 'No changes available')
+  assert.match(emptyPlanText(none).body, /Everything is ruled out or too late to act/)
 })
 
 test('the footer claims a proof only when the solver obtained one', () => {
