@@ -146,3 +146,30 @@ def test_projection_crosses_a_year_boundary():
     days, _ = dates(stream, as_of=datetime.date(2026, 12, 30), days=21)
     assert days and any(d.year == 2027 for d in days)
     assert all(d.weekday() == 1 for d in days)
+
+
+def test_a_sunday_bill_lands_on_the_friday_inside_the_window():
+    # Nominal date 2026-10-04 is a Sunday, taken on Friday 2026-10-02. A
+    # window ending 10-02 must contain it; clipping before the shift drops it.
+    data = H.weekly_income(datetime.date(2026, 9, 27), weeks=20, weekday=6, description="ZZQ7K4 HOLDINGS")
+    data = [H.row(datetime.date.fromisoformat(r["date"]), r["description"], -5000) for r in data]
+    stream = one(data, history_end=datetime.date(2026, 9, 27))
+    days, _ = dates(stream, as_of=datetime.date(2026, 9, 29), days=4)
+    assert datetime.date(2026, 10, 2) in days, days
+
+
+def test_saturday_income_arriving_monday_is_inside_a_window_that_starts_monday():
+    # Nominal 2026-09-19 is a Saturday; the credit lands Monday the 21st. A
+    # window starting the 20th must contain it.
+    data = H.weekly_income(datetime.date(2026, 9, 19), weeks=20, weekday=5)
+    stream = one(data, history_end=datetime.date(2026, 9, 19))
+    days, _ = dates(stream, as_of=datetime.date(2026, 9, 20), days=3)
+    assert datetime.date(2026, 9, 21) in days, days
+
+
+def test_a_biweekly_stream_keeps_both_margins():
+    data = H.biweekly_income(datetime.date(2026, 9, 18), periods=12, weekday=5)
+    stream = one(data, history_end=datetime.date(2026, 9, 18))
+    days, _ = dates(stream, as_of=datetime.date(2026, 9, 20), days=15)
+    assert days, "a Saturday-anchored fortnightly credit must still land"
+    assert all(d.weekday() < 5 for d in days)

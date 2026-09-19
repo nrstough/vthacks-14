@@ -186,12 +186,22 @@ test('the panel says the method, the window and the payday', () => {
   assert.match(model.inflowLine ?? '', /may not come again/)
 })
 
-test('the panel says so when there was not enough history to assume anything', () => {
-  const bare = account({
+test('the panel tells short history apart from no spending found', () => {
+  // Two different facts. Collapsing them tells someone with seven months of
+  // bills and no card spending that they have "not enough history".
+  const short = account({
     scheduled: [txn('t_s_001_01', '2026-10-01', -120000)],
     provenance: { ...account().provenance, assumed_ids: [], assumed_method: null, weeks_used_for_assumed: null },
   })
-  assert.match(panelModel(bare).assumedLine ?? '', /Not enough history/)
+  assert.match(panelModel(short).assumedLine ?? '', /Less than eight weeks of history/)
+
+  const nothingFound = account({
+    scheduled: [txn('t_s_001_01', '2026-10-01', -120000)],
+    provenance: { ...account().provenance, assumed_ids: [] },
+  })
+  const line = panelModel(nothingFound).assumedLine ?? ''
+  assert.match(line, /No everyday spending found/)
+  assert.equal(/not enough history/i.test(line), false)
 })
 
 test('a stale export is flagged only past a week', () => {

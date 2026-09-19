@@ -118,9 +118,11 @@ def import_account(req: ImportRequest, today: datetime.date) -> dict:
     raw_sample_by_txn: dict[str, str] = {}
     used_indexes: set[int] = set()
     withheld_today: list[str] = []
-    income_dates: list[datetime.date] = []
-    pay_cadence: str | None = None
-    best_income = -1
+    # (date, cadence) per projected income row, so the cadence reported with
+    # `next_payday` belongs to the stream that actually pays it. Picking the
+    # busiest income stream instead reports "weekly" beside a date that came
+    # from the fortnightly employer.
+    income_dates: list[tuple[datetime.date, str]] = []
 
     for number, stream in enumerate(streams, start=1):
         stream_id = f"s_{number:03d}"
@@ -150,10 +152,7 @@ def import_account(req: ImportRequest, today: datetime.date) -> dict:
             category_by_txn[txn_id] = stream.category
             raw_sample_by_txn[txn_id] = stream.rows[-1].description
             if stream.kind == "income":
-                income_dates.append(day)
-
-        if stream.kind == "income" and stream.active and stream.occurrences > best_income:
-            best_income, pay_cadence = stream.occurrences, stream.cadence
+                income_dates.append((day, stream.cadence))
 
         stream_models.append(
             {
@@ -179,7 +178,12 @@ def import_account(req: ImportRequest, today: datetime.date) -> dict:
         )
 
     series, imputed = daily_outflow(rows, used_indexes, history_start, history_end)
-    assumed = assumed_rows(series, history_end, as_of, horizon_end) if history_days >= CONTEXT_DAYS else []
+    # Two different facts, kept apart: whether there was enough history to
+    # apply the method at all, and whether applying it found any spending.
+    # Collapsing them tells someone with eleven bills and no card spending
+    # that they have "not enough history" when they have seven months of it.
+    enough_history = history_days >= CONTEXT_DAYS
+    assumed = assumed_rows(series, history_end, as_of, horizon_end) if enough_history else []
 
     # Assumed rows are the ones that give way when the window is full: they are
     # an estimate, and a detected charge is a fact about the person's account.
@@ -239,7 +243,8 @@ def import_account(req: ImportRequest, today: datetime.date) -> dict:
         if item["label"] in repeats:
             item["label"] = f"{item['label']} on {item['effective_date'][5:]}"
 
-    next_payday = min((d for d in income_dates if d >= as_of), default=None)
+    upcoming = sorted(d for d in income_dates if d[0] >= as_of)
+    next_payday, pay_cadence = upcoming[0] if upcoming else (None, None)
     stale_days = max(0, (as_of - history_end).days)
 
     return {
@@ -258,8 +263,8 @@ def import_account(req: ImportRequest, today: datetime.date) -> dict:
             "history_days": history_days,
             "imputed_zero_days": imputed,
             "rows_used": len(rows),
-            "weeks_used_for_assumed": WEEKS if assumed else None,
-            "assumed_method": "same_weekday_8_week_median" if assumed else None,
+            "weeks_used_for_assumed": WEEKS if enough_history else None,
+            "assumed_method": "same_weekday_8_week_median" if enough_history else None,
             "assumed_ids": assumed_ids,
             "next_payday": next_payday.isoformat() if next_payday else None,
             "pay_cadence": pay_cadence,

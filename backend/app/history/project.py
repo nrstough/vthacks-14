@@ -34,14 +34,27 @@ def _snap_to_weekday(d: datetime.date, weekday: int) -> datetime.date:
     return d + datetime.timedelta(days=delta if delta <= 3 else delta - 7)
 
 
+# A weekend shift moves a date by at most three days, so candidates from
+# this far outside the window can still land inside it.
+MARGIN = datetime.timedelta(days=4)
+
+
 def _weekly_dates(stream: Stream, as_of: datetime.date, horizon_end: datetime.date) -> list[datetime.date]:
+    """Candidates from a few days either side of the window.
+
+    Clipping to the window BEFORE the weekend shift loses real occurrences at
+    both ends: a Sunday-anchored bill dated the 4th is taken on Friday the
+    2nd and belongs in a window ending the 2nd, and Saturday income dated the
+    19th arrives Monday the 21st and belongs in a window starting the 20th.
+    Generate wide, shift, then clip — `project` does the clipping.
+    """
     interval = 7 if stream.cadence == "weekly" else 14
     assert stream.anchor_weekday is not None
     cursor = _snap_to_weekday(stream.last_seen, stream.anchor_weekday)
-    while cursor < as_of:
+    while cursor < as_of - MARGIN:
         cursor += datetime.timedelta(days=interval)
     out: list[datetime.date] = []
-    while cursor <= horizon_end:
+    while cursor <= horizon_end + MARGIN:
         out.append(cursor)
         cursor += datetime.timedelta(days=interval)
     return out

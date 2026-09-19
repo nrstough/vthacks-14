@@ -42,12 +42,18 @@ def daily_outflow(
     while day <= history_end:
         series[day] = 0
         day += datetime.timedelta(days=1)
+    active: set[datetime.date] = set()
     for row in rows:
+        if row.date in series:
+            active.add(row.date)
         if row.index in used_indexes or row.amount_cents >= 0:
             continue
         if row.date in series:
             series[row.date] += -row.amount_cents
-    imputed = sum(1 for value in series.values() if value == 0)
+    # Days with NO transaction at all, not days whose only transaction was a
+    # bill. Counting the latter tells someone with eleven monthly bills that
+    # they spent nothing on all 71 days of their history.
+    imputed = sum(1 for day in series if day not in active)
     return series, imputed
 
 

@@ -172,3 +172,25 @@ test('a real-shaped export parses end to end', () => {
   assert.equal(out.error, null)
   assert.deepEqual(out.rows.slice(0, 3).map((r) => r.amount_cents), [124055, -120000, -3180])
 })
+
+test('a blank status in a file that has a status column is not posted', () => {
+  // Planning around money that may never leave is the wrong direction to
+  // guess in, so a blank cell is excluded and counted rather than assumed.
+  const out = parseBankCsv(
+    padded('"01/02/2026","KROGER","-25.00","",""', '"01/03/2026","KROGER","-30.00","","Posted"'),
+  )
+  assert.equal(out.notPosted, 1)
+  assert.equal(out.rows.some((r) => r.amount_cents === -2500), false)
+  assert.equal(out.rows.some((r) => r.amount_cents === -3000), true)
+})
+
+test('a file with no status column keeps every row', () => {
+  const filler = Array.from(
+    { length: MIN_ROWS },
+    (_u, i) => `01/${String(10 + i).padStart(2, '0')}/2026,FILLER CO,-1.00`,
+  ).join('\n')
+  const out = parseBankCsv(`date,description,amount\n01/02/2026,KROGER,-25.00\n${filler}`)
+  assert.equal(out.error, null)
+  assert.equal(out.notPosted, 0)
+  assert.equal(out.rows.length, MIN_ROWS + 1)
+})

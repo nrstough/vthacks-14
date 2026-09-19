@@ -38,7 +38,10 @@ numbers from it appear in this document.
   semi-monthly, monthly, with jitter), a dominant weekday or day-of-month, and
   amount variability within a per-kind bound (income tolerates hours-based
   variation, bills do not). A stream is *lapsed*, and not projected, when its
-  last occurrence is more than two intervals before the last exported day.
+  last occurrence is more than **two** intervals before the last exported day
+  for a bill and more than **three** for income. Income gets the longer rope
+  deliberately: a student who does not work over an exam week has not lost
+  their job, and dropping their pay is the expensive error.
 - **D4. Projection.** Each active stream is projected across
   `[as_of, horizon_end]` at its cadence, on its dominant weekday, never on a
   weekend, at the trimmed mean of its last eight amounts. `next_payday` is the
@@ -183,9 +186,9 @@ execution: `docs/demo-script.md` (a beat only if the local run is clean).
 
 ## Results
 
-**Gates.** Backend `.venv/bin/pytest backend/ -q`: **2265 passed, 10
+**Gates.** Backend `.venv/bin/pytest backend/ -q`: **2271 passed, 10
 deselected** (2150 before this change). Frontend `npm run lint && npm run
-build && npm test`: lint clean, build clean, **295 passed** (253 before).
+build && npm test`: lint clean, build clean, **297 passed** (253 before).
 Existing canaries unmoved; the generator golden hash unmoved.
 
 **Browser pass** (frontend 5176 proxying to backend 8002, the configurable

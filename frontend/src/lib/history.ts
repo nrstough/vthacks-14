@@ -151,8 +151,10 @@ export function panelModel(account: ImportAccountResponse): PanelModel {
     streams: account.streams,
     assumedLine:
       p.assumed_method === null
-        ? 'Not enough history to assume everyday spending, so the plan covers the bills only.'
-        : `Everyday spending: about ${money(perDay)} a day, the median of the same weekday over your last ${p.weeks_used_for_assumed} weeks. An assumption, not a charge.`,
+        ? 'Less than eight weeks of history, so everyday spending was not estimated and the plan covers the recurring charges only.'
+        : assumedDaily.length === 0
+          ? 'No everyday spending found outside the recurring charges in your last eight weeks, so the plan covers those only.'
+          : `Everyday spending: about ${money(perDay)} a day, the median of the same weekday over your last ${p.weeks_used_for_assumed} weeks. An assumption, not a charge.`,
     historyLine: `${p.rows_used} transactions, ${shortDate(p.history_start)} to ${shortDate(p.history_end)}${
       p.imputed_zero_days > 0 ? `, ${p.imputed_zero_days} days with nothing spent` : ''
     }.`,

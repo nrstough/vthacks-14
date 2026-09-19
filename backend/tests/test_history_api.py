@@ -419,3 +419,54 @@ def test_two_subscriptions_at_one_merchant_do_not_suppress_each_other(client):
     still_due = [d for i, d in dated.items() if i in streams[-2299]["projected_ids"] and d == today.isoformat()]
     assert posted_today == []
     assert still_due == [today.isoformat()]
+
+
+def test_the_cadence_belongs_to_the_stream_that_pays_next(client):
+    # Two employers: the busiest is weekly, but the next payday belongs to
+    # the fortnightly one. Reporting the busiest stream's cadence beside that
+    # date tells the person the wrong thing about their own pay.
+    end = datetime.date(2026, 9, 18)
+    rows = H.weekly_income(end - datetime.timedelta(days=40), weeks=30, weekday=0, description="ACME WIDGETS LLC")
+    rows += H.biweekly_income(end, periods=12, weekday=4, description="PIEDMONT LABS INC")
+    rows += H.everyday_spending(end - datetime.timedelta(days=90), end)
+    out = imported(client, rows=rows, as_of="2026-09-21")
+    p = out["provenance"]
+    owner = [
+        s
+        for s in out["streams"]
+        if s["kind"] == "income"
+        and p["next_payday"] in [t["date"] for t in out["scheduled"] if t["id"] in s["projected_ids"]]
+    ]
+    assert len(owner) == 1, [s["label"] for s in owner]
+    assert p["pay_cadence"] == owner[0]["cadence"]
+    # And the two employers really do differ, or this proves nothing.
+    assert len({s["cadence"] for s in out["streams"] if s["kind"] == "income"}) == 2
+
+
+def test_a_history_of_only_bills_is_not_called_too_short(client):
+    # Seven months of recurring bills and no card spending: the method DID
+    # apply, it just found nothing. Saying "not enough history" would be
+    # false, and saying every day was quiet would be too.
+    rows = H.monthly_bill(datetime.date(2026, 2, 1), 8, 1, -120000, "OAKWOOD PROPERTIES")
+    rows += H.monthly_bill(datetime.date(2026, 2, 15), 8, 15, -1599, "NETFLIX.COM", weekend_shift=False)
+    rows += H.monthly_bill(datetime.date(2026, 2, 8), 8, 8, -3499, "PLANET FIT CLUB FEES", weekend_shift=False)
+    out = imported(client, rows=rows, as_of="2026-09-21")
+    p = out["provenance"]
+    assert p["history_days"] > 56
+    assert p["assumed_method"] == "same_weekday_8_week_median", "the method applied; it found nothing"
+    assert p["assumed_ids"] == []
+    assert p["imputed_zero_days"] < p["history_days"], "days with a bill are not days with nothing"
+
+
+def test_quiet_days_are_days_with_no_transaction_at_all(client):
+    end = datetime.date(2026, 9, 18)
+    rows = H.monthly_bill(datetime.date(2026, 3, 1), 7, 1, -120000, "OAKWOOD PROPERTIES", weekend_shift=False)
+    rows += [H.row(end - datetime.timedelta(days=i), f"KROGER #{i}", -2500) for i in range(0, 60, 2)]
+    out = imported(client, rows=rows, as_of="2026-09-19")
+    p = out["provenance"]
+    # A quiet day is one with NO transaction, so the count is the history's
+    # length minus the number of distinct dates the export touches — rent
+    # days included, even though rent is removed from the residual.
+    touched = {r["date"] for r in rows}
+    assert p["imputed_zero_days"] == p["history_days"] - len(touched)
+    assert p["imputed_zero_days"] < p["history_days"]

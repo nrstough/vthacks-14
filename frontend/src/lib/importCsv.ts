@@ -173,8 +173,11 @@ export function parseBankCsv(text: string): ParseResult {
   lines.forEach((cells, i) => {
     const line = i + 2
     if (at.status !== undefined) {
+      // A blank cell in a file that HAS a status column is not a posted
+      // transaction. Treating it as one plans around money that may never
+      // leave, which is the wrong direction to guess in.
       const status = (cells[at.status] ?? '').trim().toLowerCase()
-      if (status !== '' && status !== 'posted') {
+      if (status !== 'posted') {
         notPosted += 1
         return
       }

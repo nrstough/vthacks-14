@@ -439,8 +439,10 @@ them as transactions that exist.
 through `as_of`. An income occurrence due on `as_of` is therefore *not*
 projected — if it posted it is already in the balance, and if it has not,
 counting it is optimistic — and its stream id appears in
-`income_not_counted_today`. A bill due on `as_of` is projected unless the
-export already carries that payee on that day.
+`income_not_counted_today`. A bill due on `as_of` is projected unless
+that STREAM already has a row on that day — by stream, not by payee, because
+two subscriptions at one merchant share a payee and only one of them may
+have been taken.
 
 `stale_days` is the raw gap between the last exported day and `as_of`, always
 present and often zero. It is a NUMBER, not a flag: do not read non-zero as
