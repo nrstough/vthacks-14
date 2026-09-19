@@ -202,6 +202,8 @@ export function panelModel(
     todayLine:
       p.income_not_counted_today.length > 0
         ? 'Pay expected today is not counted until it posts; type your balance again once it does.'
-        : null,
+        : p.income_already_posted.length > 0
+          ? 'A payday inside this window already posted, so it is in the balance you typed rather than in the plan.'
+          : null,
   }
 }

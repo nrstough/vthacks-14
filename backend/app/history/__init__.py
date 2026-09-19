@@ -118,6 +118,7 @@ def import_account(req: ImportRequest, today: datetime.date) -> dict:
     raw_sample_by_txn: dict[str, str] = {}
     used_indexes: set[int] = set()
     withheld_today: list[str] = []
+    already_posted: list[str] = []
     # (date, cadence) per projected income row, so the cadence reported with
     # `next_payday` belongs to the stream that actually pays it. Picking the
     # busiest income stream instead reports "weekly" beside a date that came
@@ -131,9 +132,11 @@ def import_account(req: ImportRequest, today: datetime.date) -> dict:
         # would spread it across the horizon as invented discretionary charges.
         used_indexes.update(r.index for r in stream.rows)
 
-        projected, withheld = project(stream, as_of, horizon_end)
-        if withheld:
+        projected, expected_today, posted_early = project(stream, as_of, horizon_end)
+        if expected_today:
             withheld_today.append(stream_id)
+        if posted_early:
+            already_posted.append(stream_id)
 
         projected_ids: list[str] = []
         for seq, (_unused, day, amount) in enumerate(projected, start=1):
@@ -269,6 +272,7 @@ def import_account(req: ImportRequest, today: datetime.date) -> dict:
             "next_payday": next_payday.isoformat() if next_payday else None,
             "pay_cadence": pay_cadence,
             "income_not_counted_today": withheld_today,
+            "income_already_posted": already_posted,
             "stale_days": stale_days,
             "unscheduled_inflow_count": len(unscheduled),
             "unscheduled_inflow_cents": sum(r.amount_cents for r in unscheduled),

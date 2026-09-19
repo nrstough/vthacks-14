@@ -411,7 +411,8 @@ The browser parses the CSV; this endpoint takes rows, not a file.
     "assumed_method": "same_weekday_8_week_median",  // null if under 56 days
     "assumed_ids": ["f_20260922"],
     "next_payday": "2026-09-22", "pay_cadence": "weekly",
-    "income_not_counted_today": ["s_001"],
+    "income_not_counted_today": ["s_001"],   // due today, not yet posted
+    "income_already_posted": ["s_002"],      // its period is already in the balance
     "stale_days": 3,
     "unscheduled_inflow_count": 165, "unscheduled_inflow_cents": 220000,
     "truncated_assumed_rows": 0,
@@ -439,10 +440,13 @@ them as transactions that exist.
 through `as_of`. An income occurrence due on `as_of` is therefore *not*
 projected — if it posted it is already in the balance, and if it has not,
 counting it is optimistic — and its stream id appears in
-`income_not_counted_today`. A bill due on `as_of` is projected unless
-that STREAM already has a row on that day — by stream, not by payee, because
-two subscriptions at one merchant share a payee and only one of them may
-have been taken.
+`income_not_counted_today`. More generally, an occurrence is skipped when the
+export already contains a row for the PERIOD it represents — the span from
+that stream's previous occurrence to this one, both weekend-shifted so they
+compare against posted dates. That is what stops a paycheck which arrived a
+day early from being counted twice. It is per stream, never per payee: two
+subscriptions at one merchant share a payee and only one may have been
+taken.
 
 `stale_days` is the raw gap between the last exported day and `as_of`, always
 present and often zero. It is a NUMBER, not a flag: do not read non-zero as

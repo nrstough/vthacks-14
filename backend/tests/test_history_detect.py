@@ -316,7 +316,7 @@ def test_a_lapsed_bill_inside_the_baseline_window_leaves_the_residual():
     assert bill.cadence == "weekly"
     assert not bill.active, f"last seen {bill.last_seen}, {(END - bill.last_seen).days} days before the end"
 
-    projected, _ = project(bill, END + datetime.timedelta(days=1), END + datetime.timedelta(days=14))
+    projected, _e, _p = project(bill, END + datetime.timedelta(days=1), END + datetime.timedelta(days=14))
     assert projected == [], "a lapsed stream projects nothing"
 
     used = {r.index for s in streams for r in s.rows}

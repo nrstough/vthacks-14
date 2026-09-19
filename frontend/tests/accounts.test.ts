@@ -344,6 +344,7 @@ function importedAccount(over: Partial<ImportAccountResponse> = {}): ImportAccou
       next_payday: '2026-09-22',
       pay_cadence: 'weekly',
       income_not_counted_today: [],
+      income_already_posted: [],
       stale_days: 3,
       unscheduled_inflow_count: 165,
       unscheduled_inflow_cents: 220000,

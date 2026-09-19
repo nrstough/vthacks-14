@@ -28,8 +28,16 @@ def one(dicts, history_end=END):
 
 
 def dates(stream, as_of=AS_OF, days=30):
-    projected, withheld = project(stream, as_of, as_of + datetime.timedelta(days=days - 1))
-    return [d for _id, d, _amount in projected], withheld
+    """(dates, expected-today) — the third flag has its own helper below."""
+    projected, expected_today, _posted = project(stream, as_of, as_of + datetime.timedelta(days=days - 1))
+    return [d for _id, d, _amount in projected], expected_today
+
+
+def project_all(stream, as_of=AS_OF, days=30):
+    projected, expected_today, posted_early = project(
+        stream, as_of, as_of + datetime.timedelta(days=days - 1)
+    )
+    return [d for _id, d, _amount in projected], expected_today, posted_early
 
 
 def test_a_weekly_stream_lands_on_its_anchor_weekday_inside_the_window():
@@ -126,7 +134,7 @@ def test_two_subscriptions_at_one_merchant_are_suppressed_independently():
     streams, _ = detect_streams(rows(data), monday)
     assert len(streams) == 2, [s.amount_cents for s in streams]
     for stream in streams:
-        projected, _ = project(stream, monday, monday + datetime.timedelta(days=13))
+        projected, _e, _p = project(stream, monday, monday + datetime.timedelta(days=13))
         posted_today = any(r.date == monday for r in stream.rows)
         landed = [d for _i, d, _a in projected]
         assert (monday in landed) is not posted_today, stream.amount_cents
@@ -148,12 +156,14 @@ def test_projection_crosses_a_year_boundary():
     assert all(d.weekday() == 1 for d in days)
 
 
-def test_a_sunday_bill_lands_on_the_friday_inside_the_window():
-    # Nominal date 2026-10-04 is a Sunday, taken on Friday 2026-10-02. A
-    # window ending 10-02 must contain it; clipping before the shift drops it.
-    data = H.weekly_income(datetime.date(2026, 9, 27), weeks=20, weekday=6, description="ZZQ7K4 HOLDINGS")
-    data = [H.row(datetime.date.fromisoformat(r["date"]), r["description"], -5000) for r in data]
-    stream = one(data, history_end=datetime.date(2026, 9, 27))
+def test_a_bill_whose_next_date_shifts_back_into_the_window_is_kept():
+    # The margin at the FAR end: a monthly bill anchored to the 4th, where
+    # 2026-10-04 is a Sunday, is taken on Friday the 2nd and belongs in a
+    # window ending the 2nd. Its history is posted on business days, as a
+    # bank's is — a weekly fixture with Sunday-posted rows cannot occur and
+    # would only be testing itself.
+    data = H.monthly_bill(datetime.date(2026, 1, 4), 9, 4, -5000, "ZZQ7K4 HOLDINGS")
+    stream = one(data, history_end=datetime.date(2026, 9, 4))
     days, _ = dates(stream, as_of=datetime.date(2026, 9, 29), days=4)
     assert datetime.date(2026, 10, 2) in days, days
 
@@ -175,9 +185,10 @@ def test_a_paycheck_that_posted_early_is_not_counted_again():
     data = H.weekly_income(datetime.date(2026, 9, 4), weeks=10, weekday=4)
     data.append(H.row(datetime.date(2026, 9, 10), "ACME WIDGETS LLC", 50000))
     stream = one(data, history_end=datetime.date(2026, 9, 10))
-    days, withheld = dates(stream, as_of=datetime.date(2026, 9, 10), days=5)
+    days, expected_today, posted_early = project_all(stream, as_of=datetime.date(2026, 9, 10), days=5)
     assert datetime.date(2026, 9, 11) not in days, days
-    assert withheld, "the person is looking for that payday; the panel must say why it is absent"
+    # Already posted, which is a different sentence from "expected today".
+    assert posted_early and not expected_today
     # The following week is untouched.
     later, _ = dates(stream, as_of=datetime.date(2026, 9, 10), days=12)
     assert datetime.date(2026, 9, 18) in later, later

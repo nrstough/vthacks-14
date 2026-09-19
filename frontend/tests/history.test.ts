@@ -82,6 +82,7 @@ function account(over: Partial<ImportAccountResponse> = {}): ImportAccountRespon
       next_payday: '2026-09-22',
       pay_cadence: 'weekly',
       income_not_counted_today: [],
+      income_already_posted: [],
       stale_days: 3,
       unscheduled_inflow_count: 4,
       unscheduled_inflow_cents: 22000,
@@ -273,4 +274,22 @@ test('unticking the income that pays next changes what the panel promises', () =
   const off = panelModel(a, new Set(['s_003'])).paydayLine ?? ''
   assert.match(off, /unticked and is not in the plan/)
   assert.equal(/Next pay expected/.test(off), false)
+})
+
+
+test('pay that already posted reads differently from pay still expected', () => {
+  // One has not arrived; the other is already in the balance the person
+  // typed. Saying "not counted until it posts" about money that HAS posted
+  // sends them looking for a deposit that is already there.
+  const expected = account({
+    provenance: { ...account().provenance, income_not_counted_today: ['s_003'] },
+  })
+  assert.match(panelModel(expected).todayLine ?? '', /not counted until it posts/)
+
+  const posted = account({
+    provenance: { ...account().provenance, income_already_posted: ['s_003'] },
+  })
+  const line = panelModel(posted).todayLine ?? ''
+  assert.match(line, /already posted/)
+  assert.equal(/not counted until it posts/.test(line), false)
 })

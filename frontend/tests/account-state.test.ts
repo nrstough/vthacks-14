@@ -209,6 +209,7 @@ function importAccount(assumed = ['f_1']): LoadedAccount {
       next_payday: '2026-09-22',
       pay_cadence: 'weekly',
       income_not_counted_today: [],
+      income_already_posted: [],
       stale_days: 0,
       unscheduled_inflow_count: 0,
       unscheduled_inflow_cents: 0,

@@ -145,7 +145,20 @@ def test_income_expected_today_is_not_counted_twice(client):
     rows = H.weekly_income(datetime.date.fromisoformat(tuesday), weeks=20, weekday=1)
     rows += H.everyday_spending(datetime.date.fromisoformat(tuesday) - datetime.timedelta(days=60), datetime.date.fromisoformat(tuesday))
     out = imported(client, rows=rows, as_of=tuesday)
-    assert out["provenance"]["income_not_counted_today"], "an occurrence due today must be withheld and named"
+    # The export carries that Tuesday's pay, so it is already in the balance
+    # the person typed: already posted, not merely expected.
+    assert out["provenance"]["income_already_posted"], "the withheld payday must be named"
+    assert all(t["date"] != tuesday or t["kind"] != "income" for t in out["scheduled"])
+
+
+def test_income_due_today_but_not_yet_posted_is_named_separately(client):
+    # Pay is anchored to Tuesday and the export ends the Friday before, so
+    # today's pay has NOT arrived. Counting it would be optimistic.
+    tuesday = "2026-09-22"
+    rows = H.weekly_income(datetime.date(2026, 9, 15), weeks=20, weekday=1)
+    rows += H.everyday_spending(datetime.date(2026, 7, 1), datetime.date(2026, 9, 18))
+    out = imported(client, rows=rows, as_of=tuesday)
+    assert out["provenance"]["income_not_counted_today"], "today's unposted pay must be named"
     assert all(t["date"] != tuesday or t["kind"] != "income" for t in out["scheduled"])
 
 
@@ -603,5 +616,33 @@ def test_an_early_paycheck_is_not_counted_twice_through_the_endpoint(client):
     out = imported(client, rows=rows, as_of="2026-09-10", horizon_days=14)
     income_dates = [t["date"] for t in out["scheduled"] if t["kind"] == "income"]
     assert "2026-09-11" not in income_dates, income_dates
-    assert out["provenance"]["income_not_counted_today"], "the panel must be able to explain the gap"
+    assert out["provenance"]["income_already_posted"], "the panel must be able to explain the gap"
+    assert out["provenance"]["income_not_counted_today"] == [], "it posted; it is not merely expected"
     assert "2026-09-18" in income_dates, income_dates
+
+
+def test_a_short_month_does_not_swallow_the_next_months_rent(client):
+    # February to March is 28 days. A fixed 30-day "monthly" period reaches
+    # back over February's payment and deletes March's rent from the plan —
+    # and a missing bill makes an account look SAFE, which is the one
+    # direction this product must never fail in.
+    rows = H.monthly_bill(datetime.date(2025, 5, 28), 10, 28, -100000, "OAKWOOD PROPERTIES")
+    rows += H.everyday_spending(datetime.date(2025, 12, 1), datetime.date(2026, 2, 28))
+    out = imported(client, rows=rows, as_of="2026-03-02", horizon_days=30)
+    rent = next(s for s in out["streams"] if s["amount_cents"] == -100000)
+    dates = sorted(t["date"] for t in out["scheduled"] if t["id"] in set(rent["projected_ids"]))
+    assert dates == ["2026-03-27"], dates
+
+
+def test_a_short_month_does_not_swallow_semimonthly_income(client):
+    months = [(2025, 8), (2025, 9), (2025, 10), (2025, 11), (2025, 12), (2026, 1), (2026, 2)]
+    rows = _semimonthly_rows(months, amount=50000)
+    rows += H.everyday_spending(datetime.date(2025, 12, 1), datetime.date(2026, 2, 28))
+    out = imported(client, rows=rows, as_of="2026-03-01", horizon_days=31)
+    income = [s for s in out["streams"] if s["kind"] == "income"]
+    assert len(income) == 1, [s["label"] for s in out["streams"]]
+    dates = sorted(t["date"] for t in out["scheduled"] if t["id"] in set(income[0]["projected_ids"]))
+    # February's month-end pay is a Saturday and arrives Monday 03-02; the
+    # 15th is a Sunday and arrives Monday 03-16; March's month end is a
+    # Tuesday.
+    assert dates == ["2026-03-02", "2026-03-16", "2026-03-31"], dates

@@ -90,58 +90,74 @@ def project(
     stream: Stream,
     as_of: datetime.date,
     horizon_end: datetime.date,
-) -> tuple[list[tuple[str, datetime.date, int]], bool]:
-    """Returns (rows as (id, date, amount), whether an occurrence today was withheld).
+) -> tuple[list[tuple[str, datetime.date, int]], bool, bool]:
+    """Returns (rows, income expected today but not yet posted, income already
+    posted for a period inside the window).
 
-    Whether a bill due today was already taken is answered from THIS stream's
-    own rows, not from the payee. Two subscriptions at one merchant share a
-    payee key, so a key-based test silently suppresses the $22.99 one because
-    the $15.99 one posted this morning.
+    Both flags are about income the person will look for and not find, and
+    they need different sentences: one has not arrived, the other is already
+    in the balance they typed.
+
+    Whether a charge was already taken is answered from THIS stream's own
+    rows, not from the payee. Two subscriptions at one merchant share a
+    payee key, so a key-based test silently suppresses the $22.99 one
+    because the $15.99 one posted this morning.
     """
     if not stream.active:
-        return [], False
+        return [], False, False
 
     if stream.cadence in ("weekly", "biweekly"):
         raw = _weekly_dates(stream, as_of, horizon_end)
     else:
         raw = _monthly_dates(stream, as_of, horizon_end)
 
-    interval = datetime.timedelta(days=stream.interval_days)
     history = [row.date for row in stream.rows]
+    ordered = sorted(raw)
 
-    def already_paid(occurrence: datetime.date) -> bool:
+    def settled(index: int) -> bool:
         """Is the period this occurrence represents already in the export?
 
-        A paycheck that posts EARLY — Thursday when the anchor is Friday —
-        is in the balance the person typed, and projecting the Friday counts
-        it twice. The test is the period, not the day: an actual row strictly
-        inside (occurrence - interval, occurrence] settles that period.
+        The period runs from the PREVIOUS occurrence of this same series to
+        this one, exclusive of the first. Using a fixed number of days
+        instead is wrong for every cadence whose periods vary: February to
+        March is 28 days, a "monthly" 30-day window then reaches back over
+        the February payment, and March's rent silently disappears from the
+        plan. A missing bill makes an account look safe, which is the one
+        direction this product must never fail in.
 
-        Measured against the NOMINAL date, never the weekend-shifted one.
-        Shifting first moves the period boundary onto the previous payment
-        and suppresses a payday that is genuinely still to come.
+        Both boundaries are SHIFTED, because the rows they are compared
+        against are posted dates and a posted date is a shifted one. Mixing
+        the two misattributes a payment to its neighbour's period: a 15th
+        paid on Monday the 16th falls inside a nominal (15th, 28th] window
+        and deletes the month-end payment that is still to come.
         """
-        return any(occurrence - interval < when <= occurrence for when in history)
-
+        occurrence = _shift_for_kind(ordered[index], stream.kind)
+        previous = (
+            _shift_for_kind(ordered[index - 1], stream.kind)
+            if index > 0
+            else occurrence - datetime.timedelta(days=stream.interval_days)
+        )
+        return any(previous < when <= occurrence for when in history)
 
     seen: set[datetime.date] = set()
-    withheld = False
+    expected_today = False
+    posted_early = False
     out: list[tuple[str, datetime.date, int]] = []
-    for d in sorted(raw):
+    for index, d in enumerate(ordered):
         shifted = _shift_for_kind(d, stream.kind)
         if shifted < as_of or shifted > horizon_end or shifted in seen:
             continue
-        if already_paid(d):
-            # Already in the balance. For income say so, because the person
-            # is looking for a payday that will not appear in the plan.
+        if settled(index):
+            # Already in the balance the person typed. Two different facts
+            # for income, and the screen says different things about them.
             if stream.kind == "income":
-                withheld = True
+                posted_early = True
             continue
         if shifted == as_of and stream.kind == "income":
             # Not yet posted, and counting it is a guess in the optimistic
             # direction; the balance the person typed is the truth.
-            withheld = True
+            expected_today = True
             continue
         seen.add(shifted)
         out.append(("", shifted, stream.amount_cents))
-    return out, withheld
+    return out, expected_today, posted_early

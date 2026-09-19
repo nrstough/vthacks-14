@@ -587,6 +587,10 @@ class ImportProvenance(Strict):
     next_payday: StrictStr | None
     pay_cadence: Cadence | None
     income_not_counted_today: list[Id]
+    # Income whose period is already settled by a row in the export — pay
+    # that arrived early. A different fact from the one above, and the
+    # screen says something different about it.
+    income_already_posted: list[Id]
     stale_days: Annotated[StrictInt, Field(ge=0)]
     unscheduled_inflow_count: Annotated[StrictInt, Field(ge=0)]
     unscheduled_inflow_cents: NonNegDerivedCents

@@ -217,6 +217,7 @@ export interface ImportProvenance {
   next_payday: string | null
   pay_cadence: Cadence | null
   income_not_counted_today: string[]
+  income_already_posted: string[]
   stale_days: number
   unscheduled_inflow_count: number
   unscheduled_inflow_cents: number
