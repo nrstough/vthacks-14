@@ -56,6 +56,11 @@ not already set in the environment. Optional: `GEMINI_MODEL` (default
 `gemini-3.8-flash`), `GEMINI_FALLBACK_MODELS` (default
 `gemini-3.5-flash,gemini-2.5-flash`), `GEMINI_TIMEOUT_S` (default 25).
 
+On the box there is no repository and no `.env`. The key lives in a root-owned
+`0600` `/etc/overdraft-guard.env`, loaded by `EnvironmentFile=` in
+`deploy/overdraft-guard.service`, deliberately outside the repository and
+outside the deploy's file list.
+
 ## Rate limit
 
 This is the only endpoint that costs anything upstream, so it is the only one

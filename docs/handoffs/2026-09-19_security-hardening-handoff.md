@@ -1,5 +1,11 @@
 # Handoff — security hardening before judging (2026-09-19)
 
+> **Closed 2026-09-19.** Both scope items shipped on
+> `claude/security-readiness-krrpk9` (`83231f1`, `12fb82b`, `fcd5d2a`). The run
+> record is `docs/specs/2026-09-19_chat-rate-limit-and-docs-gate.md`. The table
+> below is the survey of `2653df3` as it stood then, kept as written; the two
+> rows it calls open are done.
+
 **Purpose of this chat:** Run `/plan review` locally on the two-item security scope below,
 then execute it on branch `claude/security-readiness-krrpk9`. The branch exists on
 `origin`, is at `2653df3` (the wallet tab, the tip of `origin/main` when the cloud session
@@ -20,8 +26,8 @@ happens in flight or on the box. Of those, two of three are done:
 | Hostile input to the solver | done | every list bounded, money is a strict bounded int (`backend/app/schemas.py`) |
 | Key handling | done | env or gitignored `.env`; on the box a root-owned 0600 file outside the rsync list (`deploy/overdraft-guard.service`, `deploy.sh`); history scan found no key or bank export |
 | Process exposure | done | uvicorn bound to loopback, `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome` |
-| **Open endpoint burning the Gemini key** | **open** | `POST /api/chat` in `backend/app/main.py` has no rate limit |
-| OpenAPI docs public | open, minor | `docs_url="/api/docs"` at `backend/app/main.py:36` |
+| **Open endpoint burning the Gemini key** | **done, 2026-09-19** | `POST /api/chat` in `backend/app/main.py` has no rate limit |
+| OpenAPI docs public | done, 2026-09-19 | `docs_url="/api/docs"` at `backend/app/main.py:36` |
 
 Anything past this (auth, encryption at rest, per-user keys, audit) arrives with the first
 row saved on the server, which is the Plaid line in `docs/prize-strategy.md` §"Security

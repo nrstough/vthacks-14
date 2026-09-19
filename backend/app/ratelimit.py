@@ -62,11 +62,16 @@ class RateLimiter:
         clock: Callable[[], float] = time.monotonic,
         lock=None,
     ) -> None:
-        if per_minute < 1 or burst < 1:
-            # Not a way to switch the limit off — that is `disabled()`, which
-            # says so at the call site. Zero here would divide by zero on the
-            # first refusal and 500 the endpoint.
-            raise ValueError("per_minute and burst must both be at least 1; use RateLimiter.disabled()")
+        if per_minute < 1 or burst < 1 or max_keys < 1:
+            # None of these is a way to switch the limit off — that is
+            # `disabled()`, which says so at the call site. Zero per_minute
+            # divides by zero on the first refusal; zero max_keys evicts every
+            # bucket as fast as it is made, silently admitting everything;
+            # a negative max_keys raises out of popitem. All three are a 500
+            # or a hole rather than a limit.
+            raise ValueError(
+                "per_minute, burst and max_keys must each be at least 1; use RateLimiter.disabled()"
+            )
         self._rate = per_minute / 60.0
         self._burst = float(burst)
         self._max_keys = max_keys
@@ -103,17 +108,23 @@ class RateLimiter:
             else:
                 self._buckets.move_to_end(key)
                 elapsed = now - bucket.at
-                # A clock that has not advanced adds nothing, and one that has
-                # gone backwards — an NTP step — must not hand out free
-                # requests. `time.monotonic` should make this impossible; the
-                # guard costs one comparison.
+
+                # `at` is a high-water mark: it never moves backwards. A clock
+                # that has not advanced adds nothing, and one that has gone
+                # backwards adds nothing and is not recorded.
+                #
+                # The guarantee runs one way, deliberately. Resyncing `at` to
+                # an earlier reading would let a clock that steps back and
+                # then forward again mint a full burst per round trip while
+                # no time passed at all — a limiter that can be wound. The
+                # cost is the other direction: after a backwards step the
+                # bucket does not refill until the clock passes its previous
+                # reading. `time.monotonic` never goes backwards, so that
+                # cannot happen here, and where the two cannot both hold, a
+                # guard on spending someone's API key fails closed.
                 if elapsed > 0:
                     bucket.tokens = min(self._burst, bucket.tokens + elapsed * self._rate)
-                # Resynced even when the clock went backwards. Granting nothing
-                # is half of it; leaving `at` in the future would strand the
-                # bucket until real time caught up, which is the lockout the
-                # same guard is meant to prevent.
-                bucket.at = now
+                    bucket.at = now
 
             if bucket.tokens >= 1.0:
                 bucket.tokens -= 1.0
@@ -139,7 +150,11 @@ class RateLimiter:
         grounds that they carry no information. That branch was unreachable —
         a bucket with a token to spend always spends it, so a stored bucket is
         never at capacity — and dead code that looks like a policy is worse
-        than no policy.
+        than no policy. That reachability argument depends on `burst >= 1`,
+        which the constructor now enforces: at a fractional burst below one a
+        refused bucket would sit exactly at capacity and the branch would have
+        been live. The two are coupled; do not relax the one without
+        revisiting the other.
 
         An actor with thousands of source addresses can still force eviction,
         but such an actor defeats any per-address limit by rotating addresses

@@ -230,7 +230,7 @@ history establishes that the design preceded the implementation.
 
 | Suite | Before | After |
 |---|---|---|
-| `pytest backend/ -q` | 1,271 passed | **1,325 passed** (+54) |
+| `pytest backend/ -q` | 1,271 passed | **1,331 passed** (+60) |
 | `npm test` (frontend) | 209 passed | **216 passed** (+7) |
 
 `npm run lint` and `npm run build` clean. The frontend build runs before the
@@ -319,6 +319,28 @@ holds. Left alone.
    survey had verified but the paragraph never mentioned. Each was
    re-verified against `Caddyfile` and `deploy/overdraft-guard.service` before
    being written down.
+
+**A third pass — a doc-drift sweep and a second adversarial critique — found
+four more, all fixed:**
+
+| Defect | Fix |
+|---|---|
+| The fix for the stranding bug below introduced the opposite hole: resyncing the timestamp to an earlier reading let a clock that steps back and then forward mint a full burst per round trip. Measured at 50 tokens granted with the clock ending exactly where it started | `at` is a high-water mark again. The guarantee is one-way on purpose and the comment now says so: a non-monotonic clock can never *increase* the budget, and the cost is that after a backwards step the bucket waits for the clock to pass its previous reading. `time.monotonic` is non-adjustable, so that cannot happen here, and a guard on spending someone's key should fail closed |
+| `max_keys` was left unvalidated one line below the guard that had just been added for the other two parameters. `max_keys=0` silently admitted everything; a negative value raised out of `popitem`, a 500 from inside the dependency | The guard covers all three, and the test's parametrisation with it |
+| The unit-file parser claimed systemd fidelity it did not have: it was last-wins on repeated keys, though `Environment=` is cumulative, and it did not skip a comment block inside a continuation, which systemd ignores. Both failed safe, but a correct unit edit could fail the suite depending on where it was placed | The parser collects repeated keys and skips comment blocks inside continuations; assertions test membership rather than equality |
+| Two comments in `ratelimit.py` described behaviour the code no longer had | Rewritten alongside the code they sit above |
+
+**A doc-drift sweep found six stale documents**, five of them not in the P2
+list and one a contradiction this change introduced:
+
+| Document | Was | Now |
+|---|---|---|
+| `docs/handoffs/2026-09-19_security-hardening-handoff.md` | Its status table still called both scope items open, and the file read as pending work | A dated closed banner, and both rows marked done. The survey text is kept as written |
+| `CLAUDE.md` | The layout listed three endpoints, omitting the one the rate-limit rule this change added is *about* | All five endpoints, with the limited one marked |
+| `README.md` | Same omission; and the key location named only `.env` | Endpoint added; the key's location on the box named |
+| `docs/features/chat.md` | The explainer's own configuration section was the last key-location claim that never mentioned the box | The root-owned file outside the repository named |
+| `docs/demo-script.md` | "977 backend tests plus 87 frontend", and, spoken to judges, "Eight hundred and ten tests. Solves in under three milliseconds." | 1,325 and 216. **The timing claim was false**: measured, the three demo accounts solve in 3.9, 5.7 and 7.7 ms, so the line now says under ten. This predates the change and is outside its scope, but a measured-false promise to a judge is exactly what the wording rules exist to prevent |
+| This spec | Its reconciliation table did not mention the handoff, the source of most of the above | Listed here |
 
 **A second critique pass found five more defects, all fixed before this
 record was finalised:**

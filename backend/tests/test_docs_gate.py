@@ -81,27 +81,58 @@ def test_the_environment_variable_actually_reaches_the_app(monkeypatch):
     assert [on.get(u).status_code for u in DOC_URLS] == [200, 200, 200]
 
 
-def unit_directives() -> dict[str, str]:
-    """The unit as systemd reads it: continuations joined, comments dropped.
+def unit_directives() -> dict[str, list[str]]:
+    """The unit as systemd reads it, to the extent this test needs.
 
-    Line-wise greps are not enough. A lost backslash leaves a unit systemd
-    refuses to start, while every assertion about the text still passes,
+    Line-wise greps are not enough: a lost backslash leaves a unit systemd
+    refuses to start while every assertion about the text still passes,
     because the flags are all still somewhere in the file.
+
+    Three behaviours are modelled because getting them wrong makes this test
+    reject a correct unit:
+      * a line ending in a backslash continues onto the next;
+      * a comment block *inside* a continuation is ignored and the
+        continuation carries on past it;
+      * keys repeat. `Environment=` and `EnvironmentFile=` accumulate rather
+        than overwrite, so every value is kept and callers test membership.
+
+    Not modelled, because nothing here uses them: quoting, escape sequences
+    inside values, and `key=` with an empty value resetting a list. Section
+    headers are skipped rather than scoped, so do not add a directive whose
+    meaning depends on which section it is in.
     """
-    joined = UNIT.read_text().replace("\\\n", " ")
-    out: dict[str, str] = {}
-    for line in joined.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
+    out: dict[str, list[str]] = {}
+    pending = ""
+    for raw in UNIT.read_text().splitlines():
+        line = raw.strip()
+        if pending:
+            # systemd ignores a comment block inside a continuation.
+            if not line or line.startswith("#"):
+                continue
+        elif not line or line.startswith("#"):
+            continue
+        pending = f"{pending} {line}" if pending else line
+        if pending.endswith("\\"):
+            pending = pending[:-1].rstrip()
+            continue
+        line, pending = pending, ""
+        if line.startswith("[") and line.endswith("]"):
+            continue
+        if "=" not in line:
             continue
         key, _, value = line.partition("=")
-        out[key.strip()] = value.strip()
+        out.setdefault(key.strip(), []).append(value.strip())
     return out
+
+
+def only(values: list[str]) -> str:
+    assert len(values) == 1, f"expected one value, got {values!r}"
+    return values[0]
 
 
 def test_the_unit_parses_the_way_systemd_reads_it():
     """Each flag belongs to ExecStart, not merely to the file."""
-    exec_start = unit_directives()["ExecStart"]
+    exec_start = only(unit_directives()["ExecStart"])
     assert exec_start.startswith("/opt/overdraft-guard/.venv/bin/uvicorn app.main:app")
     for flag in ("--host", "127.0.0.1", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips"):
         assert flag in exec_start, f"{flag} is not part of ExecStart"
@@ -110,7 +141,9 @@ def test_the_unit_parses_the_way_systemd_reads_it():
 
 def test_the_unit_file_sets_the_name_the_app_reads():
     """The one way to catch the unit and the application drifting apart."""
-    assert unit_directives().get("Environment") == f"{DOCS_ENV}=0"
+    # Membership, not equality: Environment= accumulates in systemd, so a
+    # second unrelated variable must not fail this.
+    assert f"{DOCS_ENV}=0" in unit_directives().get("Environment", [])
 
 
 def test_the_unit_enables_proxy_headers_for_both_loopbacks():
@@ -123,7 +156,7 @@ def test_the_unit_enables_proxy_headers_for_both_loopbacks():
     # first draft of this test was satisfied by the comment above ExecStart.
     # Read as systemd reads it: a comment that mentions a flag does not set
     # it, and neither does a line orphaned by a lost continuation.
-    exec_start = unit_directives()["ExecStart"]
+    exec_start = only(unit_directives()["ExecStart"])
     assert "--proxy-headers" in exec_start
     allowed = exec_start.split("--forwarded-allow-ips", 1)[1].split()[0]
     assert "127.0.0.1" in allowed

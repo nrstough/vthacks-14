@@ -132,28 +132,75 @@ def test_a_clock_that_goes_backwards_grants_nothing():
     assert limiter.check("a").allowed is False
 
 
-def test_a_clock_that_goes_backwards_does_not_lock_an_address_out():
-    """The other half of the same guarantee.
+def test_a_clock_that_oscillates_cannot_manufacture_tokens():
+    """The guarantee is one way, and this is the direction that matters.
 
-    Granting nothing on a backwards step is right; stranding the timestamp in
-    the future would leave the address refused until real time caught up,
-    which is the lockout the guard exists to prevent.
+    An earlier draft resynced the timestamp on a backwards step so an address
+    could not be stranded. That let a clock which steps back and then forward
+    again mint a full burst per round trip while no time passed at all: fifty
+    tokens, with the clock finishing exactly where it started. A limiter that
+    can be wound is not a limiter.
+    """
+    clock = Clock()
+    limiter = RateLimiter(per_minute=20, burst=10, clock=clock)
+    for _ in range(10):
+        limiter.check("a")
+    assert limiter.check("a").allowed is False
+
+    granted = 0
+    for _ in range(5):
+        clock.advance(-600)
+        limiter.check("a")
+        clock.advance(600)  # back to the very instant the burst was spent
+        while limiter.check("a").allowed:
+            granted += 1
+
+    assert granted == 0
+
+
+def test_the_budget_resumes_once_the_clock_passes_where_it_had_been():
+    """The cost of that choice, stated rather than left to be discovered.
+
+    After a backwards step the bucket waits for the clock to pass its previous
+    reading. `time.monotonic` never goes backwards, so this cannot arise in
+    the service; where the two guarantees conflict, a guard on spending
+    someone's API key fails closed.
     """
     clock = Clock()
     limiter = RateLimiter(per_minute=20, burst=1, clock=clock)
     limiter.check("a")
     assert limiter.check("a").allowed is False
+
     clock.advance(-600)
-    assert limiter.check("a").allowed is False  # nothing granted
-    clock.advance(3)  # and the usual wait still works from here
+    assert limiter.check("a").allowed is False  # nothing granted, nothing recorded
+    clock.advance(3)
+    assert limiter.check("a").allowed is False  # still behind the high-water mark
+
+    clock.advance(600)  # past it, and the ordinary refill resumes
     assert limiter.check("a").allowed is True
 
 
-def test_a_limiter_cannot_be_configured_into_dividing_by_zero():
-    """`disabled()` is the off switch; zero would 500 on the first refusal."""
-    for kwargs in ({"per_minute": 0}, {"burst": 0}, {"per_minute": -1}):
-        with pytest.raises(ValueError, match="disabled"):
-            RateLimiter(**kwargs)
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"per_minute": 0},
+        {"per_minute": -1},
+        {"burst": 0},
+        {"burst": -1},
+        {"max_keys": 0},
+        {"max_keys": -5},
+    ],
+)
+def test_a_limiter_cannot_be_configured_into_a_hole(kwargs):
+    """`disabled()` is the off switch; none of these is.
+
+    Zero `per_minute` divides by zero on the first refusal. Zero `max_keys`
+    evicts each bucket as fast as it is made and silently admits everything,
+    which is worse than raising. A negative `max_keys` raises out of
+    `popitem`. All three are a 500 or a hole rather than a limit.
+    """
+    with pytest.raises(ValueError, match="disabled"):
+        RateLimiter(**kwargs)
 
 
 def test_a_refused_request_is_not_charged():
