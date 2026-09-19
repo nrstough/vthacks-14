@@ -361,7 +361,9 @@ body {
    aria-live region, so a re-solve never re-announces the provenance. */
 .eyebrow-note {
   display: flex;
-  align-items: center;
+  /* Top-aligned, not centred: when the sandbox provenance wraps to two lines
+     the dot should sit on the first one, not float between them. */
+  align-items: flex-start;
   gap: 8px;
   font-family: var(--mono);
   font-size: 12px;
@@ -372,6 +374,8 @@ body {
 
 .eyebrow-note::before {
   content: '';
+  flex: none;
+  margin-top: 6px;
   width: 6px;
   height: 6px;
   border-radius: 50%;
