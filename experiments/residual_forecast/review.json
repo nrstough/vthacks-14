@@ -1,0 +1,591 @@
+{
+  "python": "3.14.7",
+  "numpy": "2.5.3",
+  "splits": {
+    "train": {
+      "schema": {
+        "train_x": {
+          "shape": [
+            19800,
+            99
+          ],
+          "dtype": "float64"
+        },
+        "train_y": {
+          "shape": [
+            19800,
+            14
+          ],
+          "dtype": "float64"
+        },
+        "train_scale": {
+          "shape": [
+            19800
+          ],
+          "dtype": "float64"
+        },
+        "train_group": {
+          "shape": [
+            19800
+          ],
+          "dtype": "int64"
+        },
+        "train_origin": {
+          "shape": [
+            19800
+          ],
+          "dtype": "int64"
+        },
+        "train_history": {
+          "shape": [
+            19800,
+            56
+          ],
+          "dtype": "float64"
+        },
+        "train_recent": {
+          "shape": [
+            19800,
+            14
+          ],
+          "dtype": "float64"
+        },
+        "train_weekday": {
+          "shape": [
+            19800,
+            14
+          ],
+          "dtype": "float64"
+        },
+        "train_regime": {
+          "shape": [
+            19800
+          ],
+          "dtype": "<U6"
+        }
+      },
+      "all_numeric_nonfinite": {
+        "train_x": 0,
+        "train_y": 0,
+        "train_scale": 0,
+        "train_group": 0,
+        "train_origin": 0,
+        "train_history": 0,
+        "train_recent": 0,
+        "train_weekday": 0
+      },
+      "constant_history_rows": 0,
+      "constant_feature_columns": [
+        70,
+        71,
+        72,
+        73,
+        74,
+        75,
+        76,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87,
+        88,
+        89,
+        90,
+        91,
+        92,
+        93,
+        94,
+        95,
+        96,
+        97
+      ],
+      "negative_targets": 0,
+      "positive_target_count_by_day": [
+        11817,
+        11653,
+        11679,
+        11763,
+        11693,
+        11774,
+        11796,
+        11745,
+        11765,
+        11747,
+        11843,
+        11810,
+        11583,
+        11735
+      ],
+      "origin_weekday_counts": {
+        "0": 19800
+      },
+      "sequence_lengths": {
+        "min": 56,
+        "max": 56,
+        "mean": 56.0,
+        "median": 56.0,
+        "p5": 56.0,
+        "p95": 56.0
+      },
+      "windows_below_56": 0,
+      "regime_accounts": {
+        "bursty": 588,
+        "sparse": 612,
+        "steady": 600
+      },
+      "target_bounds_within_224_day_series": true,
+      "scale_replay": true
+    },
+    "validation": {
+      "schema": {
+        "validation_x": {
+          "shape": [
+            3300,
+            99
+          ],
+          "dtype": "float64"
+        },
+        "validation_y": {
+          "shape": [
+            3300,
+            14
+          ],
+          "dtype": "float64"
+        },
+        "validation_scale": {
+          "shape": [
+            3300
+          ],
+          "dtype": "float64"
+        },
+        "validation_group": {
+          "shape": [
+            3300
+          ],
+          "dtype": "int64"
+        },
+        "validation_origin": {
+          "shape": [
+            3300
+          ],
+          "dtype": "int64"
+        },
+        "validation_history": {
+          "shape": [
+            3300,
+            56
+          ],
+          "dtype": "float64"
+        },
+        "validation_recent": {
+          "shape": [
+            3300,
+            14
+          ],
+          "dtype": "float64"
+        },
+        "validation_weekday": {
+          "shape": [
+            3300,
+            14
+          ],
+          "dtype": "float64"
+        },
+        "validation_regime": {
+          "shape": [
+            3300
+          ],
+          "dtype": "<U6"
+        }
+      },
+      "all_numeric_nonfinite": {
+        "validation_x": 0,
+        "validation_y": 0,
+        "validation_scale": 0,
+        "validation_group": 0,
+        "validation_origin": 0,
+        "validation_history": 0,
+        "validation_recent": 0,
+        "validation_weekday": 0
+      },
+      "constant_history_rows": 0,
+      "constant_feature_columns": [
+        70,
+        71,
+        72,
+        73,
+        74,
+        75,
+        76,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87,
+        88,
+        89,
+        90,
+        91,
+        92,
+        93,
+        94,
+        95,
+        96,
+        97
+      ],
+      "negative_targets": 0,
+      "positive_target_count_by_day": [
+        1913,
+        1911,
+        1929,
+        1950,
+        1924,
+        1909,
+        1877,
+        1974,
+        1900,
+        1909,
+        1905,
+        1918,
+        1895,
+        1905
+      ],
+      "origin_weekday_counts": {
+        "0": 3300
+      },
+      "sequence_lengths": {
+        "min": 56,
+        "max": 56,
+        "mean": 56.0,
+        "median": 56.0,
+        "p5": 56.0,
+        "p95": 56.0
+      },
+      "windows_below_56": 0,
+      "regime_accounts": {
+        "bursty": 92,
+        "sparse": 113,
+        "steady": 95
+      },
+      "target_bounds_within_224_day_series": true,
+      "scale_replay": true
+    },
+    "test": {
+      "schema": {
+        "test_x": {
+          "shape": [
+            3300,
+            99
+          ],
+          "dtype": "float64"
+        },
+        "test_y": {
+          "shape": [
+            3300,
+            14
+          ],
+          "dtype": "float64"
+        },
+        "test_scale": {
+          "shape": [
+            3300
+          ],
+          "dtype": "float64"
+        },
+        "test_group": {
+          "shape": [
+            3300
+          ],
+          "dtype": "int64"
+        },
+        "test_origin": {
+          "shape": [
+            3300
+          ],
+          "dtype": "int64"
+        },
+        "test_history": {
+          "shape": [
+            3300,
+            56
+          ],
+          "dtype": "float64"
+        },
+        "test_recent": {
+          "shape": [
+            3300,
+            14
+          ],
+          "dtype": "float64"
+        },
+        "test_weekday": {
+          "shape": [
+            3300,
+            14
+          ],
+          "dtype": "float64"
+        },
+        "test_regime": {
+          "shape": [
+            3300
+          ],
+          "dtype": "<U6"
+        }
+      },
+      "all_numeric_nonfinite": {
+        "test_x": 0,
+        "test_y": 0,
+        "test_scale": 0,
+        "test_group": 0,
+        "test_origin": 0,
+        "test_history": 0,
+        "test_recent": 0,
+        "test_weekday": 0
+      },
+      "constant_history_rows": 0,
+      "constant_feature_columns": [
+        70,
+        71,
+        72,
+        73,
+        74,
+        75,
+        76,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87,
+        88,
+        89,
+        90,
+        91,
+        92,
+        93,
+        94,
+        95,
+        96,
+        97
+      ],
+      "negative_targets": 0,
+      "positive_target_count_by_day": [
+        1995,
+        1919,
+        1950,
+        1976,
+        1954,
+        1975,
+        1941,
+        1980,
+        1999,
+        1943,
+        1976,
+        1985,
+        1906,
+        1942
+      ],
+      "origin_weekday_counts": {
+        "0": 3300
+      },
+      "sequence_lengths": {
+        "min": 56,
+        "max": 56,
+        "mean": 56.0,
+        "median": 56.0,
+        "p5": 56.0,
+        "p95": 56.0
+      },
+      "windows_below_56": 0,
+      "regime_accounts": {
+        "bursty": 100,
+        "sparse": 99,
+        "steady": 101
+      },
+      "target_bounds_within_224_day_series": true,
+      "scale_replay": true
+    },
+    "stress": {
+      "schema": {
+        "stress_x": {
+          "shape": [
+            300,
+            99
+          ],
+          "dtype": "float64"
+        },
+        "stress_y": {
+          "shape": [
+            300,
+            14
+          ],
+          "dtype": "float64"
+        },
+        "stress_scale": {
+          "shape": [
+            300
+          ],
+          "dtype": "float64"
+        },
+        "stress_group": {
+          "shape": [
+            300
+          ],
+          "dtype": "int64"
+        },
+        "stress_origin": {
+          "shape": [
+            300
+          ],
+          "dtype": "int64"
+        },
+        "stress_history": {
+          "shape": [
+            300,
+            56
+          ],
+          "dtype": "float64"
+        },
+        "stress_recent": {
+          "shape": [
+            300,
+            14
+          ],
+          "dtype": "float64"
+        },
+        "stress_weekday": {
+          "shape": [
+            300,
+            14
+          ],
+          "dtype": "float64"
+        },
+        "stress_regime": {
+          "shape": [
+            300
+          ],
+          "dtype": "<U6"
+        }
+      },
+      "all_numeric_nonfinite": {
+        "stress_x": 0,
+        "stress_y": 0,
+        "stress_scale": 0,
+        "stress_group": 0,
+        "stress_origin": 0,
+        "stress_history": 0,
+        "stress_recent": 0,
+        "stress_weekday": 0
+      },
+      "constant_history_rows": 0,
+      "constant_feature_columns": [
+        70,
+        71,
+        72,
+        73,
+        74,
+        75,
+        76,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87,
+        88,
+        89,
+        90,
+        91,
+        92,
+        93,
+        94,
+        95,
+        96,
+        97
+      ],
+      "negative_targets": 0,
+      "positive_target_count_by_day": [
+        199,
+        182,
+        191,
+        177,
+        181,
+        191,
+        173,
+        194,
+        179,
+        184,
+        182,
+        176,
+        191,
+        177
+      ],
+      "origin_weekday_counts": {
+        "6": 300
+      },
+      "sequence_lengths": {
+        "min": 56,
+        "max": 56,
+        "mean": 56.0,
+        "median": 56.0,
+        "p5": 56.0,
+        "p95": 56.0
+      },
+      "windows_below_56": 0,
+      "regime_accounts": {
+        "bursty": 110,
+        "sparse": 96,
+        "steady": 94
+      },
+      "target_bounds_within_224_day_series": true,
+      "scale_replay": true
+    }
+  },
+  "warm_single_record_forward_mean_ms": 0.00651829200796783,
+  "inference_scope": "forward pass only, warm weights; excludes IO, feature extraction, solver and network",
+  "artifact_sha256": {
+    "audit.json": "744c20e59aec5eb6ad6fb41e604a17c02be48e5e5307122d09777bd6d4faf7aa",
+    "data.npz": "b72e46aca893297b5fd14cbeaea8d40c073e595d3b55ec3950854c5cb96dcab5",
+    "manifest.json": "c24e1a623b9cd7cff49820a89195537033b97737855fa2db1bc89704b18be55f",
+    "model-seed-11.npz": "355f63dd04a299c2b7531dd2b1fb8679b6c40abe1147461c1a3c782b3300fb5a",
+    "model-seed-23.npz": "43312a5e686e974a91325dfeceb096ba6f8df72c99c9bdd02915f5664598b3be",
+    "model-seed-47.npz": "64c7bc4dfd1aaa767e0a4764358e7a61fba7c63372d9a4c15746dc3759dfcebf",
+    "model-selected.npz": "355f63dd04a299c2b7531dd2b1fb8679b6c40abe1147461c1a3c782b3300fb5a",
+    "predictions-stress.npz": "d29a08b0aee744897ed53cc9b1c2218d454e06adaed0cbaccff1b120e3bb035e",
+    "predictions-test.npz": "6ad73bac7292442f9651dfe8263dc2ed628a0c8bd2c2e0bca6d42e53f9c0c18b",
+    "predictions-validation.npz": "75c9eceab3493b4015ac535e290194c08c8bfa1db218db973e2622565fe73b18",
+    "results.json": "65c7440b083db012493e7ea9c52aee2c08bc15074b86ead937ee4a76f62e0267",
+    "review.py": "c7d22feaff4f09ea7de1866079d291c66c4309bbd360b70e11bc17801b8ca52a",
+    "run.py": "43c2078ad3139213261e2c732b615e8bef4eb921e08592068d6c85c36709fbae"
+  },
+  "limitations_found": [
+    "All ordinary-split origins are weekday 0; 28 calendar features are constant. Accuracy on other start weekdays is untested.",
+    "Stress starts on weekday 6 and changes spend level, so stress combines two shifts and does not isolate either.",
+    "Eleven windows per ordinary account share history; 3300 test rows represent 300 independent accounts, not 3300.",
+    "Three regimes come from the same generator family. No independently authored generator or real-world holdout.",
+    "No missing-day simulation; observed zero spend cannot stand in for missing feed data.",
+    "No confidence intervals or account-bootstrap significance test. Tiny difference against weekday mean is not a win."
+  ]
+}
