@@ -327,9 +327,10 @@ def evaluate(source, run_id, *, config_path=CONFIG, data_dir=None, artifact_root
         scores[record["name"]] = metrics(final["y"], prediction)
     def compare(reference, candidate):
         interval = paired_interval(final["y"], predictions[reference], predictions[candidate], final["group"], final["origin"], config["bootstrap"])
+        decision = promotion_decision(scores[reference], scores[candidate], interval, representative_real_data=False, thresholds=config["promotion"])
         if source == "berka":
             interval["unit"] = "account-client connected component"
-        return {"reference": reference, "candidate": candidate, "paired_uncertainty": interval, "decision": promotion_decision(scores[reference], scores[candidate], interval, representative_real_data=False, thresholds=config["promotion"])}
+        return {"reference": reference, "candidate": candidate, "paired_uncertainty": interval, "decision": decision}
     baseline, neural = selection["selected_baseline"], selection["selected_neural"]
     conditions, comparisons = selection["conditions"], {}
     scratch = conditions["scratch"]["selected"]
