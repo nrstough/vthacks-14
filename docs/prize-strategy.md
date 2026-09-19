@@ -17,6 +17,15 @@ Last updated: Fri Sept 18, 2026, ~8:45 PM (after the opening ceremony).
 3. **Capital One: Best Use of Nessie** (sponsor slot). The only sponsor track that fits, and the
    integration improves the product.
 
+Two automatic categories are underrated here and cost nothing to pursue: **Best Ut Prosim**
+("that I may serve" — a tool for people living paycheck to paycheck is a genuine fit) and
+**Best DEI** (financial inclusion). Both are judged automatically; neither needs a slot or an
+extra hour. Frame the demo's opening sentence so it reads for them too.
+
+The free column holds a MacBook Pro (1st), a PS5 (2nd), and a MacBook Air (raffle). Every opt-in
+track competes for hours against that column, so no track is worth an hour it takes from
+finishing, deploying, and polishing.
+
 ## Sponsor tracks presented at the ceremony
 
 | Track | Ask | Fit | Decision |
@@ -105,11 +114,27 @@ Hard rule: never commit a key or a bank export. `.gitignore` covers `.env`, `Che
 - **Sat 18:30:** working deployed demo, or freeze all features and fix only.
 - **Sun 01:30:** code freeze. **Sun 08:00:** submission. Flip the repo to public before submitting.
 
+## Decided
+
+- **Real bank export (`~/Downloads/Checking.csv`): offline validation only.** Run it locally once
+  to test recurring-detection against real messy merchant strings. Never committed, never in the
+  demo, never on a projector. The demo uses Nessie and the synthetic generator only.
+
 ## Open decisions (as of this update)
 
-1. Confirm the three-track wording in Discord. Working assumption (yes, MLH counts): enter Capital One, DigitalOcean, Domain Name; drop Peraton. If sponsors-only: Capital One + Peraton, plus Domain Name, DigitalOcean, Gemini, Gen AI.
-2. Optimizer (recommended; estimator is its built-in fallback) or estimator only.
-3. Nessie API key (Nathan creates it at nessieisreal.com).
-4. DigitalOcean account + $200 credits (Nathan creates it, links GitHub).
-5. Use Nathan's real bank export for an anonymized validation view: yes / no.
-6. Domain name.
+1. **Three track slots.** Nine tracks are achievable (see "Rewards at a glance"); at most three may
+   be entered. Cheapest viable slate is Capital One + DigitalOcean + Domain Name (~2h, all of it
+   work already on the critical path). Highest prize-value-per-slot is Capital One + Gemini + Gen AI
+   (~3h; one integration yields two entries). Deep research on what each track's judging actually
+   rewards, and which are worth expanding product scope for, is in flight.
+2. Confirm the three-track wording in Discord: do MLH tracks count toward the cap of three?
+3. Optimizer or estimator. Recommendation: optimizer, but ship greedy + an irredundancy check
+   behind a `solve()` interface first (~45 min, always demoable), then slot CP-SAT in behind a
+   wall-clock timeout that falls back to it. Note the irredundancy certificate — the demo's
+   punchline — does not require CP-SAT; only minimum cardinality does. Held pending track decisions.
+4. Nessie API key (Nathan creates it at nessieisreal.com). Blocks ~2h of Capital One work.
+5. DigitalOcean account + $200 credits (Nathan creates it, links GitHub). Blocks the deploy gate.
+   Check the sponsor tables for a credit code before paying.
+6. Domain name. Candidates: `overdraft.rip`, `abovezero.cash`, `fewestchanges.com`,
+   `staysolvent.app`. Verify which TLDs qualify for the GoDaddy Registry track, and ask about
+   free registration codes at the table.
