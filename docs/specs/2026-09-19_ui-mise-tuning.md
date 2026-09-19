@@ -448,6 +448,18 @@ critic named exactly what would flip the dimension and nothing else was below Pa
 audit below is the confirmation pass.
 
 
-## Codex audit
+## Codex audit (gpt-6-astra, read-only sandbox)
 
-Pending.
+**Round 1 (~19:40) — Acceptable overall.** Scope discipline and review compliance Excellent;
+plan adherence, test coverage, freeze integrity, regression check and documentation
+Acceptable. Its independent run: lint clean, 292 frontend tests passing, both TypeScript
+configurations type-check; backend 2161 passed with 4 setup errors that need temp files the
+sandbox forbids, parity ran, 0 skipped. Three actionable notes, all fixed in `b0ac908` and
+the commit after it: the checkbox call-site test now ties each section to its own row data
+(`p.candidate_id` vs `c.id`) so swapping both arguments fails; the wordmark comment and the
+feature doc's shadow sentence corrected; the six screenshots re-captured from the final
+revision (they had predated the relocated re-solve line). Full text in
+`docs/specs/2026-09-19_ui-mise-tuning-audit.md`.
+
+**Round 2** — recorded below after the confirmation run.
+
