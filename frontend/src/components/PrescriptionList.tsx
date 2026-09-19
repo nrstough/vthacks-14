@@ -15,11 +15,13 @@ function CantDo({
   label,
   checked,
   onToggle,
+  onFocus,
 }: {
   id: string
   label: string
   checked: boolean
   onToggle: (id: string) => void
+  onFocus: (id: string) => void
 }) {
   return (
     <label className="cant" htmlFor={`cant-${id}`}>
@@ -28,6 +30,7 @@ function CantDo({
         type="checkbox"
         checked={checked}
         onChange={() => onToggle(id)}
+        onFocus={() => onFocus(id)}
         // Eleven identical labels are indistinguishable to a screen reader, so
         // the accessible name carries the change it belongs to.
         aria-label={`Can't do this: ${label}`}
@@ -53,6 +56,7 @@ export default function PrescriptionList({
   solvedRuledOut,
   newIds,
   onToggle,
+  onFocusRow,
 }: {
   req: SolveRequest
   res: SolveResponse
@@ -60,6 +64,7 @@ export default function PrescriptionList({
   solvedRuledOut: Overrides
   newIds: string[]
   onToggle: (id: string) => void
+  onFocusRow: (id: string) => void
 }) {
   const used = new Set(res.plan.map((p) => p.candidate_id))
   const rest: Candidate[] = req.candidates.filter((c) => !used.has(c.id))
@@ -105,6 +110,7 @@ export default function PrescriptionList({
                 label={p.label}
                 checked={isRuledOut(ruledOut, p.candidate_id)}
                 onToggle={onToggle}
+                onFocus={onFocusRow}
               />
             </div>
           )
@@ -127,7 +133,10 @@ export default function PrescriptionList({
                 ? PENDING
                 : reasonFor(c, req, res, isRuledOut(solvedRuledOut, c.id))
               return (
-                <div key={c.id} className={`rx-row${out ? ' is-out' : ''}`}>
+                <div
+                  key={c.id}
+                  className={`rx-row${out ? ' is-out' : ''}${pending.has(c.id) ? ' is-pending' : ''}`}
+                >
                   <div className="rx-date num">{shortDate(c.effective_date)}</div>
                   <div>
                     <p className="rx-label">{c.label}</p>
@@ -138,7 +147,13 @@ export default function PrescriptionList({
                     <div className="rx-amount num">+{money(c.freed_cents)}</div>
                     <Pain n={c.pain} />
                   </div>
-                  <CantDo id={c.id} label={c.label} checked={out} onToggle={onToggle} />
+                  <CantDo
+                    id={c.id}
+                    label={c.label}
+                    checked={out}
+                    onToggle={onToggle}
+                    onFocus={onFocusRow}
+                  />
                 </div>
               )
             })}

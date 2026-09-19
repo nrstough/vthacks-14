@@ -41,9 +41,10 @@ export default function App() {
   const [source, setSource] = useState<'local' | 'server'>('local')
   const [notice, setNotice] = useState<string | null>(null)
   const seq = useRef(0)
-  // The toggled row moves between the plan and the left-out list, so its
-  // checkbox unmounts and focus would land back on the document body.
-  const refocus = useRef<string | null>(null)
+  // A re-solve moves rows between the plan and the left-out list, unmounting
+  // their checkboxes. Track the row the user is actually on rather than the one
+  // they toggled: the response can move a different row out from under them.
+  const focused = useRef<string | null>(null)
 
   // A drag of the balance slider steps through dozens of values. Debounce the
   // request, not the slider, so the number under the thumb still tracks it.
@@ -86,19 +87,33 @@ export default function App() {
   }, [debounced])
 
   useEffect(() => {
-    const id = refocus.current
+    // Consume it: an id that survived into a later, unrelated response would
+    // pull focus somewhere the user has not been for a while. Safari does not
+    // focus a checkbox when you click it, so without this the next re-solve
+    // could jump to whichever row happened to be focused last.
+    const id = focused.current
+    focused.current = null
     if (!id) return
-    refocus.current = null
-    // Only restore focus that was LOST when the row unmounted, which leaves it
-    // on the body. If the user has tabbed on to another control in the
-    // meantime, pulling it back would throw away their navigation.
-    if (document.activeElement && document.activeElement !== document.body) return
+    // Only restore focus that was LOST when a row unmounted, which parks it on
+    // the body. If the user has tabbed on to a control that survived, pulling
+    // focus away would throw out their navigation.
+    const active = document.activeElement
+    if (active && active !== document.body && active !== document.documentElement) return
     document.getElementById(`cant-${id}`)?.focus()
   }, [res])
 
   function onToggle(id: string) {
-    if (document.activeElement?.id === `cant-${id}`) refocus.current = id
+    // Two signals feed the same ref, because neither covers everything. A
+    // toggle tells us where focus is at the moment of the change, which is the
+    // common case and works even where focus events do not fire. The onFocus
+    // handler below then keeps it current if the user tabs on to another row
+    // while the answer is still being solved.
+    if (document.activeElement?.id === `cant-${id}`) focused.current = id
     setRuledOut((prev) => toggle(prev, id))
+  }
+
+  function onFocusRow(id: string) {
+    focused.current = id
   }
 
   function preset(cents: number, cushion: number) {
@@ -225,6 +240,7 @@ export default function App() {
           solvedRuledOut={solvedRuledOut}
           newIds={newIds}
           onToggle={onToggle}
+          onFocusRow={onFocusRow}
         />
       </section>
 

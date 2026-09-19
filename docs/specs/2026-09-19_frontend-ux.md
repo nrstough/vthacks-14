@@ -272,3 +272,60 @@ it.
 | `.venv/bin/pytest backend/ -q -m "not perf"` | **977 passed** |
 | `tests/bundle.test.ts` under a path containing a space | **3 passed** (failed 3/3 before the fix) |
 | oracle / types / contract / backend diff vs `main` | empty |
+
+## Audit round 2 (same critique agent, re-checking its own findings, ~04:05) — **Acceptable**
+
+All twelve round-1 findings verified resolved against the files, not the claims; the agent
+re-reproduced the space-path test both ways (0/3 before, 3/3 after) and re-ran the full suite.
+Both Fail dimensions cleared: Test coverage and Documentation → Acceptable, Freeze integrity and
+Regression check → Excellent. Three new findings, all judged non-material by the agent; all three
+were fixed anyway, and one of them turned out to hide two further real defects.
+
+1. **`is-pending` was applied to plan rows only**, not left-out rows, so the two sections were
+   styled asymmetrically although both showed "Re-solving…". Class now applied in both.
+2. **Pinning styles orphaned by D1** — `.rx-row.is-pinned`, `@keyframes land-pinned`, `.tag`,
+   `.tag-out` — nothing could match them once the three-way control went. Removed; the CSS
+   bundle drops 9.16 → 8.59 kB. They would have told a later reader that pinning still exists.
+3. **The tier-aware empty state was undocumented** in the feature doc although it is the fix for
+   Codex critical finding 1 and a hard wording rule. Added, with the case that produces it.
+
+### Two defects found while fixing the focus edge
+
+The agent also reported a residual focus edge: tabbing onto a row that the *same* re-solve moves
+leaves focus restored to the toggled row instead of following the user. Fixing it properly
+exposed two more problems, both caught by verifying rather than assuming:
+
+- **Tracking focus only through React's `onFocus` broke restoration entirely** in the automation
+  pane, because the document there is not focused and focus events never fire. Case A regressed
+  from "restored" to "focus lost" and the browser check caught it. The ref is now fed by **both**
+  signals: the toggle records where focus is at the moment of the change (works without focus
+  events), and `onFocus` keeps it current if the user tabs on.
+- **The ref persisted across interactions.** Safari does not focus a checkbox when you click it,
+  so a later re-solve could have pulled focus to whichever row was focused last, minutes earlier.
+  The ref is now consumed once per response.
+
+Focus behaviour, all four cases verified in the browser after the fix:
+
+| Sequence | Result |
+|---|---|
+| Focus a row, toggle it, its row moves sections | restored to that row |
+| Focus a row, toggle it, tab to a row that survives | stays where the user went |
+| Activate without focusing, after an earlier focus elsewhere | nothing grabbed (focus stays on body) |
+| Focus a row, then drag the slider | stays where the user went |
+
+### Final run
+
+| Command | Result |
+|---|---|
+| `npm run lint` | clean |
+| `npm run build` | clean, 619.53 kB JS / 8.59 kB CSS |
+| `npm test` | **59 passed, 0 failed** |
+| `.venv/bin/pytest backend/ -q -m "not perf"` | **977 passed** |
+| oracle / types / contract / backend diff vs `main` | empty |
+
+### Still open, by choice
+
+`AC12`'s keyboard half and the focus cases are verified by browser observation, not by an
+automated test, because no DOM test runner can be installed on this connection. The four cases
+above are written down so they can be re-checked by hand, or turned into tests the moment a
+runner is available. The test count stays at 59.

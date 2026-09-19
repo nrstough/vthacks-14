@@ -73,9 +73,22 @@ first day; the with-plan series' lowest point and first day (at tier 3, taken fr
 `shortfall`); paydays; the days changes take effect. Also the footer sentences: the proof claim
 appears only when `certificate.minimal_proven` is true.
 
+## The empty plan
+
+An empty plan means two opposite things, so `src/lib/narrate.ts`'s `emptyPlanText` is
+tier-aware. At tiers 1 and 2 it is "No changes needed" / "Nothing to change. The schedule
+already clears on its own." At tier 3 it is **"No changes available"** / "Everything is ruled
+out or too late to act. The gap stays."
+
+Saying "no changes needed" at tier 3 would be a flat contradiction of the verdict band directly
+above it, which is naming the money the user has to find by a date. That happens for real: rule
+out all eleven changes on the $200 account and the answer is tier 3, an empty plan, and $120.05
+needed by Sep 24.
+
 ## Wording rules (from CLAUDE.md, binding)
 
 - "Sufficient under the schedule shown", never "guaranteed".
+- An empty plan at tier 3 never says "no changes needed".
 - The word "infeasible" never appears. Tier 3 names the amount and the date.
 - Minimality is claimed only when proven; the tier pill drops "proven" otherwise.
 - The fallback chip is never removed and never reworded to hide the fallback.
