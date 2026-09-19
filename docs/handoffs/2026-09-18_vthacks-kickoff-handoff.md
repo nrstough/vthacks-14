@@ -40,7 +40,7 @@ cd frontend && export npm_config_cache="/Users/nathanstough/Desktop/VT Hacks/.np
 4. Nessie seed script + client (HTTPS): create customer/account, push deposits, purchases, bills; read back into the solver's input. "Connect account" is the demo's first click; also keep a one-click sample account (judges will not upload files).
 5. Recurring detection (regex normalize, rapidfuzz WRatio ≥ 88, 1% amount banding, cadence snap, ≥3 occurrences) with a manual override toggle. Timebox 1 hour; hard-code fixture streams if it fails.
 6. Frontend: three bands (verdict sentence ~40 px; before/after balance chart, red fill only below zero, paydays as ticks, a step on the with-plan line at each change date; prescription list with lock toggles that re-solve). Tabular-nums, 8 px scale, one font, one accent.
-7. Deploy early: Vultr VM + Caddy HTTPS on the registered domain (both are cheap MLH tracks). Redeploy after every major block. **Hard gate Sat 18:30: working deployed demo or freeze features.** Code freeze Sun 01:30. Submission by 08:00.
+7. Deploy early: DigitalOcean App Platform from the GitHub repo (managed HTTPS, $200 credits) with the registered domain attached; enter DigitalOcean, not Vultr. Backboard skipped (contradicts stateless design). Redeploy after every major block. **Hard gate Sat 18:30: working deployed demo or freeze features.** Code freeze Sun 01:30. Submission by 08:00.
 
 ## IMPORTANT — tests & at-risk artifacts (make sure these survive)
 - Test: **none exist yet.** First tests to write: solver fixtures (greedy-fails, tier-2, tier-3), off-by-one cases (inclusive prefix, day-0 double count, horizon end on payday eve, lead time, 28/30/31 month-end). Run with `.venv/bin/pytest backend/`.
