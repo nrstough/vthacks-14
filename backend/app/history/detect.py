@@ -265,6 +265,20 @@ def detect_streams(rows: list[Row], history_end: datetime.date) -> tuple[list[St
 
     for (sign, _key), group in sorted(groups.items(), key=lambda kv: (kv[0][0], kv[0][1])):
         base_kind = "income" if sign > 0 else "bill"
+
+        # For INCOME, the same-day test runs on the whole payee BEFORE the
+        # amount split, not on each half after it. A transfer app pays out
+        # twice on the same day in two different sizes, and splitting first
+        # hands each size its own clean one-per-day series — so two "weekly
+        # income streams" appear and the plan counts on money that may never
+        # come. Outflows keep the per-cluster test: two subscriptions at one
+        # merchant billed on one day really are two bills.
+        if base_kind == "income":
+            _collapsed, group_multi = _collapse_same_day(group)
+            if group_multi:
+                unscheduled.extend(group)
+                continue
+
         for cluster in _split_bimodal(group):
             kind = base_kind
             if len(cluster) < MIN_OCCURRENCES:

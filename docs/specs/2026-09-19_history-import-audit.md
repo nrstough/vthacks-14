@@ -2,23 +2,23 @@
 
 | Dimension | Grade | Notes |
 |-----------|-------|-------|
-| Plan adherence | **Fail** | A1’s parsing and per-row error reporting requirements remain incomplete. |
-| Scope discipline | Excellent | Changes remain within the import feature; deviations are explained. |
-| Test coverage | **Fail** | Required hostile-input cases and screenshot evidence are missing. |
-| Review compliance | Acceptable | Reviewed implementation defects addressed; some requested boundary tests remain absent. |
-| Freeze integrity | — | Skipped: no P1/P2/P3 hashes present. |
-| Regression check | Acceptable | 300 frontend tests passed; 2,267 backend tests passed, with four sandbox-related setup errors. |
-| Documentation | Excellent | Declared documentation covers the changed behavior and limitations. |
-| **Overall** | **Fail** | |
+| Plan adherence | **Fail** | Same-day peer transfers can bypass D8 and become projected income. |
+| Scope discipline | Excellent | Changes remain within import functionality and supporting integration. |
+| Test coverage | **Fail** | A3’s lapsed-within-window test does not exercise a lapsed stream; A10 screenshot evidence is missing. |
+| Review compliance | Acceptable | Referenced Codex findings have corresponding implementation changes. |
+| Freeze integrity | Acceptable | Skipped: no P1/P2/P3 hashes present. |
+| Regression check | Acceptable | 2,271 backend passes; four environmental setup errors. Frontend: 304 passes, lint and type checks clean. |
+| Documentation | Acceptable | Declared documentation updated; one low-impact stale comment. |
+| **Overall** | **Fail** | Detection defect and acceptance-test gaps remain. |
 
 ### Commentary
 
-1. **Plan adherence — causes Fail:** [importCsv.ts:103](/Users/nathanstough/Desktop/vthacks-history-import/frontend/src/lib/importCsv.ts:103) strips separators before validating the amount grammar. Reproduced: `1,2` and `1 2.00` both become 1,200 cents; `(-12.00)` becomes **positive** 1,200 cents. Malformed amounts can silently become usable money instead of per-row errors. Validate grouping, currency placement, and mutually exclusive sign notation before normalization; add rejection tests.
+1. **Plan adherence — causes Fail.** In [detect.py:268](/Users/nathanstough/Desktop/vthacks-history-import/backend/app/history/detect.py:268), amount-based splitting runs before the same-day guard. Reproduced with twelve Tuesdays containing two `VENMO CASHOUT` inflows each, $50 and $150: import returns two active weekly income streams, zero unscheduled inflows, and **$800 projected income** over the next 30 days. D8 explicitly excludes multiple same-day inflows. Apply that income guard before splitting, preserving the separate-subscription behavior for outflows, and add an endpoint regression test.
 
-2. **Plan adherence — causes Fail:** [App.tsx:302](/Users/nathanstough/Desktop/vthacks-history-import/frontend/src/App.tsx:302) clears rejection details whenever parsing returns an overall error. A file containing one valid transaction and one invalid amount returns a specific `bad_amount` rejection, but the UI discards it and shows only “not enough history.” This violates A1’s per-row reporting requirement. Preserve and display rejection details and non-Posted counts even when import is refused.
+2. **Test coverage — causes Fail.** [test_history_detect.py:299](/Users/nathanstough/Desktop/vthacks-history-import/backend/tests/test_history_detect.py:299) claims to test a lapsed bill inside the baseline window, but its monthly bill was last seen only 40 days earlier. The configured lapse threshold is 60 days, so the stream remains active; the test never asserts otherwise. Use a weekly or biweekly bill that actually lapses within 56 days, and assert inactivity, no projection, and removal from the residual.
 
-3. **Plan adherence — additional finding:** [ProvenancePanel.tsx:19](/Users/nathanstough/Desktop/vthacks-history-import/frontend/src/components/ProvenancePanel.tsx:19) builds its explanatory text from the original account without applying exclusions. Unticking the next income stream removes its transactions but leaves “Next pay expected …” unchanged, including when all income is excluded. Derive the displayed payday from the selected schedule, or explicitly label it as the original detection.
+3. **Test coverage — contributes to Fail.** A10 requires browser verification with a screenshot. The run spec explicitly records that no image was retained. Its DOM assertions provide partial evidence, but do not fulfill that requirement. Retain screenshot evidence from a repeat browser pass.
 
-4. **Test coverage — causes Fail; Review compliance — limits grade to Acceptable:** The import tests omit explicit nonfinite-amount cases required by A6 and the lower calendar boundary requested in review finding 5. A10 also explicitly requires a browser screenshot; the run record states none was retained. Add the missing boundary tests and retain screenshot evidence for the browser checks.
+4. **Regression check — limits grade to Acceptable; no demonstrated regression.** On `history-import`, Python 3.14.7 ran `PYTHONDONTWRITEBYTECODE=1 .venv/bin/pytest backend/ -q --capture=sys -p no:cacheprovider`: **2,271 passed, 10 deselected, four setup errors**, all from unavailable writable temporary directories. Node 22.17.1 ran `npm run lint && npm test`: **304 passed**, lint clean. Both TypeScript projects passed no-emit checks. A fresh production build could not be verified in this read-only environment; frontend bundle tests used existing build output.
 
-5. **Regression check — limits grade to Acceptable:** Independent verification passed frontend lint, both TypeScript checks, and all 300 frontend tests. Backend verification produced **2,267 passed, 10 deselected, four setup errors**, all caused by existing tests requiring writable temporary directories. These are environment limitations, not demonstrated regressions. A fresh production build could not be verified in this read-only workspace; frontend bundle tests used the existing build.
+5. **Documentation — Acceptable nit only.** [App.tsx:73](/Users/nathanstough/Desktop/vthacks-history-import/frontend/src/App.tsx:73) still says retained raw rows support panel labels. Labels now come from the server, as the documented deviation explains. Update the comment; this does not affect user behavior or justify Documentation Fail.

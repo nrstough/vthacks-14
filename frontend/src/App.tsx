@@ -71,8 +71,9 @@ export default function App() {
   const [acct, dispatch] = useReducer(accountReducer, FIXTURE, initial)
   const { account, base, loading, error: loadError, original, excluded } = acct
   // The parsed rows stay in the browser so a re-import needs no second file
-  // read, and so the panel can label streams without the server ever
-  // returning a merchant name.
+  // read. They are NOT used for labelling: the server's labels are already
+  // brand-free, and labelling again here would add a second place a payee
+  // could reach the screen.
   const importedRows = useRef<ReturnType<typeof parseBankCsv>['rows']>([])
   const importSeq = useRef(0)
   const [importBalance, setImportBalance] = useState('')

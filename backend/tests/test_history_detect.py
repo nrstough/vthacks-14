@@ -14,6 +14,7 @@ import pytest
 from app.candidates.lexicon import classify
 from app.history import detect as D
 from app.history.detect import Row, detect_streams
+from app.history.project import project
 from app.history.payee import payee_key
 from tests.fixtures import histories as H
 
@@ -297,20 +298,28 @@ def test_the_same_day_guard_is_load_bearing(monkeypatch):
 
 
 def test_a_lapsed_bill_inside_the_baseline_window_leaves_the_residual():
-    # Its rows must still be removed from everyday spending: a rent payment
-    # that stopped last month is not $150 a week of groceries.
+    # A WEEKLY bill, so it actually lapses inside the 56-day window: two
+    # intervals is fourteen days, and its last payment is thirty ago. Its
+    # rows must still leave everyday spending — a $200 charge that stopped
+    # last month is not $25 a week of groceries — while nothing is projected.
     from app.history.residual import assumed_rows, daily_outflow
 
     start = END - datetime.timedelta(days=90)
     data = [H.row(start + datetime.timedelta(days=i), f"KROGER #{i}", -2500) for i in range(91)]
-    # A monthly bill whose last payment is 40 days before the end, so it sits
-    # inside the 56-day baseline window, and which then stops.
-    data += H.monthly_bill(datetime.date(2025, 10, 9), 11, 9, -120000, "OAKWOOD PROPERTIES", weekend_shift=False)
+    stopped = END - datetime.timedelta(days=30)
+    data += [
+        H.row(stopped - datetime.timedelta(days=7 * i), "OAKWOOD PROPERTIES", -20000) for i in range(8)
+    ]
     parsed = rows(data)
     streams, _ = detect_streams(parsed, END)
-    rent = only([s for s in streams if s.amount_cents == -120000])
+    bill = only([s for s in streams if s.amount_cents == -20000])
+    assert bill.cadence == "weekly"
+    assert not bill.active, f"last seen {bill.last_seen}, {(END - bill.last_seen).days} days before the end"
+
+    projected, _ = project(bill, END + datetime.timedelta(days=1), END + datetime.timedelta(days=14))
+    assert projected == [], "a lapsed stream projects nothing"
+
     used = {r.index for s in streams for r in s.rows}
     series, _ = daily_outflow(parsed, used, start, END)
     assumed = assumed_rows(series, END, END + datetime.timedelta(days=1), END + datetime.timedelta(days=14))
-    assert max(-a for _i, _d, a in assumed) == 2500, "the stopped rent must not become everyday spending"
-    assert rent.rows
+    assert max(-a for _i, _d, a in assumed) == 2500, "the stopped bill must not become everyday spending"

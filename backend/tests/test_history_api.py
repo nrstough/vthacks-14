@@ -498,3 +498,21 @@ def test_the_lower_calendar_boundary(client):
     )
     assert r.status_code == 422
     assert r.json()["detail"][0]["loc"][-1] == "date"
+
+
+def test_a_transfer_app_paying_twice_a_day_is_never_income(client):
+    # Two payouts the same day in two different sizes. Splitting by amount
+    # first gives each size a clean one-per-day series, so the account grows
+    # two "weekly income streams" and the plan counts on money that may
+    # never come.
+    rows = []
+    for week in range(12):
+        day = datetime.date(2026, 6, 2) + datetime.timedelta(days=7 * week)
+        rows.append(H.row(day, "VENMO CASHOUT", 5000))
+        rows.append(H.row(day, "VENMO CASHOUT", 15000))
+    rows += H.everyday_spending(datetime.date(2026, 6, 1), datetime.date(2026, 9, 18))
+    out = imported(client, rows=rows, as_of="2026-09-21")
+    assert [s for s in out["streams"] if s["kind"] == "income"] == []
+    assert out["provenance"]["unscheduled_inflow_count"] == 24
+    assert out["provenance"]["next_payday"] is None
+    assert not [t for t in out["scheduled"] if t["kind"] == "income"]
