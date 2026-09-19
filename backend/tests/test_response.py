@@ -49,15 +49,34 @@ def test_the_browser_and_the_server_describe_the_same_object(name, model):
     assert ts_fields(name) == py_fields(model)
 
 
-@pytest.mark.skipif(not TYPES_TS.exists(), reason="frontend not present")
-def test_the_response_envelope_matches():
+def response_body() -> str:
     source = TYPES_TS.read_text()
     match = re.search(r"export interface SolveResponse \{(.*?)\n\}", source, re.S)
-    assert match
-    body = re.sub(r"//.*", "", match.group(1))
-    # Top-level keys only; the nested literals are checked by the round-trip below.
-    top = set(re.findall(r"^  (\w+)\??\s*:", body, re.M))
+    assert match, "SolveResponse is no longer declared in types.ts"
+    return re.sub(r"//.*", "", match.group(1))
+
+
+@pytest.mark.skipif(not TYPES_TS.exists(), reason="frontend not present")
+def test_the_response_envelope_matches():
+    top = set(re.findall(r"^  (\w+)\??\s*:", response_body(), re.M))
     assert top == py_fields(schemas.SolveResponse)
+
+
+@pytest.mark.skipif(not TYPES_TS.exists(), reason="frontend not present")
+@pytest.mark.parametrize(
+    "key,model",
+    [("shortfall", schemas.Shortfall), ("external_cash_needed", schemas.ExternalCash),
+     ("meta", schemas.Meta)],
+)
+def test_the_inline_objects_match_too(key, model):
+    """These three are written inline in types.ts rather than as named
+    interfaces, which is exactly why they were the ones drifting unnoticed."""
+    body = response_body()
+    match = re.search(rf"^  {key}\??\s*:\s*\{{(.*?)\}}", body, re.S | re.M)
+    assert match, f"{key} is not an inline object literal any more"
+    # Both `;` and newline separate members in the two styles used.
+    fields = set(re.findall(r"(\w+)\??\s*:", match.group(1)))
+    assert fields == py_fields(model)
 
 
 def test_a_response_round_trips_through_its_own_schema():

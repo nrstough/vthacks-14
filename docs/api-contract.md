@@ -151,4 +151,10 @@ zero (tier 2); otherwise fewest fee-days, then shallowest dip (tier 3).
   or adds a day below zero relative to the plan itself; `irredundant` means every item is.
 - Ordering: `plan` by (date, id) in code-point order; `per_item` in plan order;
   `changes_here` and `excluded_locked_in` sorted; ties on dates resolve to the first day.
-- Limits: horizon <= 366 days, <= 60 candidates, <= 2000 scheduled rows, |cents| <= 10^11.
+- Limits: horizon <= 366 days, <= 60 candidates, <= 2000 scheduled rows, |cents| <= 10^11. Those
+  are per-field bounds on the REQUEST. Figures the server derives — daily balances,
+  `total_cents` — are sums across the horizon and are legitimately larger.
+- Responses: `200` with the body above; `422` with `{"detail": [{type, loc, msg, input}]}`
+  where `loc[0]` is `"body"`; `503` with `{"detail": "..."}` when no exact engine can
+  answer. A 503 is never an approximate answer — the service refuses rather than guessing,
+  because a guess would be indistinguishable from a proof in this shape.

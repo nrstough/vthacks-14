@@ -185,7 +185,31 @@ with an empty plan it always says "No changes needed. The schedule already clear
 tier 3 the schedule does not clear, so this service states the gap instead. A separate
 test fails if no instance exercises that branch.
 
-**Claude critique verdict:** _pending_
+### Audit round 1 (adversarial Claude critique, ~02:20)
+
+Verdict **Fail**, on Test coverage alone; every other dimension Acceptable or better, and
+freeze integrity Excellent. The critique ran 2,400 fuzz instances, 26 hand-built cases and
+36 mutants. Findings and what was done:
+
+| # | Finding | Resolution |
+|---|---|---|
+| F1 | **A schema-valid request returned HTTP 500.** Input bounds (±10^11) were applied to *derived* response figures; a large opening balance plus one charge leaves that range, and `build_response` raised past the error handler. | Fixed: `DERIVED_CENTS_ABS` for balances, totals and shortfalls. Repro added to `test_api.py`. |
+| F2 | Two adjacent objective levels had no counterfactual: swapping days-below-zero with worst-shortfall, or pain with hysteresis, left all tests green. | Fixed: `DAYS_BEAT_DEPTH` and `PAIN_BEATS_MEMORY` planted instances. Both swaps now fail 2 tests. |
+| F3 | A CP-SAT deferral crediting the recharge day survived the suite. | Fixed: `DEFER_LANDS_IN_HORIZON`. The mutant now fails 4 tests. |
+| F4 | The model/ledger cross-check — the only guard against F3's class — had no test at all. | Fixed: a lying engine fixture. Disabling the check now fails 1 test. |
+| F5 | The exhaustive-search timing bound was 30 s against the spec's 5 s. | Fixed: tightened to 5 s. Measured 2.8–3.0 s. |
+| F6 | `types.ts` parity skipped the three inline object literals, so `meta.excluded_locked_in`, `shortfall.total_cents` and `external_cash_needed.by_date` were unchecked. | Fixed: inline literals parsed and compared. |
+| F7 | Two Codex resolutions were only partly implemented. | Planted-vs-oracle parity added. The promised subprocess test for a missing OR-Tools is **deliberately not added**: the `load_cpsat` seam covers the substance and a subprocess test would be slower and flakier. |
+| F8 | The certificate's first-wins tie rule was untested. | Fixed: `EQUAL_MARGINALS` unit test. The `>=` mutant now fails. |
+| F9 | Determinism tests excluded all of `meta`, not just `wall_ms`. | Fixed: `stable_part()` compares everything but the timing. |
+| F10 | `docs/features/solver.md` claimed the `tight` account needs 8 of 11 changes; the fixture was retuned and needs 3. | Fixed, with the sweep result that actually supports D1 in its place. |
+| F11 | The contract documented no 503, and its limits read as if they bound derived figures. | Fixed in `docs/api-contract.md`. |
+| F12 | Two unreachable branches in `assemble.py`. | Removed. |
+
+**Tests after the round: 810** (was 788). All five previously-surviving mutants confirmed
+killed by re-running each against the full suite.
+
+**Claude critique verdict:** _re-check pending_
 **Codex audit grade:** _pending_
 
 ## Refinements from deep exploration (Sat ~01:50, before plan approval)

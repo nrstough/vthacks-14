@@ -10,6 +10,8 @@ remembering the plan the user was last shown.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from app.schemas import SolveRequest
@@ -17,6 +19,18 @@ from app.solver.solve import Settings, solve
 from tests.fixtures.scenarios import SCENARIOS
 
 SWEEP_CENTS = range(-4_000, 4_001, 100)  # plus or minus forty dollars, a dollar at a time
+
+
+def stable_part(res) -> str:
+    """The whole response bar the one field that is allowed to vary.
+
+    Excluding all of `meta` would also stop comparing which engine answered and
+    how many changes it considered, which is exactly the kind of drift a
+    determinism test is for.
+    """
+    payload = res.model_dump()
+    payload["meta"].pop("wall_ms")
+    return json.dumps(payload, sort_keys=True)
 
 
 def plans_across_a_sweep(base: dict, *, remember: bool) -> list[tuple[str, ...]]:
@@ -57,11 +71,9 @@ def test_remembering_the_last_plan_makes_it_steadier():
 
 def test_the_same_request_gives_the_same_answer_every_time():
     for name, raw in SCENARIOS.items():
-        first = solve(SolveRequest.model_validate(raw)).model_dump_json(exclude={"meta"})
+        first = stable_part(solve(SolveRequest.model_validate(raw)))
         for _ in range(10):
-            assert solve(SolveRequest.model_validate(raw)).model_dump_json(
-                exclude={"meta"}
-            ) == first, name
+            assert stable_part(solve(SolveRequest.model_validate(raw))) == first, name
 
 
 @pytest.mark.parametrize("name", sorted(SCENARIOS))

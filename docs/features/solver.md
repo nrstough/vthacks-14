@@ -35,9 +35,11 @@ inclusive both ends, `opening_balance_cents` = available balance at the start of
 
 Consequence: the plan is the smallest set at every tier. If any set holds the cushion,
 the smallest such set wins (tier 1); otherwise the smallest set that clears zero (tier
-2); otherwise the plan with the fewest fee-days and shallowest dip (tier 3). On the three
-shipped fixtures this coincides with the frontend stand-in's older order; `tight`
-genuinely needs 8 of 11 changes.
+2); otherwise the plan with the fewest fee-days and shallowest dip (tier 3). On the three shipped
+fixtures this coincides with the stand-in's older order, so the difference is
+visible only across a sweep: over openings from $30 to $300 the two orders pick
+different plans about a quarter of the time, and this one picks fewer changes
+wherever they differ.
 
 ## Constraints
 
