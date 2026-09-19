@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 import urllib.error
 import urllib.request
@@ -24,14 +25,28 @@ ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:gene
 DEFAULT_MODEL = "gemini-3.8-flash"
 # Tried in order when the model above is overloaded or missing. Every one is on
 # the free tier. Override with GEMINI_FALLBACK_MODELS, comma separated.
-DEFAULT_FALLBACKS = ("gemini-3.5-flash", "gemini-2.5-flash")
+# gemini-2.5-flash used to be here; on 2026-09-19 it answered 404 "no longer
+# available to new users", naming 3.6 as its replacement.
+DEFAULT_FALLBACKS = ("gemini-3.6-flash", "gemini-3.5-flash")
 # Gemini statuses worth one more attempt on the same model before moving on.
 TRANSIENT = {429, 500, 502, 503, 504}
 # The key is wrong or forbidden: no other model will do better, stop at once.
 FATAL = {401, 403}
 RETRY_PAUSE_S = 1.5
 DEFAULT_TIMEOUT_S = 25.0
-MAX_OUTPUT_TOKENS = 600
+# The 3.x flash models reason before they answer, and the reasoning tokens
+# count against maxOutputTokens. Measured 2026-09-19: 3.8-flash spent 463
+# thinking tokens on a two-sentence answer. At the old cap of 600 that left
+# ~140 for the words on screen, and replies stopped mid-sentence ("landing
+# at"). The cap is now sized for reasoning plus a full answer, and the
+# thinking level is pinned low, which on 3.8 removed the reasoning entirely
+# and on 3.5/3.6 roughly halved it. Length is still governed by the brief.
+MAX_OUTPUT_TOKENS = 2048
+THINKING_LEVEL = "low"
+# Gemini's finishReason when the cap was hit. The answer that comes with it is
+# cut wherever the budget ran out, so it is trimmed to its last full sentence
+# rather than shown with a dangling clause.
+FINISH_MAX_TOKENS = "MAX_TOKENS"
 
 _ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
 _env_loaded = False
@@ -135,6 +150,7 @@ def generate(
         "generationConfig": {
             "temperature": temperature,
             "maxOutputTokens": MAX_OUTPUT_TOKENS,
+            "thinkingConfig": {"thinkingLevel": THINKING_LEVEL},
         },
     }
     headers = {
@@ -184,4 +200,24 @@ def extract_text(payload: dict) -> str:
     text = "".join(p.get("text", "") for p in parts if isinstance(p, dict)).strip()
     if not text:
         raise GeminiError("Gemini returned an empty answer")
+    if candidates[0].get("finishReason") == FINISH_MAX_TOKENS:
+        text = trim_to_sentence(text)
+        if not text:
+            raise GeminiError("Gemini ran out of room before finishing a sentence")
     return text
+
+
+_SENTENCE_END = re.compile(r"[.!?][\"')\]]*(?=\s|$)")
+
+
+def trim_to_sentence(text: str) -> str:
+    """Everything up to and including the last sentence end; "" if there is none.
+
+    Only used when Gemini reports it hit the output cap: whatever follows the
+    last full stop is a fragment of a sentence that was never finished, and a
+    fragment reads as a bug on screen. A complete answer is never touched.
+    """
+    last = None
+    for m in _SENTENCE_END.finditer(text):
+        last = m
+    return text[: last.end()].rstrip() if last else ""

@@ -54,7 +54,15 @@ Copy `.env.example` to `.env` at the repository root and set `GEMINI_API_KEY`.
 `.env` is gitignored and is loaded once at first use, filling only variables
 not already set in the environment. Optional: `GEMINI_MODEL` (default
 `gemini-3.8-flash`), `GEMINI_FALLBACK_MODELS` (default
-`gemini-3.5-flash,gemini-2.5-flash`), `GEMINI_TIMEOUT_S` (default 25).
+`gemini-3.6-flash,gemini-3.5-flash`; `gemini-2.5-flash` is retired and answers
+404), `GEMINI_TIMEOUT_S` (default 25).
+
+Output budget: `maxOutputTokens` is 2048 with `thinkingLevel: low`. The 3.x
+flash models reason before answering and the reasoning counts against the cap;
+at the old cap of 600, 3.8-flash's ~460 reasoning tokens left ~140 for the
+reply, which stopped mid-sentence on screen ("landing at"). If Gemini still
+reports `MAX_TOKENS`, the reply is trimmed to its last complete sentence, and a
+reply with no complete sentence is a 502 rather than a fragment.
 
 On the box there is no repository and no `.env`. The key lives in a root-owned
 `0600` `/etc/overdraft-guard.env`, loaded by `EnvironmentFile=` in

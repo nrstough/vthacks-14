@@ -274,6 +274,44 @@ def test_extract_text_joins_parts():
     assert gemini.extract_text(payload) == "a b"
 
 
+def test_extract_text_trims_a_capped_answer_to_its_last_sentence():
+    payload = {
+        "candidates": [
+            {
+                "content": {"parts": [{"text": "Keeping the gym still clears zero. It lands at"}]},
+                "finishReason": "MAX_TOKENS",
+            }
+        ]
+    }
+    assert gemini.extract_text(payload) == "Keeping the gym still clears zero."
+
+
+def test_extract_text_refuses_a_capped_answer_with_no_full_sentence():
+    payload = {
+        "candidates": [
+            {"content": {"parts": [{"text": "Canceling the gym only protects your"}]}, "finishReason": "MAX_TOKENS"}
+        ]
+    }
+    with pytest.raises(gemini.GeminiError, match="out of room"):
+        gemini.extract_text(payload)
+
+
+def test_extract_text_leaves_a_finished_answer_alone():
+    payload = {
+        "candidates": [
+            {"content": {"parts": [{"text": "Two sentences. Then a fragment that is fine"}]}, "finishReason": "STOP"}
+        ]
+    }
+    assert gemini.extract_text(payload) == "Two sentences. Then a fragment that is fine"
+
+
+def test_trim_to_sentence_handles_quotes_and_questions():
+    assert gemini.trim_to_sentence('He said "no." Then he') == 'He said "no."'
+    assert gemini.trim_to_sentence("Really? Yes! And then some mo") == "Really? Yes!"
+    assert gemini.trim_to_sentence("$27.62 more by Sep 24. Then it") == "$27.62 more by Sep 24."
+    assert gemini.trim_to_sentence("no end here") == ""
+
+
 def test_extract_text_reports_a_block_reason():
     with pytest.raises(gemini.GeminiError, match="SAFETY"):
         gemini.extract_text({"candidates": [], "promptFeedback": {"blockReason": "SAFETY"}})
@@ -303,7 +341,22 @@ def test_generate_serialises_a_request_gemini_accepts(monkeypatch):
     json.dumps(seen["body"])  # must be plain JSON
     assert seen["body"]["systemInstruction"] == {"parts": [{"text": "sys"}]}
     assert seen["body"]["generationConfig"]["maxOutputTokens"] == gemini.MAX_OUTPUT_TOKENS
+    assert seen["body"]["generationConfig"]["thinkingConfig"] == {"thinkingLevel": gemini.THINKING_LEVEL}
     assert seen["url"].endswith("/models/m:generateContent")
+
+
+def test_output_cap_leaves_room_for_reasoning_and_an_answer():
+    # 3.8-flash spent 463 thinking tokens on a two-sentence reply (measured
+    # 2026-09-19). The cap must hold that plus the four-sentence brief with
+    # room to spare, or replies stop mid-sentence again.
+    assert gemini.MAX_OUTPUT_TOKENS >= 1500
+    assert gemini.THINKING_LEVEL == "low"
+
+
+def test_no_retired_model_in_the_defaults():
+    # gemini-2.5-flash answered 404 "no longer available to new users" on
+    # 2026-09-19. A fallback that cannot answer is a fallback to a 502.
+    assert "gemini-2.5-flash" not in (gemini.DEFAULT_MODEL, *gemini.DEFAULT_FALLBACKS)
 
 
 def _resp(res: dict):
