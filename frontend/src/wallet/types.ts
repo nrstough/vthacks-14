@@ -113,8 +113,15 @@ export const TERMINAL: readonly AttemptStatus[] = ['confirmed', 'failed', 'rejec
 export type TokenBalance = {
   readonly account: string
   readonly mint: string
-  /** Exact base units as a decimal string. Never the float the RPC also sends. */
+  /** Exact base units as a decimal string. This is the only amount field read. */
   readonly amount: string
+  /**
+   * The float the RPC sends beside `amount`. Declared so fixtures can carry it
+   * truthfully, and never read anywhere — reading it is how a Number enters the
+   * money path and stops being exact above 2^53, with nothing failing until it
+   * does. A test pins that a wrong value here changes no result.
+   */
+  readonly uiAmount?: number
 }
 
 /**
