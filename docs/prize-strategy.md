@@ -41,6 +41,56 @@ Last updated: Fri Sept 18, 2026, ~8:45 PM (after the opening ceremony).
 | Best Use of Backboard | — | Skip. Its pitch is persistent AI memory; our security argument is that the app holds no state. |
 | ElevenLabs, Solana, Presage, MongoDB Atlas | 2–4h each | Skip. |
 
+## Rewards at a glance
+
+### Automatic (every submission judged, no slot needed)
+
+| Category | Reward |
+|---|---|
+| 1st Place | MacBook Pro 14-inch |
+| 2nd Place | PlayStation 5 Digital |
+| 3rd Place | Keyboard, mouse, monitor setup |
+| Best First-Time Hack | AirPods 4 |
+| Best UI/UX Hack | Kodak Polaroid camera |
+| Best Ut Prosim Hack | North Face Borealis backpack |
+| Best DEI Hack | LED Smart Fire TV |
+| Best Hack That Didn't Work | Amazon Echo Spot |
+| Raffle (2) | AirPods 4, MacBook Air 13-inch |
+
+### Viable opt-in tracks
+
+| Track | Reward | Extra build | Verdict |
+|---|---|---|---|
+| Capital One: Best Use of Nessie | $250 gift card per member | ~2h | Enter, build for it |
+| Best Domain Name (GoDaddy Registry) | Digital gift card | ~15 min | Enter |
+| Best Use of DigitalOcean | Retro wireless mouse | ~30 min | Enter, host here |
+| Best Use of Gemini API | Google swag kit | ~1h (shared) | Enter if slots allow |
+| Best Use of Gen AI | Assorted prizes | same integration | Enter if slots allow |
+| Peraton: Best Mission Critical AI | Not shown on slide | 0 | Enter only if slots allow |
+
+### Stretch only (Saturday afternoon, if ahead)
+
+| Track | Reward | Extra build |
+|---|---|---|
+| GoDaddy: Best Use of ANS | 1st Meta Ray-Ban Gen 2 glasses; 2nd Beats Studio Pro; 3rd Cocopar 15.6" portable monitor | 3-4h (cancellation agent) |
+| Best Use of Tiger Data | Stream Deck Mini | ~3h |
+| Best Use of Vultr | Portable screens | ~1h, only instead of DigitalOcean |
+
+### Not viable
+
+| Track | Reward | Why not |
+|---|---|---|
+| Impiricus | $3,000 / $2,000 / $1,000 cash | HCP engagement; full pivot |
+| Deloitte/Databricks | JBL speaker + merch | VT student-experience agent on Databricks |
+| Procedura AI | Not shown | 3D building meshes on a map |
+| ElevenLabs | Wireless earbuds | Voice; no product need |
+| Solana | Ledger Nano S Plus | Blockchain; no product need |
+| Presage | Fitbit Inspire + credits | Camera vital-sign sensing |
+| MongoDB Atlas | M5Stack IoT kit | Database the product doesn't need |
+| Backboard | Tile Essentials Pack | Persistent memory contradicts stateless design |
+
+Under the three-slot assumption: Capital One, DigitalOcean, Domain Name. If the cap is sponsors-only, add Gemini, Gen AI, Peraton.
+
 ## Security stance for judges
 
 Stateless by design: parse, detect, solve, render, forget. Sandbox (Nessie) data only, HTTPS in
