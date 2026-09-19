@@ -46,12 +46,16 @@ from app.nessie.client import (
 
 
 class NessieUnavailable(Exception):
-    """No key, or the key provably does not work. 503, and the caller falls back
-    to the local generator and says so on screen."""
+    """No key, or the key provably does not work.
+
+    Intended to become a 503, with the caller falling back to the local generator
+    and disclosing it on screen. No route raises or maps it yet.
+    """
 
 
 class NessieUpstreamError(Exception):
-    """Nessie was called and did not answer usefully. 502."""
+    """Nessie was called and did not answer usefully. Intended to become a 502;
+    no route maps it yet."""
 
 
 def status(config: NessieConfig | None = None) -> dict[str, Any]:

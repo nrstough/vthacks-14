@@ -138,21 +138,31 @@ def to_cents(amount: Any) -> int:
     arithmetic is exact, and a silently dropped tenth of a cent is the sort of
     thing that is only noticed when a balance disagrees with a bank's.
     """
-    # bool before the Decimal conversion: bool is an int subclass, so a JSON
-    # `true` in an amount field would otherwise become Decimal(1) and then $1.00,
-    # silently. Refusing is the only honest answer to "amount": true.
+    # bool before anything else: bool is an int subclass, so a JSON `true` in an
+    # amount field would otherwise become Decimal(1) and then $1.00, silently.
     if isinstance(amount, bool):
         raise NessieError(f"Nessie sent a boolean where an amount belongs: {amount!r}")
+    # A float should never arrive — `_request` decodes with parse_float=Decimal —
+    # so one reaching here means some other caller built it, and accepting it
+    # would quietly reintroduce the 1998.9999999999998 problem this exists to
+    # prevent. Refuse rather than convert.
+    if isinstance(amount, float):
+        raise NessieError(f"Nessie amounts must not be floats: {amount!r}")
     try:
         value = Decimal(amount) if not isinstance(amount, Decimal) else amount
     except (InvalidOperation, TypeError, ValueError) as e:
         raise NessieError(f"Nessie sent an amount that is not a number: {amount!r}") from e
     if not value.is_finite():
         raise NessieError(f"Nessie sent a non-finite amount: {amount!r}")
-    cents = value * 100
-    if cents != cents.to_integral_value():
+
+    # Check the precision BEFORE scaling. `value * 100` runs in the default
+    # context of 28 significant digits, so Decimal("19.99000000000000000000000000001")
+    # rounds to exactly 1999 during the multiply and the sub-cent check then finds
+    # nothing wrong with it. The exponent is exact and needs no arithmetic:
+    # anything finer than a hundredth cannot be represented in cents.
+    if -value.as_tuple().exponent > 2:
         raise NessieError(f"Nessie sent a sub-cent amount that cannot be exact: {amount!r}")
-    out = int(cents)
+    out = int(value.scaleb(2))
     if abs(out) > CENTS_ABS:
         raise NessieError(f"Nessie sent an amount outside the supported range: {amount!r}")
     return out

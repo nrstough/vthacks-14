@@ -236,3 +236,29 @@ def test_the_live_sandbox_accepts_a_write_then_read():
     if not cfg.api_key:
         pytest.skip("no NESSIE_API_KEY configured")
     assert verify(cfg)["verified"] is True
+
+
+def test_precision_is_checked_before_scaling_not_after():
+    """`value * 100` runs in the default 28-digit context, so this rounds to
+    exactly 1999 during the multiply and the sub-cent check finds nothing wrong.
+    Checking the exponent first needs no arithmetic and cannot be rounded away."""
+    with pytest.raises(NessieError, match="sub-cent"):
+        to_cents(Decimal("19.99000000000000000000000000001"))
+
+
+def test_a_float_is_refused_rather_than_converted():
+    """One reaching here means a caller built it outside _request, and accepting
+    it would quietly reintroduce 1998.9999999999998."""
+    with pytest.raises(NessieError, match="must not be floats"):
+        to_cents(1.0)
+
+
+def test_a_boolean_amount_is_refused():
+    with pytest.raises(NessieError, match="boolean"):
+        to_cents(True)
+
+
+def test_whole_and_exponent_notation_still_convert():
+    assert to_cents(Decimal("1E+2")) == 10_000
+    assert to_cents(5) == 500
+    assert to_cents(Decimal("-5")) == -500

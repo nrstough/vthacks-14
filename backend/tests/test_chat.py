@@ -15,7 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.chat.gemini as gemini
-from app.chat import scrub
+from app.chat import mask_descriptors, scrub, unmask_descriptors
 from app.chat.prompt import dollars, render_context, system_instruction
 from app.main import create_app
 from app.schemas import SolveRequest
@@ -397,73 +397,63 @@ def test_fallbacks_come_from_the_environment(monkeypatch):
     assert gemini.GeminiConfig.from_env().models() == ["x"]
 
 
-# ---- the scrubber must not rewrite the user's own data ----
+# ---- descriptors never reach the model, so nothing has to guess ----
 #
-# A generated account carrying GUARANTEED AUTO PROTECTION came back as
-# "Skipping sufficient under the schedule shown AUTO PROTECTION frees $38.59."
-# 88 of 300 generated accounts carry that row, and a Nessie payee like
-# "Guaranteed Rate" behaves the same, so this is routine rather than exotic.
+# Three earlier versions of this were bypassable, each in the same way: they tried
+# to recover provenance from the model's output. Protected spans, then an
+# upper-case rule, then case-sensitive matching — all defeated, the last by
+# `scrub("This plan IS GUARANTEED to clear.", ["IS GUARANTEED"])`. A string does
+# not carry where it came from.
 #
-# The pair below is the point: the descriptor survives, and a genuine product
-# claim is still rewritten. A fix that protected the descriptor by weakening the
-# scrubber would pass the first and fail the second.
+# Now the model never sees a descriptor. It sees [[M0]], everything it writes is
+# scrubbed unconditionally, and the real text goes back afterwards.
 
 _TRAP = "GUARANTEED AUTO PROTECTION"
 
 
-def test_a_merchant_name_is_not_rewritten_into_product_copy():
-    out = scrub(f"Skipping {_TRAP} frees $38.59.", [_TRAP])
-    assert out == f"Skipping {_TRAP} frees $38.59."
-    assert "sufficient under the schedule shown" not in out
+def test_the_scrubber_has_no_exceptions_left_to_exploit():
+    for crafted in ["IS GUARANTEED", "GUARANTEED SAVINGS", "guaranteed savings", "Guaranteed Rate"]:
+        out = scrub(f"This plan {crafted} covers it.")
+        assert "guarantee" not in out.lower(), f"{crafted!r} survived as {out!r}"
 
 
-def test_the_product_s_own_claim_is_still_scrubbed_alongside_it():
-    out = scrub(f"This is guaranteed, and {_TRAP} is the charge.", [_TRAP])
-    assert _TRAP in out
-    assert "is guaranteed" not in out
+def test_a_descriptor_is_taken_out_before_the_model_sees_it():
+    masked, refs = mask_descriptors(f"- 2026-09-22 {_TRAP}: -$38.59", [_TRAP])
+    assert _TRAP not in masked
+    assert "[[M0]]" in masked
+    assert refs == [_TRAP]
+
+
+def test_a_descriptor_comes_back_intact_after_scrubbing():
+    masked, refs = mask_descriptors(f"row {_TRAP} here", [_TRAP])
+    assert unmask_descriptors(scrub(masked), refs) == f"row {_TRAP} here"
+
+
+def test_a_reply_gets_both_treatments_and_they_do_not_interfere():
+    _, refs = mask_descriptors(f"x {_TRAP} y", [_TRAP])
+    reply = "Skipping [[M0]] frees $38.59, and the result is guaranteed."
+    out = unmask_descriptors(scrub(reply), refs)
+    assert _TRAP in out, "the merchant name must survive"
+    assert "is guaranteed" not in out, "the product's claim must not"
     assert "sufficient under the schedule shown" in out
 
 
-def test_a_recased_descriptor_loses_its_protection_and_that_is_deliberate():
-    """Matching is case-SENSITIVE, and that is the whole protection.
-
-    Qualifying the descriptor on upper case and then matching case-insensitively
-    was a bypass, not a guard: a descriptor of "GUARANTEED SAVINGS" matched the
-    prose "guaranteed savings" and shielded the model's own claim. So a re-cased
-    echo is treated as prose and scrubbed — the merchant's name is corrupted,
-    which is the original bug in a narrower window and the right way to fail.
-    """
-    out = scrub("Skipping Guaranteed Auto Protection frees $38.59.", [_TRAP])
-    assert "sufficient under the schedule shown" in out
+def test_an_invented_reference_is_dropped_not_guessed():
+    """Inventing a merchant name into a sentence about someone's money is worse
+    than a clipped sentence."""
+    assert unmask_descriptors("Skipping [[M7]] helps.", [_TRAP]) == "Skipping  helps."
 
 
-def test_a_crafted_descriptor_cannot_shield_a_product_claim():
-    """The bypass the audit found. `protected` is caller text."""
-    assert "guaranteed savings" not in scrub(
-        "Your savings are guaranteed savings.", ["GUARANTEED SAVINGS"]
-    )
-    assert "is guaranteed" not in scrub("This is guaranteed to clear.", ["is guaranteed"])
+def test_masking_does_not_depend_on_set_ordering():
+    pair = [_TRAP, "GUARANTEED AUTO PROTECTIOX"]
+    text = f"a {_TRAP} b"
+    first = mask_descriptors(text, pair)
+    assert mask_descriptors(text, list(reversed(pair))) == first
 
 
-def test_a_mixed_case_merchant_name_is_scrubbed_rather_than_trusted():
-    """"Guaranteed Rate" is a real lender. It is also indistinguishable from
-    prose, so the rule wins and the name is corrupted."""
-    assert "Guaranteed Rate" not in scrub("Paying Guaranteed Rate.", ["Guaranteed Rate"])
+def test_the_longer_descriptor_wins_when_one_contains_another():
+    masked, refs = mask_descriptors("KROGER #382 STORE", ["KROGER #382", "KROGER #382 STORE"])
+    assert masked == "[[M0]]"
+    assert refs == ["KROGER #382 STORE"]
 
 
-def test_the_protection_does_not_depend_on_dict_ordering():
-    """sorted(set, key=len) broke ties on set iteration order, so the banned word
-    shipped on some PYTHONHASHSEED values and not others."""
-    trap2 = "GUARANTEED AUTO PROTECTIOX"
-    out = scrub(f"Skipping {_TRAP} frees $1.", [_TRAP, trap2])
-    assert _TRAP in out
-
-
-def test_a_single_token_descriptor_is_not_protected():
-    # It cannot be told apart from product copy, so the rule wins.
-    out = scrub("The plan is guaranteed.", ["guaranteed"])
-    assert "guaranteed" not in out.lower().replace("schedule shown", "")
-
-
-def test_scrubbing_still_works_with_no_descriptors_supplied():
-    assert "infeasible" not in scrub("The problem is infeasible.").lower()
