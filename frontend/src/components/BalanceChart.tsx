@@ -11,7 +11,7 @@ import {
   YAxis,
 } from 'recharts'
 import type { SolveRequest, SolveResponse } from '../types'
-import { money, shortDate } from '../solver/mockSolver'
+import { money, shortDate } from '../lib/format'
 
 interface Row {
   date: string

@@ -48,13 +48,16 @@ export interface PlanItem {
   date: string
   freed_cents: number
   pain: number
+  strictly_needed: boolean // false when it only protects the cushion
   reason: string
 }
 
 export interface CertificateItem {
   candidate_id: string
-  worst_shortfall_cents: number
+  worst_shortfall_cents: number // absolute worst dip with this change removed
   worst_date: string | null
+  marginal_cents: number // how much DEEPER the dip gets without this change
+  marginal_days: number // how many more days below zero without it
 }
 
 export interface Certificate {

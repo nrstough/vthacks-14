@@ -1,5 +1,5 @@
 import type { Candidate, Locks, SolveRequest, SolveResponse } from '../types'
-import { money, shortDate } from '../solver/mockSolver'
+import { money, shortDate } from '../lib/format'
 
 export type LockState = 'in' | 'auto' | 'out'
 
@@ -73,7 +73,7 @@ export default function PrescriptionList({
         )}
         {res.plan.map((p) => {
           const pinned = stateOf(p.candidate_id, locks) === 'in'
-          const strictlyNeeded = !p.reason.startsWith('Holds the cushion')
+          const strictlyNeeded = p.strictly_needed
           const cls = [
             'rx-row',
             pinned ? 'is-pinned' : '',

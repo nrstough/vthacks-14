@@ -4,7 +4,8 @@ import PrescriptionList from './components/PrescriptionList'
 import type { LockState } from './components/PrescriptionList'
 import VerdictBand from './components/VerdictBand'
 import { SCENARIOS } from './fixtures/scenarios'
-import { money, solve } from './solver/mockSolver'
+import { money } from './lib/format'
+import { solve } from './solver/mockSolver'
 import type { Locks } from './types'
 
 const NO_LOCKS: Locks = { in: [], out: [] }
