@@ -407,9 +407,46 @@ A13 does not rest on the shots alone. The contrast figures above were computed f
 rendered pixels in the browser pane, and the three behaviours under "Browser checks" were
 observed live there; neither is something a still can carry.
 
-## Claude critique
+Recorded after the second critique round:
 
-Pending.
+10. **D3 narrowed to whites.** D3 said every literal colour outside `:root` becomes a token.
+    What shipped and is pinned: every literal *white* is a token; neutral ink shadows and the
+    navy pill shadow are tokens too as of the audit round (`--ink-shadow`, `--ink-shadow-soft`,
+    `--on-navy-shadow`). Remaining literals outside `:root` are none. The feature doc states
+    the pin as "white only", which is what the test checks.
+11. **Panel headings at 600, not 700.** D2 froze 700 for the wordmark, the verdict and panel
+    headings. The variable file is one continuous 400–700 axis, and 700 at the panel
+    headings' 20px reads heavy, so `.panel-head h2` stays at 600 by choice; the wordmark and
+    the verdict are 700 (the verdict was 600 until the audit round). The stylesheet comment
+    that claimed the file "ships 400 and 700 and nothing between" was wrong and is corrected.
+12. **"A 640px gradient height" in What-will-change was loose wording.** The intent, and the
+    code, is a 640px *breakpoint* at which the gradient grows from 460px to 620px because the
+    stat tiles stack; there is no 640px gradient.
+
+## Claude critique (adversarial, Opus, two rounds)
+
+**Round 1 (~18:45) — Fail.** Freeze integrity failed because the docs pass had rewritten nine
+frozen lines of this spec instead of appending deviations; documentation failed because the
+feature doc claimed no literal colour survived outside `:root` while five whites did, and the
+demo script still sent the presenter to a footer chip that lives in the nav. Eight further
+findings: the sixth responsive pin (the wallet card) missing; no test could fail if a checkbox
+call site's section argument were swapped; the gap-form reason unreachable from the UI and
+undocumented as such; the "Move a slider" instruction deleted rather than relocated; font
+preloads untested; ~260 lines of dead CSS; screenshot evidence only in the scratchpad. All ten
+were fixed in `bb9cf4d`, `6dedfda` and `8f937f5`: the frozen body restored byte-for-byte from
+`dc92fbe` with deviations 7–9 added; whites tokenised and pinned; docs corrected; the wallet
+pin, the call-site pin and the preload pin added (each verified to fail on a mutation); the
+re-solve sentence relocated into the controls panel as `.panel-lede`; dead rules deleted with
+every remaining selector checked against the components; `docs/shots/` committed.
+
+**Round 2 (~19:20) — Needs-work, plan adherence only; every other dimension Pass.** Three
+enumerated departures: two neutral shadow literals still outside `:root`; panel headings and
+the verdict at 600 where D2 said 700, with a wrong comment; the gradient-height wording. Fixed
+or recorded as deviations 10–12 above (`--ink-shadow` tokens; the verdict to 700, the panel
+headings kept at 600 and recorded; the comment corrected). A third round was not run: the
+critic named exactly what would flip the dimension and nothing else was below Pass; the Codex
+audit below is the confirmation pass.
+
 
 ## Codex audit
 
