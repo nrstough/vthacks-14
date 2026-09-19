@@ -284,8 +284,37 @@ its sandbox refusing a temporary directory, not a failure.
 
 **Tests after the re-audit: 977** (the invariant properties now run over every planted case).
 
+### Codex final pass (~03:05) — **Acceptable**
+
+Scorecard: Plan adherence Acceptable, Scope discipline **Excellent**, Test coverage
+Acceptable, Review compliance **Excellent**, Freeze integrity **Excellent**, Regression
+check Acceptable, Documentation Acceptable. **Overall: Acceptable — no blocking
+implementation defect identified.**
+
+One doc nit, fixed: R6 says "one Node invocation per test session", while the harness
+actually batches and memoises — one process per set of unseen requests. The docstring now
+says what it does.
+
+Two verifications its sandbox could not perform, both run here in a writable environment:
+the static-site test passes (its fixture needs a temporary directory), and
+`npm run build` in `frontend/` completes clean.
+
 **Codex audit grade:** Fail on the first two passes, five defects between them; all fixed
-and mutation-guarded. Final pass recorded below.
+and mutation-guarded. **Final pass: Acceptable.**
+
+---
+
+## Final state
+
+**977 gate tests + 6 perf.** `.venv/bin/pytest backend/ -q -m "not perf"`.
+
+Three review passes found seventeen issues between them. Two were defects that would have
+reached a judge: a schema-valid request returning 500, and a deferral with its recharge
+date omitted becoming permanent savings. Three more would have shown up only when
+something else went wrong: a broken solver install crashing instead of falling back, a
+failed stage returning an unproven plan when an exact one was available, and a refusal
+naming the one word the product never shows anyone. The rest were tests that did not bite
+and records that overstated what had been done.
 
 ## Refinements from deep exploration (Sat ~01:50, before plan approval)
 

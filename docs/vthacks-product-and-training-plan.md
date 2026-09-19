@@ -70,6 +70,8 @@ The strongest proposed distinction is an inspectable, dated repair plan with exp
 
 ## Training data: what we have and what we need
 
+**Dataset research update (Sept 19):** [The source investigation](vthacks-dataset-research.md) now identifies Nedbank/Zindi as the first real-history candidate, MoneyData as an independent case study, and IBM TabFormer as the synthetic fallback. The older options below remain background; no new dataset has been downloaded or validated.
+
 **Nessie is a banking simulation API, not an established training corpus.** Its records can feed a demo and can carry histories we generate, but writing synthetic transactions into Nessie does not make them real training observations. No Nessie data was downloaded for this pilot; all its training values were generated locally. The live-doc review did not establish a sufficiently large, representative, licensed history dataset behind the API. See [the Nessie brief](nessie-agent-brief.md) for endpoint coverage and unresolved documentation discrepancies.
 
 | Source | Useful for | Status and limitation |
