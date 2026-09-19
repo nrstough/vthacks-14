@@ -75,23 +75,37 @@ def test_the_biggest_account_the_schema_allows_still_solves(client):
     assert client.post("/api/solve", json=raw).status_code == 200
 
 
-def test_both_engines_agree_on_generated_accounts():
-    # Brute force is 2^n over the horizon, so the gate keeps to the sets it can
-    # enumerate quickly; the full sweep at the cap runs under -m perf.
-    checked = 0
-    for win in WINDOWS[:50]:
+def _engines_agree(raw):
+    req = SolveRequest.model_validate(raw)
+    cpsat = solve(req, Settings(force_engine="cp-sat")).model_dump()
+    brute = solve(req, Settings(force_engine="brute-force")).model_dump()
+    assert cpsat["plan"] == brute["plan"]
+    assert cpsat["tier"] == brute["tier"]
+    assert cpsat["certificate"]["per_item"] == brute["certificate"]["per_item"]
+
+
+@pytest.mark.parametrize("name", sorted(SCENARIOS))
+def test_both_engines_agree_on_each_demo_preset(name):
+    # The presets go through the default engine everywhere else; this is the only
+    # place the exhaustive one is made to answer for them.
+    _engines_agree(dict(demo_cases())[name])
+
+
+def test_both_engines_agree_on_fifty_generated_accounts():
+    # Brute force is 2^n over the horizon, so the gate takes the accounts it can
+    # enumerate quickly — but it takes fifty of them, scanning as far through the
+    # windows as it needs rather than filtering fifty down to whatever is left.
+    # The whole set at the cap runs under -m perf.
+    qualifying = []
+    for win in WINDOWS:
         generated = candidates_for(win)
-        if len(generated) > 14:
-            continue
-        raw = solve_request(win, generated)
-        req = SolveRequest.model_validate(raw)
-        cpsat = solve(req, Settings(force_engine="cp-sat")).model_dump()
-        brute = solve(req, Settings(force_engine="brute-force")).model_dump()
-        assert cpsat["plan"] == brute["plan"]
-        assert cpsat["tier"] == brute["tier"]
-        assert cpsat["certificate"]["per_item"] == brute["certificate"]["per_item"]
-        checked += 1
-    assert checked >= 20, f"only {checked} accounts were small enough to enumerate"
+        if len(generated) <= 14:
+            qualifying.append(solve_request(win, generated))
+        if len(qualifying) == 50:
+            break
+    assert len(qualifying) == 50, f"only {len(qualifying)} accounts were small enough"
+    for raw in qualifying:
+        _engines_agree(raw)
 
 
 @requires_node

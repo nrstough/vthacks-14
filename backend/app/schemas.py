@@ -221,9 +221,10 @@ class CandidatesRequest(Strict):
     so the two endpoints reject the same input the same way.
 
     `limit` defaults to MAX_FREE rather than MAX_N because that is the largest set
-    every fallback still answers: the exhaustive engine refuses above it, and so
-    does the browser's stand-in solver. A caller that knows it has CP-SAT can ask
-    for more.
+    every fallback still answers. The two ceilings are not the same number: this
+    service's exhaustive engine refuses above MAX_FREE, and the browser's stand-in
+    refuses above twenty, so the lower of the two is the safe default. A caller
+    that knows it has CP-SAT can ask for more.
     """
 
     as_of: StrictStr
@@ -322,9 +323,14 @@ class CandidatesMeta(Strict):
     """What happened to every row the generator looked at.
 
     `protected`, `not_actionable` and the targets of the returned candidates
-    partition the considered rows. `unrecognised` is orthogonal to those three:
-    it records classification, not disposition, so a row no keyword matched
-    appears there whether it was offered, protected or cut by the limit.
+    partition the considered rows — except when `truncated`, where a row whose
+    every alternative fell below the cut belongs to none of the three. A row that
+    kept one alternative is still offered, so truncation does not by itself mean
+    a row went missing.
+
+    `unrecognised` is orthogonal to all of that: it records classification, not
+    disposition, so a row no keyword matched appears there whether it was
+    offered, protected or cut by the limit.
     """
 
     rows_considered: Annotated[StrictInt, Field(ge=0, le=MAX_SCHED)]

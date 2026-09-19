@@ -364,3 +364,19 @@ was F6 above.
 Scorecard: Plan adherence Acceptable, Scope discipline **Excellent**, Test coverage
 **Excellent**, Review compliance Acceptable, Freeze integrity Acceptable, Regression check
 **Excellent**, Documentation Acceptable. **Overall: Acceptable.**
+
+### Codex audit (~04:47) — **Fail**, one real coverage gap
+
+| Finding | Resolution |
+|---|---|
+| **AC10's engine comparison was thinner than the criterion.** The test took the first 50 windows and kept whichever qualified — 29 — then asserted only that 20 had been checked. AC10 asks for 50 qualifying accounts *and* the three demo presets, and the demo presets were only ever run through the default engine and the TypeScript oracle, never CP-SAT against exhaustion. | Scans as far through the windows as it needs to collect 50 qualifying accounts and asserts the count; the three presets each get their own engine-agreement case. The 300-window perf sweep stays where it is — it does not substitute for gate coverage. |
+| `CandidatesMeta`'s docstring claimed an unconditional partition, omitting the truncation exception the contract documents correctly. | Docstring now carries the exception. |
+| `CandidatesRequest`'s docstring conflated the browser's 20-candidate ceiling with this service's 18. | Both ceilings named, and why the lower one is the default. |
+
+Not actionable: Codex looked for P1/P2/P3 freeze hashes this pipeline does not use, and its
+two "setup errors" were its sandbox refusing a temporary directory to the static-site
+fixtures, not failures. It measured the gate at 1,160 rather than 1,162 for the same reason.
+
+Scorecard as returned: Plan adherence Fail, Scope discipline **Excellent**, Test coverage
+Fail, Review compliance **Excellent**, Freeze integrity Acceptable, Regression check
+Acceptable, Documentation Acceptable. **Overall: Fail** — on AC10 coverage alone.
