@@ -48,3 +48,5 @@ Parity tests need Node ≥ 22 on PATH (they run the TS oracle with `--experiment
 - [Neural pilot report](docs/vthacks-training-pilot.md) — completed synthetic experiment; no advantage over the weekday baseline and no real-data validation.
 - [Nessie API brief](docs/nessie-agent-brief.md) and [competitive research](docs/overdraft-guard-research-and-neural-net.md) — dated research snapshots.
 - `experiments/residual_forecast/` — isolated NumPy pilot, preserved data, model checkpoints, audit, and reproduction instructions; not wired into the app.
+
+- [Dataset sources and acquisition plan](docs/vthacks-dataset-research.md) — Nedbank/Zindi, MoneyData, IBM, licenses, access paths, and forecast suitability.
