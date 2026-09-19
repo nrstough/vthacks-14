@@ -223,6 +223,16 @@ body {
 
 .certificate strong { color: var(--ink); font-weight: 600; }
 
+.unproven {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--warn);
+  margin-bottom: 6px;
+}
+
 .cash-callout {
   margin-top: var(--s3);
   padding: var(--s2);

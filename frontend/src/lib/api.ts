@@ -18,6 +18,23 @@ export class ApiError extends Error {
   }
 }
 
+// A validation failure arrives as FastAPI's list of {loc, msg, ...}. Turn it
+// into a sentence naming the field, rather than pasting raw JSON at the user.
+function describeDetail(detail: unknown): string {
+  if (typeof detail === 'string') return detail
+  if (!Array.isArray(detail)) return ''
+  return detail
+    .map((d) => {
+      const item = d as { loc?: unknown; msg?: unknown }
+      const loc = Array.isArray(item.loc)
+        ? item.loc.filter((x) => x !== 'body').join('.')
+        : ''
+      const msg = typeof item.msg === 'string' ? item.msg : 'is not valid'
+      return loc ? `${loc} ${msg.charAt(0).toLowerCase()}${msg.slice(1)}` : msg
+    })
+    .join('; ')
+}
+
 export async function solveViaApi(
   request: SolveRequest,
   previousPlan: string[],
@@ -37,16 +54,16 @@ export async function solveViaApi(
   }
 
   if (!r.ok) {
-    // The backend answers a bad request with a field path. Surface it rather
-    // than a bare status code, since it is the only clue to what went wrong.
     let detail = ''
     try {
-      const body = await r.json()
-      detail = typeof body?.detail === 'string' ? body.detail : JSON.stringify(body?.detail ?? '')
+      detail = describeDetail((await r.json())?.detail)
     } catch {
       /* body was not JSON; the status alone will have to do */
     }
-    throw new ApiError(detail ? `Solver rejected the request: ${detail}` : `Solver returned ${r.status}.`, r.status)
+    throw new ApiError(
+      detail ? `Solver rejected the request: ${detail}` : `Solver returned ${r.status}.`,
+      r.status,
+    )
   }
 
   return (await r.json()) as SolveResponse

@@ -7,10 +7,22 @@ const TIER_LABEL: Record<1 | 2 | 3, string> = {
   3: 'Needs outside cash',
 }
 
+// The server softens its own wording when a solve stage times out, but these
+// three strings are the client's and would keep asserting a proof that was
+// never obtained. Tier 1's label is the worst of them: "Proven sufficient" is
+// a claim about the search, not about the balances.
+const TIER_LABEL_UNPROVEN: Record<1 | 2 | 3, string> = {
+  1: 'Sufficient',
+  2: 'Clears zero, no cushion',
+  3: 'Needs outside cash',
+}
+
 export default function VerdictBand({ res, req }: { res: SolveResponse; req: SolveRequest }) {
   return (
     <section className="verdict">
-      <span className={`pill t${res.tier}`}>{TIER_LABEL[res.tier]}</span>
+      <span className={`pill t${res.tier}`}>
+        {(res.certificate.minimal_proven ? TIER_LABEL : TIER_LABEL_UNPROVEN)[res.tier]}
+      </span>
       <h1>{res.verdict}</h1>
       <p className="qualifier num">{res.qualifier}</p>
 
@@ -28,7 +40,12 @@ export default function VerdictBand({ res, req }: { res: SolveResponse; req: Sol
 
       {res.plan.length > 0 && (
         <div className="certificate num">
-          <strong>Why this is the smallest plan. </strong>
+          {!res.certificate.minimal_proven && (
+            <span className="unproven">Not fully proven, the solver ran out of time</span>
+          )}
+          <strong>
+            {res.certificate.minimal_proven ? 'Why this is the smallest plan. ' : 'Why these changes. '}
+          </strong>
           {res.certificate.sentence}{' '}
           {res.tier === 3
             ? 'Measured against a zero balance.'
