@@ -202,7 +202,7 @@ freeze integrity Excellent. The critique ran 2,400 fuzz instances, 26 hand-built
 | F7 | Two Codex resolutions were only partly implemented. | Planted-vs-oracle parity added. The promised subprocess test for a missing OR-Tools is **deliberately not added**: the `load_cpsat` seam covers the substance and a subprocess test would be slower and flakier. |
 | F8 | The certificate's first-wins tie rule was untested. | Fixed: `EQUAL_MARGINALS` unit test. The `>=` mutant now fails. |
 | F9 | Determinism tests excluded all of `meta`, not just `wall_ms`. | Fixed: `stable_part()` compares everything but the timing. |
-| F10 | `docs/features/solver.md` claimed the `tight` account needs 8 of 11 changes; the fixture was retuned and needs 3. | Fixed, with the sweep result that actually supports D1 in its place. |
+| F10 | `docs/features/solver.md` claimed the `tight` account needs 8 of 11 changes; the fixture was retuned and needs 3. | Fixed, with the sweep result that actually supports D1 in its place. **The same now-stale figure appears in D1's own note above (line ~35), which is frozen: read it as superseded.** The `tight` preset became $180 against a $100 cushion in `0c6e0c5` and solves in 3 changes at tier 2. D1's real support is the sweep: across openings from $30 to $300 the two orders differ on about a quarter of them, and D1 picks fewer changes every time they do. |
 | F11 | The contract documented no 503, and its limits read as if they bound derived figures. | Fixed in `docs/api-contract.md`. |
 | F12 | Two unreachable branches in `assemble.py`. | Removed. |
 
