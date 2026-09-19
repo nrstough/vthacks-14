@@ -60,10 +60,15 @@ export async function solveViaApi(
     } catch {
       /* body was not JSON; the status alone will have to do */
     }
-    throw new ApiError(
-      detail ? `Solver rejected the request: ${detail}` : `Solver returned ${r.status}.`,
-      r.status,
-    )
+    // A 4xx means the request was wrong. A 503 means the server declined to
+    // answer at all, which it does rather than return an approximate plan.
+    // Saying "rejected the request" for the second would blame the wrong side.
+    let prefix: string
+    if (r.status === 503) prefix = 'The solver declined to answer'
+    else if (r.status >= 500) prefix = `The solver failed (${r.status})`
+    else prefix = 'Solver rejected the request'
+
+    throw new ApiError(detail ? `${prefix}: ${detail}` : `${prefix}.`, r.status)
   }
 
   return (await r.json()) as SolveResponse

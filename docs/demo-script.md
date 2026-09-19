@@ -16,6 +16,9 @@ proof, which is the only part nobody else has.
 - [ ] Sliders at their defaults, no overrides left over from the last run
 - [ ] If the wifi is dead, say nothing about it. The page falls back to a local
       solver and keeps working. Only mention it if the footer chip is spotted.
+- [ ] Refresh the two numbers in the build section. They were 810 tests and
+      under 3ms on Saturday morning and the suite is still growing; quoting a
+      stale figure to someone who then runs it is worse than rounding.
 
 ---
 
@@ -108,7 +111,7 @@ That paragraph is the impact answer. Do not cut it for time.
 > The hard part was trusting it. So there are two independent implementations,
 > a brute force and the constraint model, and they're checked against each
 > other on generated accounts. Two hundred instances, zero disagreements.
-> Seven hundred and eighty-eight tests. Solves in about four milliseconds."
+> Eight hundred and ten tests. Solves in under three milliseconds."
 
 If they want one more level:
 
