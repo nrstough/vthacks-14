@@ -230,7 +230,7 @@ history establishes that the design preceded the implementation.
 
 | Suite | Before | After |
 |---|---|---|
-| `pytest backend/ -q` | 1,271 passed | **1,331 passed** (+60) |
+| `pytest backend/ -q` | 1,271 passed | **1,332 passed** (+61) |
 | `npm test` (frontend) | 209 passed | **216 passed** (+7) |
 
 `npm run lint` and `npm run build` clean. The frontend build runs before the
@@ -320,6 +320,17 @@ holds. Left alone.
    re-verified against `Caddyfile` and `deploy/overdraft-guard.service` before
    being written down.
 
+**A fourth pass graded the change Fail on documentation. Both causes were
+self-inflicted, and five findings were fixed:**
+
+| Defect | Fix |
+|---|---|
+| The handoff table contradicted itself: rows marked done whose evidence column still described the unfixed state, under a banner claiming the table was kept as written when its status cells had been edited | Status and evidence both rewritten for the two closed rows, and the banner now says exactly which cells changed |
+| The demo script's test count was made stale **by the commit that updated it** — it said 1,325 while that same commit's suite was 1,331. The checklist item it sits inside is about precisely this | Corrected, and only after the final run. Timings are now a range with the command to re-measure, because they move between machines |
+| `Retry-After` reported 3 seconds during a 600-second stranded window, computing the token deficit while ignoring the catch-up | The reported wait is the sum of both, and a test walks it to the second |
+| The unit parser stripped each line before testing for the continuation backslash, so a trailing space after one was silently accepted — a false pass on the exact failure it exists to catch. A continuation left dangling at end of file also vanished silently | The backslash is checked against the raw line and an unterminated continuation is an error. Six cases verified: strict on the three broken units, tolerant of the three valid ones |
+| The comment claimed the two clock guarantees "cannot both hold" | They can be had approximately, by clamping the high-water mark to a bounded skew. Not done, and now the comment says that is a choice rather than an impossibility |
+
 **A third pass — a doc-drift sweep and a second adversarial critique — found
 four more, all fixed:**
 
@@ -335,11 +346,11 @@ list and one a contradiction this change introduced:
 
 | Document | Was | Now |
 |---|---|---|
-| `docs/handoffs/2026-09-19_security-hardening-handoff.md` | Its status table still called both scope items open, and the file read as pending work | A dated closed banner, and both rows marked done. The survey text is kept as written |
+| `docs/handoffs/2026-09-19_security-hardening-handoff.md` | Its status table still called both scope items open, and the file read as pending work | A dated closed banner; the two open rows have both their status and their evidence rewritten to what closed them, and the banner says so. Every other row is the survey as first written |
 | `CLAUDE.md` | The layout listed three endpoints, omitting the one the rate-limit rule this change added is *about* | All five endpoints, with the limited one marked |
 | `README.md` | Same omission; and the key location named only `.env` | Endpoint added; the key's location on the box named |
 | `docs/features/chat.md` | The explainer's own configuration section was the last key-location claim that never mentioned the box | The root-owned file outside the repository named |
-| `docs/demo-script.md` | "977 backend tests plus 87 frontend", and, spoken to judges, "Eight hundred and ten tests. Solves in under three milliseconds." | 1,325 and 216. **The timing claim was false**: measured, the three demo accounts solve in 3.9, 5.7 and 7.7 ms, so the line now says under ten. This predates the change and is outside its scope, but a measured-false promise to a judge is exactly what the wording rules exist to prevent |
+| `docs/demo-script.md` | "977 backend tests plus 87 frontend", and, spoken to judges, "Eight hundred and ten tests. Solves in under three milliseconds." | 1,332 and 216. **The timing claim was false**: the three demo accounts measure 3-8 ms depending on the machine, so the spoken line says under ten and the checklist gives a range with the command to re-measure. This predates the change and is outside its scope, but a measured-false promise to a judge is exactly what the wording rules exist to prevent |
 | This spec | Its reconciliation table did not mention the handoff, the source of most of the above | Listed here |
 
 **A second critique pass found five more defects, all fixed before this

@@ -1,10 +1,13 @@
 # Handoff — security hardening before judging (2026-09-19)
 
 > **Closed 2026-09-19.** Both scope items shipped on
-> `claude/security-readiness-krrpk9` (`83231f1`, `12fb82b`, `fcd5d2a`). The run
-> record is `docs/specs/2026-09-19_chat-rate-limit-and-docs-gate.md`. The table
-> below is the survey of `2653df3` as it stood then, kept as written; the two
-> rows it calls open are done.
+> `claude/security-readiness-krrpk9`. The run record is
+> `docs/specs/2026-09-19_chat-rate-limit-and-docs-gate.md`.
+>
+> The table below is the survey of `2653df3`, except for its last two rows:
+> those were the open ones, and their status and evidence have been rewritten
+> to what closed them. Everything else is as first written. The survey's
+> original text is in git history.
 
 **Purpose of this chat:** Run `/plan review` locally on the two-item security scope below,
 then execute it on branch `claude/security-readiness-krrpk9`. The branch exists on
@@ -26,8 +29,8 @@ happens in flight or on the box. Of those, two of three are done:
 | Hostile input to the solver | done | every list bounded, money is a strict bounded int (`backend/app/schemas.py`) |
 | Key handling | done | env or gitignored `.env`; on the box a root-owned 0600 file outside the rsync list (`deploy/overdraft-guard.service`, `deploy.sh`); history scan found no key or bank export |
 | Process exposure | done | uvicorn bound to loopback, `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome` |
-| **Open endpoint burning the Gemini key** | **done, 2026-09-19** | `POST /api/chat` in `backend/app/main.py` has no rate limit |
-| OpenAPI docs public | done, 2026-09-19 | `docs_url="/api/docs"` at `backend/app/main.py:36` |
+| Open endpoint burning the Gemini key | done, 2026-09-19 | was: `POST /api/chat` had no rate limit. Now a per-address token bucket in `backend/app/ratelimit.py` (20/min, burst 10), applied to that route alone as a dependency in `backend/app/main.py`; answers 429 with `Retry-After` |
+| OpenAPI docs public | done, 2026-09-19 | was: `docs_url` set unconditionally, and `/redoc` live by default. Now all three gated in `create_app`; `Environment=OVERDRAFT_GUARD_DOCS=0` in `deploy/overdraft-guard.service` closes them on the box |
 
 Anything past this (auth, encryption at rest, per-user keys, audit) arrives with the first
 row saved on the server, which is the Plaid line in `docs/prize-strategy.md` §"Security

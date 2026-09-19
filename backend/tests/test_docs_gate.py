@@ -96,6 +96,15 @@ def unit_directives() -> dict[str, list[str]]:
       * keys repeat. `Environment=` and `EnvironmentFile=` accumulate rather
         than overwrite, so every value is kept and callers test membership.
 
+    A continuation backslash must be the last character on its raw line.
+    Whether systemd tolerates trailing whitespace after one is not something
+    this test could establish from the documentation to hand, so it takes the
+    strict reading: being strict rejects an odd unit that might have worked,
+    while being lax would accept `… app.main:app \\ ` — which, on the strict
+    reading, systemd truncates to a bare uvicorn with no --host and no proxy
+    flags. That is the exact failure this function exists to catch, so the
+    doubt resolves toward failing closed.
+
     Not modelled, because nothing here uses them: quoting, escape sequences
     inside values, and `key=` with an empty value resetting a list. Section
     headers are skipped rather than scoped, so do not add a directive whose
@@ -104,7 +113,10 @@ def unit_directives() -> dict[str, list[str]]:
     out: dict[str, list[str]] = {}
     pending = ""
     for raw in UNIT.read_text().splitlines():
-        line = raw.strip()
+        # The backslash is checked against the raw line: `strip()` first would
+        # silently accept a trailing space after it.
+        continued = raw.endswith("\\")
+        line = (raw[:-1] if continued else raw).strip()
         if pending:
             # systemd ignores a comment block inside a continuation.
             if not line or line.startswith("#"):
@@ -112,8 +124,7 @@ def unit_directives() -> dict[str, list[str]]:
         elif not line or line.startswith("#"):
             continue
         pending = f"{pending} {line}" if pending else line
-        if pending.endswith("\\"):
-            pending = pending[:-1].rstrip()
+        if continued:
             continue
         line, pending = pending, ""
         if line.startswith("[") and line.endswith("]"):
@@ -122,6 +133,8 @@ def unit_directives() -> dict[str, list[str]]:
             continue
         key, _, value = line.partition("=")
         out.setdefault(key.strip(), []).append(value.strip())
+    # A continuation left dangling at end of file would otherwise vanish.
+    assert not pending, f"unterminated line continuation in {UNIT.name}: {pending!r}"
     return out
 
 

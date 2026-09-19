@@ -180,6 +180,27 @@ def test_the_budget_resumes_once_the_clock_passes_where_it_had_been():
     assert limiter.check("a").allowed is True
 
 
+def test_the_reported_wait_is_honest_even_while_the_clock_is_behind():
+    """The wait it reports is the wait it enforces, in the odd case too.
+
+    The deficit alone would promise three seconds in the middle of a
+    ten-minute wait, because refilling has not even resumed yet.
+    """
+    clock = Clock()
+    limiter = RateLimiter(per_minute=20, burst=1, clock=clock)
+    limiter.check("a")
+    assert limiter.check("a").retry_after_s == 3  # the ordinary case
+
+    clock.advance(-600)
+    reported = limiter.check("a").retry_after_s
+    assert reported == 603  # 600 to catch up, then 3 for the token
+
+    clock.advance(reported - 1)
+    assert limiter.check("a").allowed is False  # not a second early
+    clock.advance(1)
+    assert limiter.check("a").allowed is True
+
+
 @pytest.mark.parametrize(
     "kwargs",
     [

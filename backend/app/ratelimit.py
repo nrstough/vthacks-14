@@ -120,8 +120,14 @@ class RateLimiter:
                 # cost is the other direction: after a backwards step the
                 # bucket does not refill until the clock passes its previous
                 # reading. `time.monotonic` never goes backwards, so that
-                # cannot happen here, and where the two cannot both hold, a
-                # guard on spending someone's API key fails closed.
+                # cannot happen here.
+                #
+                # Both can be had approximately, by clamping the high-water
+                # mark to some bounded skew, which caps minting and stranding
+                # alike at that bound. Not done: a constant and a branch for
+                # an unreachable case cost more than they buy. Neither can be
+                # had exactly, and a guard on spending someone's API key
+                # should fail closed rather than open.
                 if elapsed > 0:
                     bucket.tokens = min(self._burst, bucket.tokens + elapsed * self._rate)
                     bucket.at = now
@@ -133,7 +139,13 @@ class RateLimiter:
                 # A refused request is NOT charged. Charging it would let a
                 # loop extend its own lockout indefinitely, which turns a rate
                 # limit into a ban.
-                wait = (1.0 - bucket.tokens) / self._rate
+                # Two waits, and the client is owed their sum: the time for a
+                # token to accrue, plus — if the clock is behind this
+                # bucket's high-water mark — the time until refilling resumes
+                # at all. Reporting only the first would promise three
+                # seconds in the middle of a ten-minute wait.
+                catch_up = max(0.0, bucket.at - now)
+                wait = catch_up + (1.0 - bucket.tokens) / self._rate
                 decision = Decision(False, max(1, ceil(wait)))
 
             self._evict()

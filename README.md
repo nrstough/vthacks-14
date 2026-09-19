@@ -7,7 +7,7 @@ Exact solver (OR-Tools CP-SAT), stateless server, no accounts, no database.
 ## Layout
 
 - `backend/app/` — FastAPI app (`/health`, `POST /api/solve`, `POST /api/candidates`,
-  `POST /api/chat`), the
+  `POST /api/chat`, `GET /api/chat/status`), the
   solver package (`backend/app/solver/`) and the candidate generator
   (`backend/app/candidates/`), Python 3.14
 - `backend/tests/` — pytest suite; `tests/oracle/` runs the TypeScript stand-in solver
