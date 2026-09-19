@@ -35,6 +35,11 @@ Offline: `.venv/bin/pip install --no-index --find-links wheels -r backend/requir
 cd frontend && npm run dev                                     # Vite dev server on 5173
 ```
 
+`/api/docs`, `/api/openapi.json` and `/redoc` are served locally and turned off on the box with
+`OVERDRAFT_GUARD_DOCS=0`. It must be a real environment variable — the app reads it when it is
+built, before anything loads `.env` — so it is set in `deploy/overdraft-guard.service`, not in
+`.env.example`.
+
 ## Test
 
 ```bash

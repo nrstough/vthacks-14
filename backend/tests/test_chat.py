@@ -18,6 +18,7 @@ import app.chat.gemini as gemini
 from app.chat import scrub
 from app.chat.prompt import dollars, render_context, system_instruction
 from app.main import create_app
+from app.ratelimit import RateLimiter
 from app.schemas import SolveRequest
 from app.solver.solve import solve
 from tests.fixtures.scenarios import SCENARIOS
@@ -25,7 +26,10 @@ from tests.fixtures.scenarios import SCENARIOS
 
 @pytest.fixture(scope="module")
 def client():
-    return TestClient(create_app(None))
+    # This module posts about twenty times, well past the shipped burst. The
+    # limit is exercised in test_ratelimit.py against a default-configured
+    # app, so opting out here cannot hide a wiring mistake.
+    return TestClient(create_app(None, chat_limiter=RateLimiter.disabled()))
 
 
 @pytest.fixture(scope="module")

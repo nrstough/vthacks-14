@@ -112,6 +112,38 @@ per address. No request content, no conversation, no identity. It dies with the
 process. This is stated in the module docstring, the feature spec, and the
 judges' stance paragraph.
 
+## Amendment, 2026-09-19, after the Codex plan review
+
+Two decisions above were superseded before any code was written. They are left
+in place because this is the audit record; what shipped is below.
+
+**D3 is superseded.** The application does not parse `X-Forwarded-For` at all.
+The installed uvicorn (0.53.0) enables `proxy_headers` by default, trusts
+`127.0.0.1` by default, and resolves the forwarded list in reverse to the first
+untrusted hop — the same rule D3 derived, already implemented and already
+deployed. Hand-parsing would have meant two owners for one decision and a
+branch that only ever ran under the test client. uvicorn owns it; the app reads
+`request.client.host`. The unit states the flags rather than trusting a default
+to stay put, and names `::1` as well, because testing showed an IPv6 loopback
+peer is not trusted by the default allow-list and the whole room would then
+share one bucket.
+
+**D1 is narrowed.** "A malformed body from a limited address answers 429" is
+true only for a body that parses as JSON and then fails schema validation.
+A body that is not valid JSON at all is rejected by the parser before any
+dependency runs, so it answers 422 even from a limited address. Both sides of
+that boundary are now pinned by tests rather than left to be discovered later.
+
+**D7 is superseded.** "Evict full or idle buckets" did not bound anything:
+4,097 addresses each spending one token leaves every bucket neither full nor
+idle. Replaced with a least-recently-used map under a hard ceiling. Full
+buckets still go first, since they carry no information.
+
+**D9 refined.** Gating the schema URL is what closes all three consoles —
+FastAPI mounts both `/api/docs` and `/redoc` only when `openapi_url` is set.
+`redoc_url` is still set explicitly so the intent does not rest on that
+nesting. `/redoc` did answer 200 before this change.
+
 ## Scope
 
 Limited: `POST /api/chat` only. Never limited: `POST /api/solve`,
@@ -186,4 +218,78 @@ history establishes that the design preceded the implementation.
 
 ## Results
 
-Filled in at execution.
+**Tests.** Full suites, observed in this worktree:
+
+| Suite | Before | After |
+|---|---|---|
+| `pytest backend/ -q` | 1,271 passed | **1,321 passed** (+50) |
+| `npm test` (frontend) | 209 passed | **216 passed** (+7) |
+
+`npm run lint` and `npm run build` clean. The frontend build runs before the
+frontend tests: the bundle tests read a built `dist`, and a fresh worktree has
+none.
+
+**Acceptance criteria.**
+
+| # | Criterion | Test |
+|---|---|---|
+| AC1 | Ten answered, the eleventh 429 with `Retry-After` | `test_the_default_app_allows_ten_then_refuses`, `test_the_refusal_carries_a_retry_after_header` |
+| AC2 | A second address is unaffected | `test_a_second_address_is_unaffected`, `test_two_clients_behind_the_proxy_hold_separate_budgets` |
+| AC3 | The other four routes are never limited | `test_the_status_endpoint_is_never_limited`, `test_health_is_never_limited`, `test_the_solver_routes_are_never_limited` |
+| AC4 | A client cannot raise its own limit | `test_a_client_cannot_choose_its_own_key_by_forwarding`, `test_a_direct_peer_is_keyed_by_its_own_address` |
+| AC5 | Three URLs 404 when off, served when unset | `test_all_three_documentation_urls_are_gone_when_off`, `test_unset_means_the_docs_are_served` |
+| AC6 | No banned word on either surface | `test_the_refusal_uses_no_banned_word`, `no client message uses a banned word`, `the server detail is never echoed on a 429` |
+| AC7 | The budget refills; a refusal does not extend the lockout | `test_the_budget_returns_after_the_window`, `test_a_refused_request_is_not_charged` |
+| AC8 | Full suites green | above |
+
+**Counterfactuals, run rather than asserted.** Each guard was deleted in turn
+and the named test had to fail. Ten of ten now bite:
+
+| Mutation | Test that caught it |
+|---|---|
+| Key on `(host, port)` | `test_two_ports_on_one_host_share_a_budget` |
+| Key ignores the address | `test_two_clients_behind_the_proxy_hold_separate_budgets` |
+| Lock removed | `test_the_critical_section_is_locked` |
+| Refusals charged | `test_a_refused_request_is_not_charged` |
+| Eviction removed | `test_the_map_never_exceeds_its_ceiling` |
+| Evict most-recently-used | `test_eviction_forgets_the_least_recently_used` |
+| Recency tracking removed | `test_a_busy_address_is_never_the_one_evicted` |
+| Limit the status route too | `test_the_status_endpoint_is_never_limited` |
+| Schema URL left open | `test_all_three_documentation_urls_are_gone_when_off` |
+| `bool(raw)` parsing | `test_the_switch_reads_the_usual_falsey_spellings` |
+| Unit drops `::1` | `test_the_unit_enables_proxy_headers_for_both_loopbacks` |
+| Unit drops the docs variable | `test_the_unit_file_sets_the_name_the_app_reads` |
+| 429 branch never wired into the request path | frontend `chat-errors` (3 fail) |
+| Server detail echoed on a 429 | frontend `chat-errors` (3 fail) |
+
+**Two vacuous tests were found this way and fixed**, which is the reason the
+exercise is run at all:
+
+1. `test_a_busy_address_is_never_the_one_evicted` passed even when eviction
+   took the most-recently-used end, because the victim was then the passer-by
+   just inserted rather than the busy address. Split into two tests: one pins
+   the direction of eviction, the other pins the recency tracking.
+2. `test_the_unit_enables_proxy_headers_for_both_loopbacks` was satisfied by
+   the *comment* above `ExecStart`. It now reads directives only. A comment
+   that mentions a flag does not set it.
+
+**Doc reconciliation against the P2 list.**
+
+| Promised | Outcome |
+|---|---|
+| This run spec | Done: committed at `83231f1`, before any code |
+| `docs/features/chat.md` | Done: 429 row, a **Rate limit** section, and a note distinguishing it from Gemini's own 429 |
+| `docs/prize-strategy.md` | Done: the limiter, the wallet ledger, and the key location corrected — `.env` locally, a root-owned file outside the repository on the box |
+| `deploy/overdraft-guard.service` | Done: the docs variable and both uvicorn proxy flags |
+| The docs-gate variable *in `chat.md`* | **Moved, not dropped.** It is app-wide, not a chat setting; it went to `README.md` beside the other run-time settings |
+| `README.md` (conditional) | Edited, for the reason above |
+| `CLAUDE.md` (conditional) | Edited: one line so nobody "tidies away" the test opt-out or the unit's proxy flags |
+| `docs/api-contract.md` | Not affected, confirmed: it covers solve and candidates |
+
+Two frozen plan files (`docs/reports/2026-09-19_solver-core-plan.md`,
+`…candidate-generation-plan.md`) quote the old `create_app` signature. They are
+frozen records, and the new parameters are keyword-only, so what they say still
+holds. Left alone.
+
+**Deviations from the plan.** One, recorded above: `chat.md` → `README.md` for
+the docs-gate variable. Everything else went as planned.

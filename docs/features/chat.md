@@ -40,6 +40,7 @@ conversation and the plan live.
 |---|---|
 | 200 | A reply. |
 | 422 | Malformed: empty conversation, last turn not the user's, or a solve that fails the contract's validation. |
+| 429 | Too many questions from one address too quickly. `Retry-After` carries the seconds. The panel says the explainer is resting; the plan on screen is untouched. |
 | 502 | Gemini was called and failed (quota, timeout, safety block, unreachable). `detail` carries the reason. |
 | 503 | No key on the server. The panel shows "Explainer off". The solver is unaffected. |
 
@@ -54,6 +55,39 @@ Copy `.env.example` to `.env` at the repository root and set `GEMINI_API_KEY`.
 not already set in the environment. Optional: `GEMINI_MODEL` (default
 `gemini-3.8-flash`), `GEMINI_FALLBACK_MODELS` (default
 `gemini-3.5-flash,gemini-2.5-flash`), `GEMINI_TIMEOUT_S` (default 25).
+
+## Rate limit
+
+This is the only endpoint that costs anything upstream, so it is the only one
+limited: **twenty requests a minute per address, ten available at once.**
+`/api/solve`, `/api/candidates`, `/api/chat/status` and `/health` are never
+limited.
+
+The numbers are set for a judging room sharing one NAT. Ten questions can be
+asked back to back and one every three seconds after that, which no person
+approaches; a loop reaches it in under a second. They live at the top of
+`backend/app/ratelimit.py`.
+
+Over the limit the endpoint answers 429 with `Retry-After` in seconds, and the
+client composes its own sentence rather than echoing the server's.
+
+**Still stateless.** A bucket holds a token count and a timestamp per address:
+no request content, no conversation, no identity, nothing written down, and it
+dies with the process. The map of buckets has a ceiling and forgets the
+addresses it has not heard from.
+
+**The address comes from uvicorn, not from this code.** Behind Caddy the peer
+is loopback and the real client is in `X-Forwarded-For`. uvicorn's
+ProxyHeadersMiddleware resolves that — it trusts only the loopback peers named
+in `deploy/overdraft-guard.service` and reads the list in reverse to the first
+untrusted hop, so a client that sends its own header cannot pick its own
+budget. One owner for that decision. The unit states `--proxy-headers` and
+`--forwarded-allow-ips 127.0.0.1,::1` explicitly, and a test asserts it does:
+without them every request would share one bucket and the limit would become a
+cap on the whole room.
+
+Not to be confused with the *upstream* 429 described below, which is Gemini
+throttling us and surfaces as a 502.
 
 **Overload is handled, not surfaced.** On the first live test Google answered
 the second question with "high demand, try again later". A transient status

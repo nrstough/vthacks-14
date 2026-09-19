@@ -9,12 +9,27 @@ WorkingDirectory=/opt/overdraft-guard
 
 # Bound to loopback on purpose: Caddy is the only thing that should be able to
 # reach it, so the box never serves the app unencrypted on its public IP.
-ExecStart=/opt/overdraft-guard/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+#
+# --proxy-headers and --forwarded-allow-ips are uvicorn's current defaults.
+# They are stated anyway: the per-address rate limit on /api/chat counts what
+# uvicorn resolves as the client, so if a future release changed that default
+# the limit would quietly become one shared bucket for the whole room. ::1 is
+# listed because a loopback peer over IPv6 is not trusted by the default, and
+# an untrusted peer means the forwarded address is ignored.
+ExecStart=/opt/overdraft-guard/.venv/bin/uvicorn app.main:app \
+    --host 127.0.0.1 --port 8000 \
+    --proxy-headers --forwarded-allow-ips 127.0.0.1,::1
 
 # GEMINI_API_KEY lives here, root-owned and 0600. It is deliberately NOT in the
 # repo and not in the rsync list — put it on the box by hand, once:
 #   install -m600 /dev/null /etc/overdraft-guard.env && vim /etc/overdraft-guard.env
 EnvironmentFile=-/etc/overdraft-guard.env
+
+# No interactive API console on the box: /api/docs, /api/openapi.json and
+# /redoc all answer 404. Unset locally, so development keeps them. This has to
+# be a real environment variable — the app reads it when it is built, which is
+# before anything loads a .env.
+Environment=OVERDRAFT_GUARD_DOCS=0
 
 Restart=always
 RestartSec=2

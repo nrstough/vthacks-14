@@ -1,0 +1,9 @@
+1. **Critical — Eviction does not enforce `MAX_KEYS`.** After 4,097 distinct addresses each spend one token, every bucket is non-full and recently active, so neither eviction rule removes anything. Define behavior when the map is full and no bucket is eligible, without resetting existing depleted budgets. Test this with a frozen clock and more than `MAX_KEYS` active addresses.
+
+2. **Critical — The malformed-body guarantee is false for invalid JSON.** With the installed FastAPI, posting `{` returns 422 without executing the dependency; schema-invalid but parseable JSON is a different case. Either narrow the spec and tests to schema validation, or move enforcement ahead of body parsing if all malformed requests must receive 429.
+
+3. **Suggestion — Proxy handling duplicates Uvicorn’s existing responsibility.** The deployed command enables Uvicorn’s proxy-header processing by default, which rewrites `request.client` before FastAPI sees it. Consequently, production generally does not exercise the planned loopback/header branch, while direct `TestClient` tests do. Establish one owner for forwarded-address resolution and add coverage through Uvicorn’s `ProxyHeadersMiddleware`, including spoofed headers and independent client budgets.
+
+4. **Suggestion — Pure-helper tests do not verify frontend wiring.** Testing `restingMessage` and `retryAfterOf` alone would still pass if `askViaApi` omitted the 429 branch or echoed the server detail. Stub `fetch` and test `askViaApi` with 429 responses, missing/malformed headers, and a detail containing banned wording; also exercise the preserved 502/503 branches.
+
+5. **Suggestion — The proposed upstream-429 test already exists.** `backend/tests/test_chat.py::test_an_upstream_failure_is_a_502_with_the_reason` already injects `GeminiError(..., status=429)` and asserts HTTP 502. Reuse or rename that test instead of adding equivalent coverage.
