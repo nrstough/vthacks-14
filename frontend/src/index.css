@@ -230,8 +230,8 @@ body {
   gap: 10px;
   font-family: var(--display);
   font-size: 17px;
-  /* 700, not 600: Libre Baskerville has no 600, and with synthesis off a 600
-     request would silently render the regular. */
+  /* 700, the top of the file's 400–700 axis: the wordmark carries the same
+     weight as the verdict. */
   font-weight: 700;
   font-synthesis-weight: none;
   letter-spacing: -0.01em;

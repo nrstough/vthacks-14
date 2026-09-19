@@ -247,9 +247,9 @@ resolves into `--panel` rather than stopping at an edge. Every white on the grad
 nav pill is `--on-navy-shadow`; white on a solid accent or ink fill — the chat user bubble, the
 crash button — is `--bg`. **No rule outside the two `:root` blocks carries a literal white at
 all**, which is what `styles.test.ts` pins: strip the `:root` blocks and the sheet contains no
-`#fff`, `#ffffff` or `rgba(255, 255, 255, …)`. Literal rgba *shadows* in neutral or navy tints
-are still written inline; the pin is on white, because white is what the gradient retune
-moves. The warm ramp is for anything going wrong, green for anything
+`#fff`, `#ffffff` or `rgba(255, 255, 255, …)`. The neutral ink shadows are tokens too
+(`--ink-shadow`, `--ink-shadow-soft`); the pin is on white, because white is what the gradient
+retune moves. The warm ramp is for anything going wrong, green for anything
 improved. `--ink-3` is `#646b78`, darkened from `#6b7280`, which measured 4.49:1 as a
 `.stat-sub` on the warm `--canvas` — a rounding error short of AA.
 

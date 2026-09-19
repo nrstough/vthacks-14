@@ -82,16 +82,13 @@ test('the dom id lives in one place, and the component still wires onFocus', () 
   assert.match(list, /onFocus=\{/)
 })
 
-test('each section calls controlFor with its own name, exactly once', () => {
-  // The helper's whole job is that the two lists invert against each other, and
-  // the only thing telling it which list it is in is this argument. Swapping
-  // one for the other flips the tick on a whole section and breaks nothing
-  // else — the four cases above still pass, because they call the helper
-  // directly. This is the pin on the call sites.
-  const src = fileURLToPath(new URL('../src/', import.meta.url))
-  const list = readFileSync(join(src, 'components', 'PrescriptionList.tsx'), 'utf8')
-  for (const section of ['plan', 'out']) {
-    const found = (list.match(new RegExp(`controlFor\\('${section}',`, 'g')) ?? []).length
-    assert.equal(found, 1, `controlFor('${section}', … appears ${found} times, expected 1`)
-  }
+test('each section hands controlFor its own row, not the other section\'s', () => {
+  // Counting one 'plan' and one 'out' call is not enough: swapping both keeps
+  // the counts and reverses every checkbox. Tie each section to the row data
+  // that only that section has.
+  const src = fileURLToPath(new URL('../src/components/PrescriptionList.tsx', import.meta.url))
+  const code = readFileSync(src, 'utf8')
+  assert.equal(code.split("controlFor('plan', ruledOut, p.candidate_id, p.label)").length - 1, 1)
+  assert.equal(code.split("controlFor('out', ruledOut, c.id, c.label)").length - 1, 1)
+  assert.equal(code.split('controlFor(').length - 1, 2)
 })
