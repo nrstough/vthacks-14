@@ -497,3 +497,38 @@ def test_the_conversation_history_is_masked_too(monkeypatch):
     assert _TRAP in out.reply, "and it must still come back intact"
 
 
+
+
+def test_the_fixed_brief_is_never_rewritten_by_a_descriptor(monkeypatch):
+    """Masking the rendered instruction rewrote the product's own words.
+
+    A transaction described as "a" produced 239 replacements in the fixed brief —
+    "You ⸤M0⸥re the expl⸤M0⸥iner". Descriptors live in known fields, so they are
+    replaced there and the brief is left alone.
+    """
+    import app.chat as chat_mod
+
+    seen: dict = {}
+
+    def fake(config, instruction, turns, sleep=None):
+        seen["instruction"] = instruction
+        return "ok", "stub-model"
+
+    monkeypatch.setattr(chat_mod, "generate_with_fallback", fake)
+    raw = copy.deepcopy(SCENARIOS["clears"])
+    raw["scheduled"][0]["description"] = "a"
+    solved = solve(SolveRequest.model_validate(raw))
+    req = ChatRequest.model_validate({
+        "messages": [{"role": "user", "text": "why?"}],
+        "request": raw,
+        "response": json.loads(solved.model_dump_json()),
+    })
+    chat(req, config=gemini.GeminiConfig(api_key="x", model="stub", timeout_s=5.0))
+    assert "You are the explainer" in seen["instruction"]
+    assert "expl⸤M" not in seen["instruction"]
+
+
+def test_a_short_descriptor_only_matches_as_a_whole_word():
+    refs = descriptor_refs(["a"])
+    assert mask_descriptors("a plan and a rate", refs).count("⸤M0⸥") == 2
+    assert "plan" in mask_descriptors("a plan and a rate", refs)

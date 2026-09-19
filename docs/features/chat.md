@@ -112,3 +112,36 @@ After the proof (1:45 in `docs/demo-script.md`), if there is time: click
 "Explain the proof in plain words." Then, to a sceptical judge: "What if my
 paycheck comes late?" The honest answer, that the solver has not solved that
 case and here is how to try it, is the point.
+
+
+## Merchant descriptors never reach the model
+
+The reply is scrubbed unconditionally — but the scrubber and the merchant names
+would otherwise fight, and for three rounds they did. Rewriting `\bguaranteed\b`
+turned `GUARANTEED AUTO PROTECTION` into "sufficient under the schedule shown
+AUTO PROTECTION" on screen; every attempt to exempt merchant names was bypassable,
+because provenance cannot be recovered from a string after the fact. A model
+writing "This plan IS GUARANTEED to clear" is indistinguishable from one quoting a
+merchant called "IS GUARANTEED".
+
+So the boundary is structural. Before the prompt is rendered, each descriptor in
+`scheduled[].description`, `candidates[].detail` and `plan[].detail` is replaced
+with an opaque reference, and the conversation history is masked with the same
+mapping. The model never sees a merchant name. Everything it writes is prose and
+is scrubbed with no exceptions. The real names are restored afterwards.
+
+Three things this gets right that the earlier versions did not:
+
+- **The fields are masked, not the rendered text.** Replacing over the finished
+  instruction rewrote the product's own words: a transaction described as `a`
+  produced 239 replacements, including "You ⸤M0⸥re the expl⸤M0⸥iner".
+- **One pass, not one per descriptor.** Sequential replacement let a later
+  descriptor rewrite the placeholders an earlier one had just inserted — a
+  merchant named `M` was enough.
+- **History is masked too.** A user typing a merchant's name into the chat puts
+  it back in front of the model, which echoes it; without masking, the scrubber
+  corrupts it again by a different road.
+
+A reference the model invents — the eighth merchant when three exist — is dropped
+rather than guessed at. Inventing a merchant name into a sentence about someone's
+money is worse than a clipped sentence.

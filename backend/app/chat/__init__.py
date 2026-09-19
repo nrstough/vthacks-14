@@ -70,11 +70,25 @@ def mask_descriptors(text: str, refs: Sequence[str]) -> str:
     named "M" was enough to corrupt every reference in the text. `re.sub` does not
     rescan what it has substituted, so a single alternation cannot collide with
     its own output.
+
+    Anchored on word boundaries, because this also runs over text the product did
+    not compose. A descriptor of "a" against the fixed brief produced 239
+    replacements and "You ⸤M0⸥re the expl⸤M0⸥iner"; unanchored substring matching
+    is only safe on a field that holds nothing but the descriptor, and the
+    conversation history is not one.
     """
     if not refs:
         return text
     index = {d: i for i, d in enumerate(refs)}
-    pattern = re.compile("|".join(re.escape(d) for d in refs))
+    parts = []
+    for d in refs:
+        body = re.escape(d)
+        if d[:1].isalnum() or d[:1] == "_":
+            body = r"\b" + body
+        if d[-1:].isalnum() or d[-1:] == "_":
+            body = body + r"\b"
+        parts.append(body)
+    pattern = re.compile("|".join(parts))
     return pattern.sub(lambda m: _REF.format(index[m.group(0)]), text)
 
 
@@ -118,7 +132,20 @@ def chat(req: ChatRequest, config: GeminiConfig | None = None, source: str = "se
     # nothing it writes can be mistaken for one — and nothing it writes escapes
     # the scrubber. The real text goes back afterwards. See mask_descriptors.
     refs = descriptor_refs([t.description for t in req.request.scheduled])
-    instruction = mask_descriptors(system_instruction(req.request, req.response, source), refs)
+    # Mask the FIELDS, then render — never the rendered instruction. Running the
+    # replacement over the finished text rewrote the fixed brief itself: a
+    # transaction described as "a" turned "You are the explainer" into
+    # "You ⸤M0⸥re the expl⸤M0⸥iner". The descriptors live in known fields, so
+    # replace them there, where a whole-value substitution is exactly right, and
+    # leave every word the product wrote alone.
+    masked = req.model_copy(deep=True)
+    for txn in masked.request.scheduled:
+        txn.description = mask_descriptors(txn.description, refs)
+    for cand in masked.request.candidates:
+        cand.detail = mask_descriptors(cand.detail, refs)
+    for item in masked.response.plan:
+        item.detail = mask_descriptors(item.detail, refs)
+    instruction = system_instruction(masked.request, masked.response, source)
     # The history too, not just the instruction. A user who types a merchant's
     # name into the chat puts it back in front of the model, which echoes it, and
     # the scrubber corrupts it again — the original bug, reached by a different
