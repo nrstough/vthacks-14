@@ -5,7 +5,6 @@ import {
   AS_OF,
   DEMO,
   HORIZON_END,
-  OPENING,
   PAYMENT_CLEARS,
   RECIPIENT,
   RESERVE,
