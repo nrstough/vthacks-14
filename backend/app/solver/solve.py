@@ -95,9 +95,14 @@ def _run_engine(req, days, elig, previous_plan, settings):
     if settings.force_engine != "brute-force":
         try:
             solve_cpsat = load_cpsat()
-        except ImportError:
+        except Exception as exc:
+            # Deliberately broad. A missing package raises ImportError, but a
+            # wheel whose native library will not load raises OSError from the
+            # dynamic linker, and a partially-built one can raise AttributeError.
+            # All three mean the same thing here — CP-SAT is not available — and
+            # falling back costs nothing, because the fallback is exact too.
             if settings.force_engine == "cp-sat":
-                raise EngineUnavailable("OR-Tools is not installed") from None
+                raise EngineUnavailable(f"the constraint solver is unavailable: {exc}") from None
         else:
             try:
                 ids, status, proven, stages = solve_cpsat(

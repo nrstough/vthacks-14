@@ -38,8 +38,9 @@ the smallest such set wins (tier 1); otherwise the smallest set that clears zero
 2); otherwise the plan with the fewest fee-days and shallowest dip (tier 3). On the three shipped
 fixtures this coincides with the stand-in's older order, so the difference is
 visible only across a sweep: over openings from $30 to $300 the two orders pick
-different plans about a quarter of the time, and this one picks fewer changes
-wherever they differ.
+different plans in 76 of 271 cases, and this one never picks more changes —
+fewer in 72 of them, and the same number in the other 4, where only the
+tiebreak differs.
 
 ## Constraints
 

@@ -184,3 +184,18 @@ def test_legal_oddities_are_accepted():
     assert SolveRequest.model_validate(raw)
     # A previously shown change that no longer exists still counts against churn.
     assert SolveRequest.model_validate(mutate(previous_plan=["c_vanished"]))
+
+
+def test_the_derived_bound_still_covers_everything_the_input_limits_allow():
+    """The ceiling on derived figures was computed from the input caps. Nothing
+    in the code ties the two together, so raising a cap would silently put the
+    500 back. This is that tie."""
+    from app.schemas import CENTS_ABS, DERIVED_CENTS_ABS, MAX_N, MAX_SCHED, MAX_T
+
+    worst_daily_balance = CENTS_ABS * (1 + MAX_SCHED + MAX_N)
+    worst_running_total = worst_daily_balance * MAX_T
+    assert DERIVED_CENTS_ABS >= worst_running_total, (
+        "an input cap grew past what the derived bound covers; a legal request "
+        "would now be rejected by the server's own response model"
+    )
+    assert DERIVED_CENTS_ABS < 2**63 - 1, "must stay inside the solver's integer range"

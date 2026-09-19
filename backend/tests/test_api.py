@@ -145,3 +145,65 @@ def test_the_previous_plan_travels_with_the_request(client):
     assert [p["candidate_id"] for p in first["plan"]] == ["c_a"]
     again = client.post("/api/solve", json=planted.IDENTICAL_PAIR_REMEMBERED).json()
     assert [p["candidate_id"] for p in again["plan"]] == ["c_b"]
+
+
+def test_a_large_but_legal_account_is_answered_not_crashed(client):
+    """The regression for a 500 on a perfectly valid request.
+
+    Balances and running totals are sums across the horizon, so they leave the
+    range any single input field is allowed to occupy. Bounding the server's own
+    output by the input bound made it reject its own answer, past the error
+    handler, as a 500 — on two values that break no rule.
+    """
+    raw = {
+        "as_of": "2026-03-01",
+        "horizon_end": "2026-03-02",
+        "opening_balance_cents": -(10**11),
+        "buffer_cents": 0,
+        "scheduled": [{"id": "t_1", "date": "2026-03-01", "description": "X",
+                       "amount_cents": -1, "kind": "bill", "recurring": False}],
+        "candidates": [],
+        "locks": {"in": [], "out": []},
+        "previous_plan": [],
+    }
+    r = client.post("/api/solve", json=raw)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["tier"] == 3
+    assert body["balances"][0]["baseline_cents"] == -(10**11) - 1
+
+
+def test_the_worst_case_the_input_limits_allow_is_answered(client):
+    """The other end of the same argument: every cap at its maximum at once."""
+    from app.schemas import CENTS_ABS, MAX_SCHED
+
+    scheduled = [
+        {"id": f"t_{i:04d}", "date": "2026-03-01", "description": "X",
+         "amount_cents": -CENTS_ABS, "kind": "bill", "recurring": False}
+        for i in range(MAX_SCHED)
+    ]
+    raw = {"as_of": "2026-03-01", "horizon_end": "2027-02-28",
+           "opening_balance_cents": -CENTS_ABS, "buffer_cents": 0,
+           "scheduled": scheduled, "candidates": [],
+           "locks": {"in": [], "out": []}, "previous_plan": []}
+    r = client.post("/api/solve", json=raw)
+    assert r.status_code == 200, r.text[:400]
+    assert r.json()["tier"] == 3
+
+
+def test_a_broken_solver_install_falls_back_rather_than_crashing(client, monkeypatch):
+    """A wheel whose native library will not load is a real failure mode, and it
+    does not raise ImportError."""
+    import app.solver.solve as solve_module
+
+    for failure in (
+        ImportError("No module named 'ortools'"),
+        OSError("dlopen(libortools.dylib): image not found"),
+        AttributeError("module 'ortools.sat' has no attribute 'python'"),
+    ):
+        monkeypatch.setattr(
+            solve_module, "load_cpsat", lambda exc=failure: (_ for _ in ()).throw(exc)
+        )
+        r = client.post("/api/solve", json=SCENARIOS["clears"])
+        assert r.status_code == 200, f"{failure!r} -> {r.status_code}"
+        assert r.json()["meta"]["solver"] == "brute-force"

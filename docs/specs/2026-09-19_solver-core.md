@@ -193,7 +193,7 @@ freeze integrity Excellent. The critique ran 2,400 fuzz instances, 26 hand-built
 
 | # | Finding | Resolution |
 |---|---|---|
-| F1 | **A schema-valid request returned HTTP 500.** Input bounds (±10^11) were applied to *derived* response figures; a large opening balance plus one charge leaves that range, and `build_response` raised past the error handler. | Fixed: `DERIVED_CENTS_ABS` for balances, totals and shortfalls. Repro added to `test_api.py`. |
+| F1 | **A schema-valid request returned HTTP 500.** Input bounds (±10^11) were applied to *derived* response figures; a large opening balance plus one charge leaves that range, and `build_response` raised past the error handler. | Fixed: `DERIVED_CENTS_ABS` for balances, totals and shortfalls. Repro added in round 2 — see F1-bis. |
 | F2 | Two adjacent objective levels had no counterfactual: swapping days-below-zero with worst-shortfall, or pain with hysteresis, left all tests green. | Fixed: `DAYS_BEAT_DEPTH` and `PAIN_BEATS_MEMORY` planted instances. Both swaps now fail 2 tests. |
 | F3 | A CP-SAT deferral crediting the recharge day survived the suite. | Fixed: `DEFER_LANDS_IN_HORIZON`. The mutant now fails 4 tests. |
 | F4 | The model/ledger cross-check — the only guard against F3's class — had no test at all. | Fixed: a lying engine fixture. Disabling the check now fails 1 test. |
@@ -209,7 +209,31 @@ freeze integrity Excellent. The critique ran 2,400 fuzz instances, 26 hand-built
 **Tests after the round: 810** (was 788). All five previously-surviving mutants confirmed
 killed by re-running each against the full suite.
 
-**Claude critique verdict:** _re-check pending_
+### Audit round 2 (re-check, ~02:35)
+
+Eleven of twelve fixes verified real and mutation-killed. The critique re-ran all six
+adjacent objective swaps, twelve further mutants, 4,000 fresh differential instances, the
+tiebreak against full enumeration of every tied optimum, and hand-checked the four new
+planted fixtures' arithmetic independently. Two things came back:
+
+| # | Finding | Resolution |
+|---|---|---|
+| F1-bis | **The F1 fix had no test, and this document claimed it did.** Reverting the fix left all 810 green, while the row above said "Repro added to `test_api.py`" — false. Worse, the bound's headroom is derived from `MAX_T`/`MAX_SCHED`/`MAX_N`/`CENTS_ABS` and nothing tied them together, so raising any cap would silently restore the 500. | Fixed: the two-value repro and the every-cap-at-maximum case in `test_api.py`, plus an invariant in `test_validation.py` that recomputes the worst case from the caps. Reverting the fix now fails 3 tests. |
+| F13 | **A broken OR-Tools install returned 500, not a fallback.** The seam caught only `ImportError`, but a wheel whose native library will not load raises `OSError` from the dynamic linker, and a partial build can raise `AttributeError`. Both bypassed the fallback entirely. | Fixed: the seam catches any failure, because all of them mean the same thing and the fallback is exact anyway. Narrowing it back fails 1 test. |
+
+Also confirmed, and left alone: swapping objective terms 2 and 3 is **provably untestable** —
+`worst_shortfall > 0` implies `min_balance < 0 <= buffer` implies `buffer_missed = 1`, so the
+two orderings induce an identical total order (0/691 divergences on probe). And the
+subprocess test for a missing OR-Tools stays omitted: the seam is faithful to the real
+failure, and it would not have caught F13 either.
+
+One overstatement corrected: the sweep supporting D1 gives 76/271 differing plans (28%), D1
+picking fewer changes in 72 and more in none — in the remaining 4 the counts are equal and
+only the tiebreak differs. "Picks fewer wherever they differ" should read "never more".
+
+**Tests after round 2: 814.**
+
+**Claude critique verdict:** _re-check pending (round 3)_
 **Codex audit grade:** _pending_
 
 ## Refinements from deep exploration (Sat ~01:50, before plan approval)
