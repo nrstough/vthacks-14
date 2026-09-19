@@ -329,3 +329,65 @@ Focus behaviour, all four cases verified in the browser after the fix:
 automated test, because no DOM test runner can be installed on this connection. The four cases
 above are written down so they can be re-checked by hand, or turned into tests the moment a
 runner is available. The test count stays at 59.
+
+## Codex audit (~04:15) — **Fail**, three real findings the Claude critique missed
+
+Full output: `docs/specs/2026-09-19_frontend-ux-audit.md`. Scope discipline, Freeze integrity and
+Documentation graded Excellent; Plan adherence and Test coverage Fail. All three findings are
+genuine, were reproduced before fixing, and each now has a regression test. Test count 59 → 66.
+
+1. **The narration called two changes one change.** `narrate.ts` picked the singular by counting
+   the number of *dates* changes fell on, not the number of changes. Two changes landing on one
+   day read "One change takes effect, on Sep 22." This fires on the **shipped $200 demo
+   account**, where `c_dd_chipotle` and `c_gym` both take effect on Sep 22 — the narration a
+   screen reader hears, and the line to read aloud to a judge. Now counts `changes_here` entries.
+   Three tests, including one asserting the fixture genuinely lands two changes on one day.
+2. **Restoring focus re-armed the reference it had just consumed.** The programmatic `.focus()`
+   dispatches the checkbox's own focus event, which wrote the id straight back through
+   `onFocusRow`, defeating the consume-once fix from round 2. Codex derived this from the event
+   path without being able to replay it; it is correct, and it is invisible in this automation
+   pane because the document there is never focused. A `restoring` flag now suppresses tracking
+   for the duration of the restore.
+3. **"Act by" was false for every change that needs notice.** This round's own new label put
+   "act by" under the date the change *takes effect*, but `lead_time_days` means the change must
+   be actioned that many days ahead. The gym bills on Sep 22 and needs three days, so the
+   deadline is **Sep 19**; the screen said Sep 22. Someone following it would miss the
+   cancellation and lose the plan — the exact class of false claim this project refuses
+   elsewhere. The date chip now says "takes effect", which is what `plan[].date` actually is, and
+   a row that needs notice carries its real deadline: "Act by Sep 19: it needs 3 days of
+   notice." Verified on screen. The section heading became "in the order they take effect",
+   because the plan is ordered by effect date and "the order you have to make them" is a
+   different order once lead times differ.
+
+Contract note for the backend lane, not changed here: `docs/api-contract.md:58` describes
+`plan[].date` as "the day the user must act", but both solvers return `effective_date`. The
+frontend now derives the deadline itself from `lead_time_days`, which is dates-only arithmetic
+and touches no money. If the backend later returns a true deadline field, this derivation should
+be replaced by it.
+
+Deviation from D4, recorded rather than hidden: D4 said the date chip reads "act by". It reads
+"takes effect", because "act by" there was false. The deadline is still shown, on the rows that
+have one.
+
+### Focus behaviour re-verified after the fix
+
+| Sequence | Result |
+|---|---|
+| Focus a row, toggle it, its row moves sections | restored to that row |
+| Focus a row, toggle it, tab to a row that survives | stays where the user went |
+| Activate with no prior focus, after an earlier restore | nothing grabbed |
+| A restore, then a second unrelated re-solve | nothing grabbed the second time |
+
+### Final run
+
+| Command | Result |
+|---|---|
+| `npm run lint` | clean |
+| `npm run build` | clean, 620.07 kB / 183.85 kB gzip |
+| `npm test` | **66 passed, 0 failed** |
+| `.venv/bin/pytest backend/ -q -m "not perf"` | **977 passed**, 6 deselected |
+| oracle / types / contract / backend diff vs `main` | empty |
+
+On the audit's own regression note: it measured 976 passed and 1 setup error, because its
+sandbox is read-only and one test needs a writable temporary directory. Run normally in this
+worktree the suite is 977 passed, reproduced after every commit in this run.

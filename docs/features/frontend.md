@@ -15,8 +15,8 @@ reason on screen is either returned by the solver or derived from dates and ids 
    live region, so a re-solve is read out once.
 2. **Balance band**: a written equivalent of the chart above the chart itself, then the chart.
    The chart container is an image described by the text; the SVG is hidden from assistive tech.
-3. **Plan band**: the chosen changes in act-by order, then the left-out changes with a reason
-   each.
+3. **Plan band**: the chosen changes in the order they take effect, then the left-out changes
+   with a reason each.
 
 ## Sources of truth on screen
 
@@ -72,6 +72,18 @@ alternative is describing a change against a solve that never saw the user's cur
 first day; the with-plan series' lowest point and first day (at tier 3, taken from the response's
 `shortfall`); paydays; the days changes take effect. Also the footer sentences: the proof claim
 appears only when `certificate.minimal_proven` is true.
+
+## Dates on a plan row
+
+`plan[].date` is the day a change **takes effect**, and the chip says so. It is not the day the
+user has to act: `lead_time_days` is how far ahead the change must be actioned, so a gym that
+bills on Sep 22 and needs three days' notice must be cancelled by **Sep 19**. Rows with a lead
+time carry that deadline explicitly ("Act by Sep 19: it needs 3 days of notice."), derived in
+`src/lib/reasons.ts` from the candidate. Dates only; no money arithmetic happens here.
+
+`docs/api-contract.md` describes `plan[].date` as "the day the user must act", but both solvers
+return the effective date. If the backend ever returns a real deadline, delete this derivation
+and use it.
 
 ## The empty plan
 

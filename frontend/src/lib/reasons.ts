@@ -40,6 +40,22 @@ export function daysBetween(a: string, b: string): number {
 
 export const PENDING: Reason = { kind: 'pending', text: 'Re-solving…' }
 
+function addDays(iso: string, days: number): string {
+  return new Date(toUTC(iso) + days * DAY_MS).toISOString().slice(0, 10)
+}
+
+// The day the user actually has to do something, which is NOT the day the
+// change takes effect: `lead_time_days` is how far ahead it must be actioned.
+// Cancelling a gym that bills on the 22nd with three days' notice means acting
+// by the 19th, and saying "act by the 22nd" would cost someone the plan.
+export function actByNotice(candidate: Candidate): string | null {
+  if (candidate.lead_time_days <= 0) return null
+  const n = candidate.lead_time_days
+  return `Act by ${shortDate(addDays(candidate.effective_date, -n))}: it needs ${n} day${
+    n === 1 ? '' : 's'
+  } of notice.`
+}
+
 export function reasonFor(
   candidate: Candidate,
   req: SolveRequest,

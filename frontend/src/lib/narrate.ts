@@ -65,10 +65,14 @@ export function narrateChart(res: SolveResponse): string[] {
       : `Payday lands on ${list(paydays)}.`,
   )
 
-  const changeDays = res.balances.filter((r) => r.changes_here.length > 0).map((r) => r.date)
-  if (changeDays.length === 0) {
+  // Count the changes, not the days they fall on: two changes on one date is
+  // still two changes, and the singular sentence would be false.
+  const changeRows = res.balances.filter((r) => r.changes_here.length > 0)
+  const changeDays = changeRows.map((r) => r.date)
+  const changeCount = changeRows.reduce((n, r) => n + r.changes_here.length, 0)
+  if (changeCount === 0) {
     out.push('No changes take effect.')
-  } else if (changeDays.length === 1) {
+  } else if (changeCount === 1) {
     out.push(`One change takes effect, on ${shortDate(changeDays[0])}.`)
   } else {
     out.push(`Changes take effect on ${list(changeDays)}.`)

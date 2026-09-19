@@ -45,6 +45,9 @@ export default function App() {
   // their checkboxes. Track the row the user is actually on rather than the one
   // they toggled: the response can move a different row out from under them.
   const focused = useRef<string | null>(null)
+  // Restoring focus dispatches the checkbox's own focus event, which would
+  // write the id straight back into the ref we just consumed.
+  const restoring = useRef(false)
 
   // A drag of the balance slider steps through dozens of values. Debounce the
   // request, not the slider, so the number under the thumb still tracks it.
@@ -99,7 +102,9 @@ export default function App() {
     // focus away would throw out their navigation.
     const active = document.activeElement
     if (active && active !== document.body && active !== document.documentElement) return
+    restoring.current = true
     document.getElementById(`cant-${id}`)?.focus()
+    restoring.current = false
   }, [res])
 
   function onToggle(id: string) {
@@ -113,6 +118,7 @@ export default function App() {
   }
 
   function onFocusRow(id: string) {
+    if (restoring.current) return
     focused.current = id
   }
 
@@ -225,7 +231,7 @@ export default function App() {
           <h2>
             {res.plan.length === 0
               ? emptyPlanText(res).heading
-              : `${res.plan.length} change${res.plan.length === 1 ? '' : 's'}, in the order you have to make them`}
+              : `${res.plan.length} change${res.plan.length === 1 ? '' : 's'}, in the order they take effect`}
           </h2>
           {locked > 0 && (
             <button type="button" className="reset" onClick={() => setRuledOut(NONE)}>

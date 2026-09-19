@@ -1,7 +1,7 @@
 import type { Candidate, SolveRequest, SolveResponse } from '../types'
 import type { Overrides } from '../lib/overrides'
 import { isRuledOut, pendingIds } from '../lib/overrides'
-import { PENDING, reasonFor } from '../lib/reasons'
+import { PENDING, actByNotice, reasonFor } from '../lib/reasons'
 import { emptyPlanText } from '../lib/narrate'
 import { money, shortDate } from '../lib/format'
 
@@ -66,6 +66,7 @@ export default function PrescriptionList({
   onToggle: (id: string) => void
   onFocusRow: (id: string) => void
 }) {
+  const byId = new Map(req.candidates.map((c) => [c.id, c]))
   const used = new Set(res.plan.map((p) => p.candidate_id))
   const rest: Candidate[] = req.candidates.filter((c) => !used.has(c.id))
   // Rows whose override has moved since the answer on screen was solved. Every
@@ -79,6 +80,8 @@ export default function PrescriptionList({
         {res.plan.length === 0 && <p className="rx-empty">{emptyPlanText(res).body}</p>}
         {res.plan.map((p) => {
           const stale = pending.has(p.candidate_id)
+          const candidate = byId.get(p.candidate_id)
+          const notice = candidate ? actByNotice(candidate) : null
           const cls = [
             'rx-row',
             newIds.includes(p.candidate_id) ? 'is-new' : '',
@@ -90,7 +93,7 @@ export default function PrescriptionList({
             <div key={p.candidate_id} className={cls}>
               <div className="rx-date num">
                 {shortDate(p.date)}
-                <small>act by</small>
+                <small>takes effect</small>
               </div>
               <div>
                 <p className="rx-label">{p.label}</p>
@@ -100,6 +103,7 @@ export default function PrescriptionList({
                 ) : (
                   <p className={`rx-reason num${p.strictly_needed ? '' : ' soft'}`}>{p.reason}</p>
                 )}
+                {notice && <p className="rx-notice num">{notice}</p>}
               </div>
               <div>
                 <div className="rx-amount num">+{money(p.freed_cents)}</div>
