@@ -1,0 +1,17 @@
+{
+  "seed": 20260919,
+  "provenance": "entirely synthetic; no real users or Nessie records",
+  "target": "14 next-day ordinary outflows, USD in this artificial simulator",
+  "context_days": 56,
+  "horizon_days": 14,
+  "model_features": 99,
+  "split_unit": "whole simulated account",
+  "generator_regimes": [
+    "steady",
+    "sparse",
+    "bursty"
+  ],
+  "stress": "held-out accounts, unseen spend multiplier starting at origin; not predictable from history",
+  "known_bills_and_income": "excluded by construction; real-data cleaning not implemented",
+  "missing_data": "none simulated; missingness robustness not established"
+}
