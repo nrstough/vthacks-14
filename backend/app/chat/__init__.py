@@ -8,6 +8,7 @@ scrubbed for the two words the product never says before it goes back.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 
 from app.chat.gemini import GeminiConfig, GeminiError, generate_with_fallback
 from app.chat.prompt import system_instruction
@@ -32,9 +33,40 @@ _SCRUB = [
 ]
 
 
-def scrub(text: str) -> str:
+def scrub(text: str, protected: Sequence[str] = ()) -> str:
+    """Rewrite the words the product never says, and leave the user's data alone.
+
+    The substitutions above are about what *this product* claims. A merchant's
+    own name is not a claim, and rewriting it produced visibly broken text: an
+    account carrying `GUARANTEED AUTO PROTECTION` came back as "Skipping
+    sufficient under the schedule shown AUTO PROTECTION frees $38.59." 88 of 300
+    generated accounts carry that row, so this became routine the moment a
+    generated account could be the data source, and a Nessie payee such as
+    "Guaranteed Rate" does the same.
+
+    So descriptors the model was given are masked out, the substitutions run, and
+    the descriptors are restored verbatim, casing included. Every word the model
+    wrote *around* them is still checked, which is the half that matters.
+
+    Only multi-token descriptors are protected. A descriptor that is exactly the
+    banned word cannot be told apart from product copy, and where it is ambiguous
+    the rule wins.
+    """
+    saved: list[str] = []
+
+    def _mask(match: re.Match[str]) -> str:
+        saved.append(match.group(0))
+        return f"\x00{len(saved) - 1}\x00"
+
+    # Longest first, so a descriptor that contains a shorter one is masked whole.
+    for descriptor in sorted({d for d in protected if d and " " in d.strip()}, key=len, reverse=True):
+        text = re.sub(re.escape(descriptor), _mask, text, flags=re.IGNORECASE)
+
     for pattern, replacement in _SCRUB:
         text = pattern.sub(replacement, text)
+
+    for i, original in enumerate(saved):
+        text = text.replace(f"\x00{i}\x00", original)
     return text
 
 
@@ -54,4 +86,7 @@ def chat(req: ChatRequest, config: GeminiConfig | None = None, source: str = "se
         reply, model = generate_with_fallback(config, instruction, turns)
     except GeminiError as e:
         raise ChatUpstreamError(str(e)) from e
-    return ChatResponse(reply=scrub(reply), model=model)
+    # The descriptors are the user's own statement lines; the scrubber must not
+    # rewrite a merchant's name into product copy. See scrub().
+    descriptors = [t.description for t in req.request.scheduled]
+    return ChatResponse(reply=scrub(reply, descriptors), model=model)

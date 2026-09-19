@@ -395,3 +395,45 @@ def test_fallbacks_come_from_the_environment(monkeypatch):
     assert gemini.GeminiConfig.from_env().models() == ["x", "y", "z"]
     monkeypatch.setenv("GEMINI_FALLBACK_MODELS", "")
     assert gemini.GeminiConfig.from_env().models() == ["x"]
+
+
+# ---- the scrubber must not rewrite the user's own data ----
+#
+# A generated account carrying GUARANTEED AUTO PROTECTION came back as
+# "Skipping sufficient under the schedule shown AUTO PROTECTION frees $38.59."
+# 88 of 300 generated accounts carry that row, and a Nessie payee like
+# "Guaranteed Rate" behaves the same, so this is routine rather than exotic.
+#
+# The pair below is the point: the descriptor survives, and a genuine product
+# claim is still rewritten. A fix that protected the descriptor by weakening the
+# scrubber would pass the first and fail the second.
+
+_TRAP = "GUARANTEED AUTO PROTECTION"
+
+
+def test_a_merchant_name_is_not_rewritten_into_product_copy():
+    out = scrub(f"Skipping {_TRAP} frees $38.59.", [_TRAP])
+    assert out == f"Skipping {_TRAP} frees $38.59."
+    assert "sufficient under the schedule shown" not in out
+
+
+def test_the_product_s_own_claim_is_still_scrubbed_alongside_it():
+    out = scrub(f"This is guaranteed, and {_TRAP} is the charge.", [_TRAP])
+    assert _TRAP in out
+    assert "is guaranteed" not in out
+    assert "sufficient under the schedule shown" in out
+
+
+def test_casing_of_the_restored_descriptor_is_the_model_s_own():
+    out = scrub("Skipping Guaranteed Auto Protection frees $38.59.", [_TRAP])
+    assert "Guaranteed Auto Protection" in out
+
+
+def test_a_single_token_descriptor_is_not_protected():
+    # It cannot be told apart from product copy, so the rule wins.
+    out = scrub("The plan is guaranteed.", ["guaranteed"])
+    assert "guaranteed" not in out.lower().replace("schedule shown", "")
+
+
+def test_scrubbing_still_works_with_no_descriptors_supplied():
+    assert "infeasible" not in scrub("The problem is infeasible.").lower()

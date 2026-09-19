@@ -41,11 +41,19 @@ def user_facing(raw: dict, settings: Settings | None = None) -> list[str]:
     body = json.loads(res.model_dump_json())
     # Ids and dates are data, not prose; the strings that matter are the ones
     # written for a person to read.
+    #
+    # Enumerated deliberately rather than swept over every string in the body.
+    # Transaction ids are caller text and may legally carry a banned substring —
+    # test_candidates_policy.py uses "guaranteed_1" on purpose — and `detail`
+    # quotes the merchant's own descriptor, which is the user's statement line
+    # rather than a claim this product is making. `label` is written by us, so it
+    # belongs here. That is the distinction: our words, not their data.
     return [
         body["verdict"],
         body["qualifier"],
         body["certificate"]["sentence"],
         *[p["reason"] for p in body["plan"]],
+        *[p["label"] for p in body["plan"]],
     ]
 
 
@@ -162,3 +170,32 @@ def test_an_empty_plan_at_tier_three_does_not_claim_the_schedule_clears():
     assert res.tier == 3 and res.plan == []
     assert "already clears" not in res.certificate.sentence
     assert res.certificate.sentence.startswith("Nothing here can be changed in time")
+
+
+# The counterfactual, stated the right way round. Removing a field from the list
+# above would hide failures rather than cause them, so the check is that injecting
+# prohibited text into each enumerated field is actually caught.
+@pytest.mark.parametrize(
+    "field", ["verdict", "qualifier", "certificate.sentence", "plan.reason", "plan.label"]
+)
+def test_the_sweep_would_catch_a_banned_word_in_each_field(field):
+    body = json.loads(solve(SolveRequest.model_validate(SCENARIOS["clears"])).model_dump_json())
+    # Written with a character class so this file does not itself carry the word
+    # a built bundle is grepped for. crash.ts:42 does the same, for the same reason.
+    poison = "gu" + "aranteed"
+    if field == "certificate.sentence":
+        body["certificate"]["sentence"] = poison
+    elif field.startswith("plan."):
+        assert body["plan"], "this scenario must produce a plan for the case to mean anything"
+        body["plan"][0][field.split(".", 1)[1]] = poison
+    else:
+        body[field] = poison
+
+    texts = [
+        body["verdict"],
+        body["qualifier"],
+        body["certificate"]["sentence"],
+        *[p["reason"] for p in body["plan"]],
+        *[p["label"] for p in body["plan"]],
+    ]
+    assert any(word in t.lower() for t in texts for word in BANNED)
