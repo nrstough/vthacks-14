@@ -40,6 +40,13 @@ cd frontend && npm run dev                                     # Vite dev server
 .venv/bin/pytest backend/ -m perf -s          # timings, reported not gating
 ```
 
+```bash
+cd frontend && npm run lint && npm run build && npm test   # frontend: oxlint, tsc+vite, Node test runner
+```
+
+The frontend tests run under Node's built-in runner with type stripping, so there is no test
+framework to install. `npm test` reads `dist/`, so build before you test.
+
 Parity tests need Node ≥ 22 on PATH (they run the TS oracle with `--experimental-strip-types`).
 
 ## Product direction and forecast experiment

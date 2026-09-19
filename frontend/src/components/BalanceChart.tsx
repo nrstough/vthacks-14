@@ -49,7 +49,15 @@ function Tip({ active, payload, plan }: any) {
   )
 }
 
-export default function BalanceChart({ res, req }: { res: SolveResponse; req: SolveRequest }) {
+export default function BalanceChart({
+  res,
+  req,
+  describedBy,
+}: {
+  res: SolveResponse
+  req: SolveRequest
+  describedBy: string
+}) {
   const data: Row[] = res.balances.map((b) => ({
     date: b.date,
     day: String(Number(b.date.slice(8, 10))),
@@ -74,9 +82,24 @@ export default function BalanceChart({ res, req }: { res: SolveResponse; req: So
     : undefined
 
   return (
-    <div className="chart-wrap">
+    // The SVG is several hundred nodes that say nothing useful read aloud, so
+    // the written narration above the chart is the accessible equivalent and
+    // this subtree is hidden. accessibilityLayer must be off with it: Recharts
+    // 3.x gives the chart surface tabIndex=0 by default, and a focusable
+    // element inside aria-hidden is a trap for a keyboard user.
+    <div
+      className="chart-wrap"
+      role="img"
+      aria-label="Daily balance, doing nothing versus with the plan"
+      aria-describedby={describedBy}
+    >
+      <div aria-hidden="true">
       <ResponsiveContainer width="100%" height={300}>
-        <ComposedChart data={data} margin={{ top: 8, right: 16, bottom: 4, left: 8 }}>
+        <ComposedChart
+          data={data}
+          margin={{ top: 8, right: 16, bottom: 4, left: 8 }}
+          accessibilityLayer={false}
+        >
           <defs>
             <linearGradient id="splitFill" x1="0" y1="0" x2="0" y2="1">
               <stop offset={0} stopColor="var(--accent)" stopOpacity={0.1} />
@@ -175,6 +198,7 @@ export default function BalanceChart({ res, req }: { res: SolveResponse; req: So
           />
         </ComposedChart>
       </ResponsiveContainer>
+      </div>
     </div>
   )
 }

@@ -1,0 +1,11 @@
+1. **Critical** — The all-ruled-out case retains false success wording. The oracle returns tier 3 with zero changes and a $120.05 shortfall for the $200 fixture, but `App.tsx` still says “No changes needed” and `PrescriptionList.tsx` says “The schedule already clears on its own.” Make both empty states tier-aware and explicitly verify their wording in browser check 5.
+
+2. **Critical** — `minimal_proven` does not justify the proposed tier-3 claim that adding an unused candidate cannot shrink the gap. The solver minimizes days below zero before worst shortfall; a deferral could shrink the deepest dip while increasing negative days. Candidates can also conflict with an already selected change on the same transaction. Use wording limited to what the response establishes, or obtain a solver-owned counterfactual explanation. Random determinism tests will not catch this semantic error.
+
+3. **Critical** — Wrapping Recharts in `aria-hidden` leaves its default keyboard focus target hidden from assistive technology. The installed Recharts enables `accessibilityLayer` by default and assigns the root surface `tabIndex=0`. Disable that layer when using the static image description, and verify that Tab never enters the hidden chart.
+
+4. **Suggestion** — Toggling a selected checkbox moves its row between two different React parents, unmounting the focused input. Stable candidate keys alone do not preserve focus across those sections. Specify focus restoration to the same candidate after the response arrives, and test Space → re-solve → Space to undo without restarting keyboard navigation.
+
+5. **Suggestion** — New reasons combine current overrides with an older response during debounce and network latency. Unticking an excluded candidate can immediately claim it was “not needed” based on a solve that never considered it. Track the request associated with the displayed response and show a pending state until the new result arrives; verify with a delayed API response.
+
+6. **Suggestion** — Bundle verification can silently skip or inspect stale output: Step 9 and the run spec execute tests before building, despite Step 7 requiring the opposite. Standardize verification on `lint → build → test`, and make missing build output fail the final verification rather than skip.

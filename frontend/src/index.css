@@ -362,6 +362,13 @@ body {
   padding: 4px 0;
   text-align: center;
 }
+.rx-date small {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
 .rx-row.is-out .rx-date { color: var(--ink-3); background: var(--panel-2); }
 
 .rx-label { font-size: 15px; font-weight: 600; margin: 0 0 2px; letter-spacing: -0.005em; }
@@ -371,25 +378,44 @@ body {
 
 .rx-amount { font-size: 16px; font-weight: 600; text-align: right; white-space: nowrap; }
 .rx-pain { font-size: 11px; color: var(--ink-3); text-align: right; margin-top: 2px; white-space: nowrap; }
+.rx-pain-text { font-variant-numeric: tabular-nums; }
 
-.locks { display: flex; gap: 2px; background: var(--panel-2); padding: 3px; border-radius: 8px; }
-.locks button {
-  border: 0;
-  background: transparent;
-  font: inherit;
-  font-size: 12px;
-  color: var(--ink-3);
-  padding: 4px 9px;
-  border-radius: 6px;
+/* Why a change the solver did not use is not in the plan. */
+.rx-why { font-size: 13px; color: var(--ink-2); margin: 6px 0 0; }
+
+/* The chart's text equivalent: what a screen reader gets, and what you read
+   aloud to a judge. */
+.narration {
+  font-size: 14px;
+  color: var(--ink-2);
+  margin: 0 0 var(--s2);
+  max-width: 68ch;
+}
+
+/* One control per row, identical in both sections: the user says only whether
+   they can do a change. Unchecked is "you have not said", which is why nothing
+   is preselected. */
+.cant {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink-2);
+  white-space: nowrap;
   cursor: pointer;
+  user-select: none;
 }
-.locks button:hover { color: var(--ink); }
-.locks button[aria-pressed='true'] {
-  background: var(--bg);
-  color: var(--ink);
-  font-weight: 600;
-  box-shadow: 0 1px 2px rgba(18, 20, 26, 0.1);
+.cant:hover { color: var(--ink); }
+.cant input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex: none;
 }
+.cant input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.rx-row.is-out .cant { color: var(--warn); font-weight: 600; }
 
 .rx-empty { padding: var(--s3); text-align: center; color: var(--ink-3); font-size: 14px; }
 
@@ -441,5 +467,5 @@ details.considered[open] summary { margin-bottom: var(--s1); }
   .verdict h1 { font-size: 28px; }
   .rx-row { grid-template-columns: 56px 1fr; }
   .rx-amount, .rx-pain { text-align: left; grid-column: 2; }
-  .locks { grid-column: 2; justify-self: start; }
+  .cant { grid-column: 2; justify-self: start; }
 }

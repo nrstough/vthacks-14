@@ -18,7 +18,8 @@ proof, which is the only part nobody else has.
       solver and keeps working. Only mention it if the footer chip is spotted.
 - [ ] Refresh the two numbers in the build section. They were 810 tests and
       under 3ms on Saturday morning and the suite is still growing; quoting a
-      stale figure to someone who then runs it is worse than rounding.
+      stale figure to someone who then runs it is worse than rounding. As of
+      Sat 03:40 it is 977 backend tests plus 59 frontend tests.
 
 ---
 
@@ -72,7 +73,7 @@ press the button.
 > "The obvious objection is that I picked an example. So change it. Say you
 > don't want to carry a balance on that card. You want to pay it in full."
 
-**[Click "Can't do" on the "Pay the card minimum" row.]**
+**[Tick "Can't do this" on the "Pay the card minimum" row.]**
 
 > "Same account, and now it needs seven changes instead of three, because that
 > eighty dollars was doing a lot of work. Nothing here is a stored answer.
@@ -81,9 +82,22 @@ press the button.
 > load-bearing, because now some of them are only protecting the cushion. It
 > tells you which."
 
-**Verified on the live app.** Three to seven. Do not use the gym row for this:
-ruling the gym out only moves it to four, which is a weaker moment. Reset with
-any preset button, which clears overrides.
+**Verified on the live app** (Sat 03:35, against both the API and the built-in
+solver). Three to seven. Do not use the gym row for this: ruling the gym out
+only moves it to four, which is a weaker moment. Reset with any preset button,
+which clears overrides.
+
+Every row carries the same checkbox, in the plan and in the left-out list, and
+none of them start ticked. If a judge asks what it does: it is the only thing
+the app asks of you, and the solver re-runs without that change. The card row
+then moves down to the left-out list and says you ruled it out.
+
+One caveat if a judge reads the proof box closely here. It names the gas
+deferral and then says "the rest hold the cushion", but three of the seven are
+load-bearing, and the rows themselves say so correctly. The sentence is the
+solver's, shared with the backend, and is logged for the backend lane. If it is
+still there on Sunday, say "three of these are load-bearing and the rows tell
+you which" and move on.
 
 ## 2:20 to 2:55 — when cutting isn't enough
 
