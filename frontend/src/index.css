@@ -408,6 +408,14 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 }
 .reset:hover { color: var(--ink); border-color: var(--ink-3); }
 
+.meta-local {
+  color: var(--warn);
+  background: var(--warn-wash);
+  border-radius: 999px;
+  padding: 1px 10px;
+  font-weight: 600;
+}
+
 .meta {
   margin-top: var(--s4);
   padding-top: var(--s2);

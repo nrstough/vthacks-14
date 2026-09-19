@@ -4,9 +4,11 @@ import PrescriptionList from './components/PrescriptionList'
 import type { LockState } from './components/PrescriptionList'
 import VerdictBand from './components/VerdictBand'
 import { SCENARIOS } from './fixtures/scenarios'
+import { solveViaApi } from './lib/api'
 import { money } from './lib/format'
+import { useDebounced } from './lib/useDebounced'
 import { solve } from './solver/mockSolver'
-import type { Locks } from './types'
+import type { Locks, SolveResponse } from './types'
 
 const NO_LOCKS: Locks = { in: [], out: [] }
 const BASE = SCENARIOS[0].request
@@ -23,19 +25,50 @@ export default function App() {
     [opening, buffer, locks],
   )
 
-  // Solving happens in an effect, not in render, because the real build swaps
-  // the solve() call for `await fetch('/api/solve', ...)`. Nothing else in the
-  // UI changes: the response shape is already the contract's. Hysteresis wants
-  // the plan the user was last looking at, which is what the ref holds.
+  // Seeded from the local solver so the first paint is instant and the page is
+  // never blank, then replaced by the server's answer when it arrives.
   const [res, setRes] = useState(() => solve(request, []))
+  const [source, setSource] = useState<'local' | 'server'>('local')
+  const [notice, setNotice] = useState<string | null>(null)
+  const seq = useRef(0)
+
+  // A drag of the balance slider steps through dozens of values. Debounce the
+  // request, not the slider, so the number under the thumb still tracks it.
+  const debounced = useDebounced(request, 150)
 
   useEffect(() => {
+    const mine = ++seq.current
+    const ctl = new AbortController()
     const before = previousPlan.current
-    const next = solve(request, before)
-    previousPlan.current = next.plan.map((p) => p.candidate_id)
-    setRes(next)
-    setNewIds(next.plan.map((p) => p.candidate_id).filter((id) => !before.includes(id)))
-  }, [request])
+
+    function apply(next: SolveResponse, from: 'local' | 'server', msg: string | null) {
+      // A newer request has already landed, so this one is stale. Returning
+      // here also protects previousPlan: it feeds the churn term, so letting a
+      // late response write it would make the plan depend on arrival order.
+      if (mine !== seq.current) return
+      previousPlan.current = next.plan.map((p) => p.candidate_id)
+      setRes(next)
+      setNewIds(next.plan.map((p) => p.candidate_id).filter((id) => !before.includes(id)))
+      setSource(from)
+      setNotice(msg)
+    }
+
+    solveViaApi(debounced, before, ctl.signal)
+      .then((next) => apply(next, 'server', null))
+      .catch((err: unknown) => {
+        if (ctl.signal.aborted) return
+        // Fall back rather than blank the page. The local solver is exact at
+        // this size, so a dead backend or dead venue wifi during judging
+        // costs the CP-SAT provenance, not the demo.
+        apply(
+          solve(debounced, before),
+          'local',
+          err instanceof Error ? err.message : 'Solver unreachable.',
+        )
+      })
+
+    return () => ctl.abort()
+  }, [debounced])
 
   function onLockChange(id: string, next: LockState) {
     setLocks((prev) => ({
@@ -171,6 +204,11 @@ export default function App() {
         <span>Status: {res.meta.status}</span>
         <span>Solved in {res.meta.wall_ms} ms</span>
         <span>{res.meta.candidates_considered} candidates on the table</span>
+        {source === 'local' && (
+          <span className="meta-local" title={notice ?? undefined}>
+            Running on the built-in solver
+          </span>
+        )}
       </footer>
     </main>
   )
