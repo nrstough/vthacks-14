@@ -318,9 +318,11 @@ downstream may present it as a bank's record of anyone.
 rounds before seeding (half away from zero) and what comes back is what was
 written. `/api/accounts/sample` is the cent-precise path.
 
-**`opening_balance_cents` is not read back from the sandbox.** Writes never move
-Nessie's `balance`, so reading it would report an input as though it were a
-result.
+**`opening_balance_cents` is never an arithmetic result.** Writes never move
+Nessie's `balance`. In seeded mode the value is the rounded modelled opening
+and the sandbox's balance is not read at all; in read-only mode it *is* the
+sandbox's balance, which is the frozen creation value and therefore the same
+kind of number — an input, not something the sandbox computed.
 
 `not_round_tripped` reasons, one per row, in this precedence: `returned
 without a usable id`, `no usable date`, `outside the window`, `written but not

@@ -110,7 +110,13 @@ def _url(config: NessieConfig, path: str) -> str:
 
 def _redact(url: str) -> str:
     """The key rides in the query string, so nothing may carry a full URL into a
-    log, an exception message, or a traceback."""
+    log, an exception message, or a traceback.
+
+    This drops the query and keeps the path, which is the useful half — but the
+    PATH is built from upstream ids, and an id can be anything the sandbox
+    says, including the key itself. So every caller scrubs the result as well;
+    this function alone is not sufficient.
+    """
     return url.split("?", 1)[0] + "?key=<redacted>"
 
 
@@ -144,7 +150,9 @@ def _request(config: NessieConfig, method: str, path: str, body: dict | None = N
         # uncaught one goes into a 500 body and the log.
         req = urllib.request.Request(url, data=data, headers=headers, method=method)
     except ValueError as e:
-        raise NessieError(f"Nessie base URL is not usable: {_redact(url)}") from e
+        raise NessieError(
+            _scrub(config, f"Nessie base URL is not usable: {_redact(url)}")
+        ) from e
     try:
         with urllib.request.urlopen(req, timeout=config.timeout_s) as resp:
             try:
@@ -152,7 +160,7 @@ def _request(config: NessieConfig, method: str, path: str, body: dict | None = N
             except UnicodeDecodeError as e:
                 # Decoded outside the JSON guard, so invalid bytes were a 500.
                 raise NessieError(
-                    f"Nessie answered with bytes that are not text for {_redact(url)}"
+                    _scrub(config, f"Nessie answered with bytes that are not text for {_redact(url)}")
                 ) from e
             if not raw.strip():
                 return None
@@ -163,7 +171,7 @@ def _request(config: NessieConfig, method: str, path: str, body: dict | None = N
                 # An HTML error page or a proxy's plain text. Uncaught this is a
                 # 500 with a stack trace; it is an upstream problem, not ours.
                 raise NessieError(
-                    f"Nessie answered with something other than JSON for {_redact(url)}"
+                    _scrub(config, f"Nessie answered with something other than JSON for {_redact(url)}")
                 ) from e
     except urllib.error.HTTPError as e:
         detail = ""
@@ -177,7 +185,8 @@ def _request(config: NessieConfig, method: str, path: str, body: dict | None = N
                 "No Nessie API key is configured on the server."
             ) from e
         raise NessieError(
-            _scrub(config, detail) or f"Nessie returned HTTP {e.code} for {_redact(url)}",
+            _scrub(config, detail)
+            or _scrub(config, f"Nessie returned HTTP {e.code} for {_redact(url)}"),
             status=e.code,
         ) from e
     except urllib.error.URLError as e:

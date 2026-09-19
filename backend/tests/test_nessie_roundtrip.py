@@ -983,3 +983,42 @@ def test_a_misconfigured_timeout_is_a_503_not_a_500(monkeypatch):
     r = _TC(_create(None)).post("/api/accounts/nessie", json={})
     assert r.status_code == 503, r.text
     assert "NESSIE_TIMEOUT_S" in r.json()["detail"]
+
+
+def test_the_key_cannot_ride_out_in_an_upstream_supplied_path(monkeypatch):
+    """`_redact` drops the query and keeps the path, and the path is built from
+    upstream ids — so a sandbox whose account id IS the key put it in a 502."""
+    secret = "k" * 32
+    box = Sandbox(account_id=secret, html_body=True)
+    monkeypatch.setattr(client.urllib.request, "urlopen", box)
+    with pytest.raises(NessieUpstreamError) as e:
+        seed_and_read_back(seeded_account(seed=SEED, horizon_days=30), CFG)
+    assert secret not in str(e.value)
+
+
+def test_a_create_id_that_cannot_be_referenced_is_refused(monkeypatch):
+    """An id with a space normalises fine and then fails the response model on
+    the way out, past every handler, as a 500."""
+
+    class BadCreate(Sandbox):
+        def _post(self, path, body):
+            if "/deposits" in path or "/withdrawals" in path or "/bills" in path:
+                return FakeResponse({"code": 201, "objectCreated": {"_id": "bad id"}})
+            return super()._post(path, body)
+
+    monkeypatch.setattr(client.urllib.request, "urlopen", BadCreate())
+    with pytest.raises(NessieUpstreamError):
+        seed_and_read_back(seeded_account(seed=SEED, horizon_days=30), CFG)
+
+
+def test_rows_the_app_cannot_tell_apart_are_refused(monkeypatch):
+    """Duplicates answer 200 here and 422 on the client's very next call, because
+    /api/candidates and /api/solve both require unique transaction ids."""
+
+    class Duplicating(Sandbox):
+        def _next_id(self) -> str:
+            return "0" * 24
+
+    monkeypatch.setattr(client.urllib.request, "urlopen", Duplicating())
+    with pytest.raises(NessieUpstreamError):
+        seed_and_read_back(seeded_account(seed=SEED, horizon_days=30), CFG)

@@ -156,6 +156,12 @@ def _record(body: Any, what: str) -> dict[str, Any]:
     ident = created.get("_id")
     if not ident or not isinstance(ident, str):
         raise NessieUpstreamError(f"Nessie accepted the {what} but returned no id, so it cannot be used")
+    if not _usable_id(created):
+        # An id with a space in it normalises fine and then fails the response
+        # model on the way out, past every handler, as a 500.
+        raise NessieUpstreamError(
+            f"Nessie returned an id for the {what} that cannot be used as a reference"
+        )
     return created
 
 
@@ -267,6 +273,15 @@ def _normalise(
                 scheduled.append(_usable(row, as_of, horizon_end))
             except _Unusable as e:
                 problems.append({"id": row["id"], "reason": e.reason})
+    # Duplicates would answer 200 here and 422 on the very next call the client
+    # makes, because /api/candidates and /api/solve both require unique ids.
+    # Truncation to 40 characters can collide two distinct sandbox ids too.
+    ids = [r["id"] for r in scheduled]
+    if len(set(ids)) != len(ids):
+        raise NessieUpstreamError(
+            "Nessie returned two rows the app cannot tell apart, so the account "
+            "cannot be used"
+        )
     scheduled.sort(key=lambda r: (r["date"], r["id"]))
     return scheduled, problems
 

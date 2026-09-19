@@ -546,3 +546,56 @@ the drift and check it deliberately.
 
 Backend **2085 passed**, 2 skipped, 8 deselected. Frontend lint clean, build
 clean, **246 passed**. Golden hash unmoved.
+
+## Codex audit round three — dated note (2026-09-19, after commit `b0dce85`)
+
+Still **Fail**, three reproduced violations plus a wording finding. All fixed
+here. Nothing above is rewritten. This is where the audit loop stops; see
+"Stopping" below.
+
+1. **The key could ride out in a path, not a query.** `_redact()` drops the
+   query string and keeps the path — and the path is built from upstream ids.
+   A sandbox whose created account id *is* the key put it into a 502 detail.
+   Every message built from a URL is scrubbed as well now, and `_redact`'s
+   docstring says outright that it is not sufficient alone.
+2. **A create id with a space in it was a 500.** `_record()` accepted any
+   non-empty string. The id normalises fine, lands in `not_round_tripped`, and
+   fails the response model on the way out, past every handler. Create ids go
+   through the same usability check as read ids now.
+3. **Duplicate ids answered 200 here and 422 on the next call.** Nothing
+   checked uniqueness, and `/api/candidates` and `/api/solve` both require it,
+   so a "successful" account could be unusable by the very next request. Also
+   covers a truncation collision between two distinct sandbox ids.
+4. **Wording**: the contract said `opening_balance_cents` "is not read back",
+   unqualified. True in seeded mode; read-only mode reads the frozen creation
+   balance. Qualified by mode.
+
+### Stopping
+
+Four audit rounds, thirteen defects between them, every one in the same class:
+**a guard that checks the shape of a thing and not its usability.** The rounds
+are converging — the cases are narrower each time and all three here require a
+sandbox that is actively hostile or broken rather than merely limited — but
+they have not stopped, and honestly they would not stop at round five either.
+
+What closes this is a different kind of test, not another round: something that
+drives the round trip against a generative stub rather than named cases. That
+is a bigger change than this one and it belongs to whoever has time after the
+submission. Recorded rather than done.
+
+### Known and accepted, not fixed
+
+- **Acceptance 7 is self-report.** No committed browser artifact.
+- **No component-level tests.** Nothing in `frontend/tests/` mounts a
+  component; account replacement, preset cancellation and the chat reset are
+  covered by the reducer, `chatKey()` and the browser.
+- **The audit's own environment could not run four backend tests** (they need
+  temporary directories) or rebuild the frontend, so its counts run slightly
+  below the ones recorded here.
+
+### Gates
+
+Backend **2088 passed**, 2 skipped, 8 deselected. Perf **8 passed**, 113 s,
+300 accounts agreeing across both engines. Frontend lint clean, build clean,
+**246 passed**. Golden hash unmoved. Live sandbox re-run after every round;
+the last one wrote and read back 24 of 24 rows with nothing lost.

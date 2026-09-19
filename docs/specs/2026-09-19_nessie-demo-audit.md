@@ -2,25 +2,31 @@
 
 | Dimension | Grade | Notes |
 |-----------|-------|-------|
-| Plan adherence | Fail | Silent row loss and malformed-response 500 remain. |
-| Scope discipline | Acceptable | Minor extra edits are disclosed and bounded. |
-| Test coverage | Fail | Passing tests miss reproduced contract violations; browser evidence remains self-report. |
-| Review compliance | Fail | Referenced Codex findings are only partially resolved. |
-| Freeze integrity | Acceptable | Hash check skipped: none present. Original spec preserved; corrections appended. |
-| Regression check | Acceptable | No assertion failures observed; four backend setup errors are environmental. |
-| Documentation | Fail | Both declared contract docs omit the newly added sixth reason. |
-| **Overall** | **Fail** | |
+| Plan adherence | **Fail** | Reproduced a key leak, a malformed-response 500, and an account that fails downstream validation. |
+| Scope discipline | Acceptable | Recorded deviations are small and related to the change. |
+| Test coverage | **Fail** | Existing tests miss the three reproduced failures. Browser acceptance remains self-report. |
+| Review compliance | **Fail** | Referenced Codex findings 4 and 6—malformed-response handling and key redaction—remain incompletely resolved. |
+| Freeze integrity | Acceptable | Hash checks skipped: no P1/P2/P3 hashes. Original committed spec remains an unchanged prefix. |
+| Regression check | Acceptable | No assertion failures in runnable suites; four backend setup errors were environmental. Golden tests, canary fixtures, solver and candidate code are unchanged. |
+| Documentation | Acceptable | Declared updates exist; one balance-provenance statement needs qualification. |
+| **Overall** | **Fail** | Three independently reproduced contract violations remain. |
 
 ### Commentary
 
-1. **Plan adherence / Review compliance — causes Fail.** An empty `_id` still disappears silently. [roundtrip.py:242](/Users/nathanstough/Desktop/vthacks-nessie/backend/app/nessie/roundtrip.py:242) accepts `""` because the derived `n_` matches the pattern, but `to_scheduled()` drops it. A stubbed read-only route with one valid row and one empty-ID row returned **200, `returned: 1`, `not_round_tripped: []`**. Reject empty IDs before normalization and test this through the route.
+1. **Plan adherence, Review compliance, Test coverage — causes Fail: the configured key can still reach a 502 detail.**  
+   With a stub returning the synthetic configured key as the created account’s ID, followed by a non-JSON read response, the route returned:
+   `…/accounts/audit-secret-key/deposits?key=<redacted>`.
+   [client.py:166](/Users/nathanstough/Desktop/vthacks-nessie/backend/app/nessie/client.py:166) uses `_redact()`, which removes the query string but leaves upstream-derived path content untouched. Scrub the complete error detail on every error path and add a route-level regression test.
 
-2. **Plan adherence / Review compliance — causes Fail.** Invalid UTF-8 upstream bytes produce **500**, contrary to D5a and acceptance 4. [client.py:150](/Users/nathanstough/Desktop/vthacks-nessie/backend/app/nessie/client.py:150) decodes outside the JSON-error guard. Reproduced with `b"\xff"`. Translate decoding failures into the upstream exception mapped to 502 and add a route regression test.
+2. **Plan adherence, Review compliance, Test coverage — causes Fail: malformed create IDs still produce 500.**  
+   A stub returning `_id: "bad id"` for one created transaction reproduces HTTP 500. [_record():145](/Users/nathanstough/Desktop/vthacks-nessie/backend/app/nessie/roundtrip.py:145) accepts any nonempty string. Read-back normalization drops that ID, but the written-row reconciliation then inserts invalid `n_bad id` into `not_round_tripped`; response validation fails. Validate create IDs before using them and map unusable values to 502. Test create responses as well as read responses.
 
-3. **Plan adherence — reinforces Fail.** The claimed timeout correction remains incomplete. `NESSIE_TIMEOUT_S=soon` still returns **500**: `_timeout()` raises `NessieNotConfigured`, but [roundtrip.py:438](/Users/nathanstough/Desktop/vthacks-nessie/backend/app/nessie/roundtrip.py:438) calls `from_env()` without translating that exception. Map configuration failures to `NessieUnavailable` and verify the route’s status and JSON detail.
+3. **Plan adherence, Test coverage — causes Fail: successful responses can be unusable by the next endpoint.**  
+   A stub returning duplicate transaction IDs produces HTTP 200 from `/api/accounts/nessie`, followed by HTTP 422 from `/api/candidates`: “transaction ids must be unique.” [Normalization:256](/Users/nathanstough/Desktop/vthacks-nessie/backend/app/nessie/roundtrip.py:256) does not check uniqueness, and the `written` dictionary overwrites repeated IDs. Reject duplicate normalized IDs—including truncation collisions—with a controlled upstream error, and validate downstream request invariants before returning success.
 
-4. **Documentation — causes Fail.** [api-contract.md:325](/Users/nathanstough/Desktop/vthacks-nessie/docs/api-contract.md:325) and [nessie.md](/Users/nathanstough/Desktop/vthacks-nessie/docs/features/nessie.md) omit `returned without a usable id`. This is a new response value and an explicitly claimed documentation update, not cosmetic staleness. Document its placeholder IDs, dropped-row behavior and precedence.
+4. **Test coverage, Regression check — verification limitation, not an additional code downgrade.**  
+   On `nessie-demo` at `b0dce85`, using Python 3.14.7:
+   `.venv/bin/pytest backend/ -q -s -m "not perf" -p no:cacheprovider --tb=short` yielded **2,081 passed, 2 skipped, 8 deselected, 4 setup errors**. All four errors require temporary directories unavailable in this read-only session. With Node 22.17.1, frontend lint, no-emit TypeScript checking and **246 tests** passed. Tests used the existing bundle; a fresh build was not performed. Live sandbox and browser observations were not independently repeated.
 
-5. **Test coverage — causes Fail.** The suite misses findings 1–3. Component-level account replacement also remains untested, and acceptance 7 has no independently reviewable browser artifact. Add route tests for the reproduced failures and component tests exercising delayed loads/solves, preset cancellation and chat reset.
-
-6. **Regression check — Acceptable; verification limitations.** Audited `nessie-demo` at `19d3c3c`. With Python 3.14.7, `PYTHONDONTWRITEBYTECODE=1 .venv/bin/pytest backend/ -q -m 'not perf' -p no:cacheprovider --capture=sys` yielded **2,078 passed, 2 skipped, 8 deselected, 4 setup errors**. All four errors require temporary-file writes prohibited here; golden tests passed. With Node 22.17.1, frontend lint, both no-emit TypeScript checks and **246 tests** passed. Tests used existing `dist`; a fresh build, live sandbox probe and browser checks were not rerun.
+5. **Documentation — Acceptable wording finding.**  
+   [api-contract.md:321](/Users/nathanstough/Desktop/vthacks-nessie/docs/api-contract.md:321) says `opening_balance_cents` “is not read back from the sandbox,” without limiting that statement to seeded mode. Read-only mode reads the frozen creation balance. Qualify the sentence by mode; the linked Nessie feature document already explains the distinction.
