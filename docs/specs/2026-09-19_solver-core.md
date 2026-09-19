@@ -255,8 +255,27 @@ Acceptable, Review compliance Acceptable, Freeze integrity **Excellent**, Regres
 
 **Tests after round 3: 814.**
 
+### Codex audit (~02:45) — **Fail**, three real findings the critique missed
+
+Independent of the Claude rounds, and it earned its place: all three are defects, not
+bookkeeping. Every one is now fixed and mutation-guarded.
+
+| Finding | Why it mattered | Resolution |
+|---|---|---|
+| **Omitting `recharge_date` bypassed its validator.** A pydantic field validator does not run on a default, so a deferral *missing* the key — as opposed to sending an explicit null — was accepted. | The deferral silently became permanent savings: the money was freed and never came back, and the plan looked better than it was. Confirmed: HTTP 200 on the shipped fixture with the key deleted. | `Field(default=None, validate_default=True)`. Tests for omitted, explicit-null, and the still-legal case of omitting it on a non-deferral. |
+| **A failed numeric stage returned an unproven plan instead of falling back.** R1 requires exhaustive search for ≤ 18 free candidates, or a 503. Only the first stage did that; stages 2–7 returned the incumbent as FEASIBLE. | At these sizes the other engine answers *exactly*, so the service was shipping a plan it could not stand behind when a proven one was available. `docs/features/solver.md` described the correct behaviour, so the doc was right and the code was wrong. | Any numeric stage failure now raises and falls back. The tiebreak stage remains the one exception, for a different reason. Tests at stages 2, 4 and 7, plus the no-fallback refusal. |
+| **Empty-plan wording was not proof-aware.** An unfinished search that selected nothing still said "There are no changes available to close any of it" and "Nothing here can be changed in time". | Both are claims about every plan that could have been built, and on the `clears` account both are simply false — three changes clear it. | Both branches now check `minimal_proven`; `OPTIMALITY_CLAIMS` gained the three phrases so the unproven-response test covers them. |
+
+Also fixed: the README quoted a test count that had moved twice.
+
+Not actionable: Codex skipped Freeze integrity looking for P1/P2/P3 hashes this spec does not
+use (the Claude rounds checked it directly and found it Excellent), and its one test error was
+its sandbox refusing a temporary directory, not a failure.
+
+**Tests after the Codex round: 822.**
+
 **Claude critique verdict:** Acceptable (round 3), nothing blocking.
-**Codex audit grade:** _pending_
+**Codex audit grade:** Fail on the first pass, three defects; all fixed and re-audited below.
 
 ## Refinements from deep exploration (Sat ~01:50, before plan approval)
 

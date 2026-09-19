@@ -59,8 +59,12 @@ tiebreak differs.
   across stages; `num_workers=1`, `random_seed=0`. Only `x` is read back; every term is
   recomputed by simulation and asserted equal. Any stage `FEASIBLE` →
   `meta.status="FEASIBLE"`, `certificate.minimal_proven=false`, wording drops "fewest".
-- **Brute force** fallback (no `ortools`, or a stage returns UNKNOWN/INFEASIBLE): exact
-  over ≤ 18 free candidates; refuses above (HTTP 503, structured message).
+- **Brute force** fallback: exact over ≤ 18 free candidates; refuses above (HTTP 503).
+  Taken whenever OR-Tools cannot be loaded for any reason, or any of the seven numeric
+  stages returns UNKNOWN or INFEASIBLE, or the budget runs out during them. The single
+  exception is the id tiebreak: by then all seven numeric terms are proven, so losing it
+  costs the ordering among tied plans, not the plan, and the response says
+  `minimal_proven: false` rather than starting again.
 - The TypeScript stand-in `frontend/src/solver/mockSolver.ts` implements the same
   objective and is run through Node as an independent oracle (`backend/tests/oracle/`).
 

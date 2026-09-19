@@ -1,8 +1,6 @@
 # Ideas
 
-Running log of directions that are **not decided and not started**. Nothing
-here is in the build plan. Each entry records the idea, what it would take,
-what would kill it, and the gate it has to clear before anyone writes code.
+Historical idea log. The newer [product and training plan](vthacks-product-and-training-plan.md) records Nathan's expanded direction: automatic history-based setup, residual-spending forecasting, natural-language purchase questions through Gemini, and calculated alternatives. The isolated [neural pilot](vthacks-training-pilot.md) has run; the product integrations remain proposed. Earlier gates below are historical and do not imply those features already exist.
 
 ---
 
@@ -57,8 +55,8 @@ The frozen design rule holds: **the model never participates in the
 feasibility decision.** It cannot change the arithmetic, the tier, or the
 certificate. Roles worth considering, cheapest and safest first:
 
-1. **Plain-English explanation** of the plan and the certificate. Already in
-   scope for the Gemini and Gen AI tracks. Lowest risk, lowest originality.
+1. **Plain-English explanation** of the plan and the certificate. Proposed for
+   the Gemini API track. There is no separate Gen AI track at this event. Lowest risk, lowest originality.
 2. **Merchant normalization**, turning messy descriptors into human names,
    with the existing regex and fuzzy-match path as the fallback when the
    model is unavailable.
@@ -81,7 +79,7 @@ demo depend on a network call that can fail on venue wifi during judging.
 
 ### Gate
 
-Neither part starts before the Sat 18:30 check of a working deployed demo.
+Original gate (superseded by the current product-direction discussion): neither part starts before the Sat 18:30 check of a working deployed demo.
 Error bars come before the agent: they strengthen the existing claim, while
 the agent adds a new surface and a new failure mode. If only one fits, do
 error bars.

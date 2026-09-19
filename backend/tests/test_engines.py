@@ -216,3 +216,65 @@ def test_a_deferral_inside_the_horizon_is_modelled_as_the_ledger_sees_it():
     assert [b.with_plan_cents for b in res.balances] == planted.DEFER_LANDS_IN_HORIZON_BALANCES
     assert res.tier == 3
     assert res.meta.solver == "cp-sat"
+
+
+@pytest.mark.parametrize("failing_stage", [2, 4, 7])
+def test_a_later_stage_failing_falls_back_to_an_exact_answer(monkeypatch, failing_stage):
+    """A stage that does not finish hands the whole request to exhaustive search.
+
+    Returning the partial incumbent as unproven would be the tempting thing to
+    do, but at these sizes the other engine can still answer exactly — and an
+    exact answer is worth more than a plan nobody can stand behind.
+    """
+    real = cp_model.CpSolver.solve
+    calls = {"n": 0}
+
+    def wrapper(self, model, *args, **kwargs):
+        calls["n"] += 1
+        status = real(self, model, *args, **kwargs)
+        return cp_model.UNKNOWN if calls["n"] == failing_stage else status
+
+    monkeypatch.setattr(cp_model.CpSolver, "solve", wrapper)
+
+    res = run(SCENARIOS["clears"], Settings())
+    assert res.meta.solver == "brute-force"
+    assert res.meta.status == "OPTIMAL"
+    assert res.certificate.minimal_proven is True
+    assert [p.candidate_id for p in res.plan] == ["c_dd_chipotle", "c_gym", "c_card_min"]
+
+
+def test_a_later_stage_failing_with_no_fallback_refuses(monkeypatch):
+    real = cp_model.CpSolver.solve
+    calls = {"n": 0}
+
+    def wrapper(self, model, *args, **kwargs):
+        calls["n"] += 1
+        status = real(self, model, *args, **kwargs)
+        return cp_model.UNKNOWN if calls["n"] == 2 else status
+
+    monkeypatch.setattr(cp_model.CpSolver, "solve", wrapper)
+    with pytest.raises(EngineUnavailable, match="worst_shortfall"):
+        run(SCENARIOS["clears"], CPSAT)
+
+
+def test_an_unfinished_search_that_selected_nothing_says_only_that(monkeypatch):
+    """The emptiest possible unproven answer.
+
+    "There are no changes available" is a claim about every plan that could have
+    been built. A search that stopped before building one has not earned it, and
+    on this account it is flatly false — three changes clear it.
+    """
+    import app.solver.solve as solve_module
+
+    monkeypatch.setattr(
+        solve_module, "load_cpsat", lambda: (lambda *a, **k: ([], "FEASIBLE", False, ()))
+    )
+    res = run(SCENARIOS["clears"], CPSAT)
+    assert res.plan == []
+    assert res.certificate.minimal_proven is False
+
+    text = " ".join(all_strings(json.loads(res.model_dump_json())))
+    for claim in OPTIMALITY_CLAIMS:
+        assert claim not in text, f"an unfinished search still claims: {claim}"
+    assert "did not finish" in res.verdict
+    assert "did not finish" in res.certificate.sentence

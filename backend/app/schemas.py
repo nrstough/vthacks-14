@@ -88,7 +88,10 @@ class Candidate(Strict):
     target_txn_id: Id
     freed_cents: NonNegCents
     effective_date: StrictStr
-    recharge_date: StrictStr | None = None
+    # validate_default, because a field validator does not run on a default:
+    # omitting the key entirely would otherwise skip the check that an
+    # explicit null fails, and the deferral would silently become permanent.
+    recharge_date: StrictStr | None = Field(default=None, validate_default=True)
     lead_time_days: Annotated[StrictInt, Field(ge=0, le=MAX_T)]
     pain: Annotated[StrictInt, Field(ge=1, le=5)]
 

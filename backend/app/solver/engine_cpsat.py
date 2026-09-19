@@ -138,21 +138,19 @@ def solve_cpsat(
     for i, expr in enumerate(terms):
         allowance = budget((len(terms) - i) + len(free))
         if allowance is None:
-            if incumbent is None:
-                raise EngineUnavailable("ran out of time before the first stage finished")
-            return sorted(incumbent | set(forced_ids)), "FEASIBLE", False, tuple(values)
+            raise EngineUnavailable(f"ran out of time at stage {TERMS[i]}")
 
         solver.parameters.max_time_in_seconds = allowance
         model.minimize(expr)
         status = solver.solve(model)
         if status not in _SOLVED:
-            # Nothing usable came back. Never read values off a failed solve:
-            # they are stale or arbitrary, not merely imprecise.
-            if incumbent is None:
-                raise EngineUnavailable(
-                    f"stage {TERMS[i]} returned {solver.status_name(status)}"
-                )
-            return sorted(incumbent | set(forced_ids)), "FEASIBLE", False, tuple(values)
+            # Hand the request back rather than answering it unproven. Exhaustive
+            # search can still answer it exactly at these sizes, and an exact
+            # answer beats a plan we cannot stand behind. Never read values off a
+            # failed solve either: they are stale or arbitrary, not imprecise.
+            raise EngineUnavailable(
+                f"stage {TERMS[i]} returned {solver.status_name(status)}"
+            )
 
         proven = proven and status == cp_model.OPTIMAL
         value = solver.value(expr)

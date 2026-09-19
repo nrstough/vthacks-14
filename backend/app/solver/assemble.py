@@ -106,7 +106,7 @@ def build_response(
         certificate=Certificate(
             irredundant=cert.irredundant,
             minimal_proven=minimal_proven,
-            sentence=certificate_sentence(tier, plan_order, cert, best),
+            sentence=certificate_sentence(tier, plan_order, cert, best, minimal_proven),
             per_item=cert.per_item,
         ),
         shortfall=Shortfall(

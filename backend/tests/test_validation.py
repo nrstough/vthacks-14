@@ -199,3 +199,33 @@ def test_the_derived_bound_still_covers_everything_the_input_limits_allow():
         "would now be rejected by the server's own response model"
     )
     assert DERIVED_CENTS_ABS < 2**63 - 1, "must stay inside the solver's integer range"
+
+
+def test_a_deferral_with_the_recharge_date_left_out_entirely_is_rejected():
+    """Omitting the key is not the same code path as sending null.
+
+    A field validator does not run on a default, so a deferral missing its
+    recharge date slipped through and became permanent savings: the money was
+    freed and never came back, and the plan looked better than it was.
+    """
+    raw = copy.deepcopy(SCENARIOS["clears"])
+    idx = next(i for i, c in enumerate(raw["candidates"]) if c["action"] == "defer")
+    del raw["candidates"][idx]["recharge_date"]
+    loc, _ = first_error(raw)
+    assert loc == ("candidates", idx, "recharge_date")
+
+
+def test_the_same_holds_when_the_recharge_date_is_explicitly_null():
+    raw = copy.deepcopy(SCENARIOS["clears"])
+    idx = next(i for i, c in enumerate(raw["candidates"]) if c["action"] == "defer")
+    raw["candidates"][idx]["recharge_date"] = None
+    loc, _ = first_error(raw)
+    assert loc == ("candidates", idx, "recharge_date")
+
+
+def test_leaving_it_out_is_still_fine_for_every_other_action():
+    raw = copy.deepcopy(SCENARIOS["clears"])
+    for c in raw["candidates"]:
+        if c["action"] != "defer":
+            c.pop("recharge_date", None)
+    assert SolveRequest.model_validate(raw)
