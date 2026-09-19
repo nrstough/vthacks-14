@@ -199,4 +199,89 @@ count; the bundle scan fails; the `/api/solve`, `/api/candidates`, `/api/chat` o
 
 ## Results (recorded at commit)
 
-_To be filled at execution: test counts, live probe ids, screenshots, audit scorecards._
+Commits: `aa5856a` (backend round trip), `1b8b47a` (chat provenance), `494b4df`
+(frontend account sources), `a0764c8` (docs), `594467f` (the load-token fix).
+
+### Gates
+
+- `.venv/bin/pytest backend/ -q -m "not perf"` → **2071 passed, 2 skipped, 8
+  deselected**, ~26 s. Baseline was 2002/1/8, so **69 new tests**. The second
+  skip is the new live Nessie probe.
+- `cd frontend && npm run lint && npm run build && npm test` → lint clean, build
+  clean, **241 passed**. Baseline 209, so **32 new**. Bundle 639,989 bytes.
+- `.venv/bin/pytest backend/tests/test_accounts_golden.py -q` → 3 passed; golden
+  hash `8d4ddf30…81048` **unmoved**.
+- Canaries unmoved, checked on screen: `clears` tier 1, three changes, "Tightest
+  day is Sep 24 at $26.74"; `tight` tier 2, "$6.74, under the $100.00 cushion";
+  `gap` tier 3.
+
+### The live sandbox (acceptance 6)
+
+`.venv/bin/pytest backend/tests/test_nessie_roundtrip.py -q -m nessie -s`:
+
+```
+customer=15a2118e-7da4-4699-bfd9-3c4bceadc0fa
+account=88720fe7-9487-46cf-a443-d6a6fbb19f62
+written=24 returned=24 lost=[]
+```
+
+**Withdrawals exist.** That was the one design risk the plan could not retire
+without running it: the web reference has no purchase create path, and the plan
+said execution would stop and report if the sandbox refused withdrawals. It did
+not. All 24 rows round-tripped with nothing lost.
+
+### The browser (acceptance 7 and 9)
+
+Against this worktree's backend on 8000 serving its own `frontend/dist`, which
+is the production path (one origin) rather than the Vite proxy.
+
+- Sandbox button → `Capital One sandbox, 23 of 23 rows read back, Sep 19 to Oct
+  18.`, the account re-solved to tier 3, "You need $12.00 more by Sep 20".
+- Modelled button → `Modelled account, seed 1758986161, Sep 19 to Oct 18.`,
+  opening $110.39, cents intact (only the sandbox path rounds).
+- `$200.00` preset → built-in account and its canary restored, sandbox button
+  no longer pressed.
+- Preset clicked mid-load → both buttons re-enabled immediately, and the
+  in-flight load did **not** overwrite the preset when it returned.
+- Backend stopped → "Could not reach the server." under the buttons, both
+  buttons enabled, the loaded account still solving, and `$200.00` still
+  restoring and solving the built-in account on the local solver.
+
+### One defect found by the browser, not by the suite
+
+Fixed in `594467f`. After any preset, both account buttons spun forever and
+stayed disabled until a page reload. The component and the reducer each kept
+their own sequence counter; the reducer bumped its own on preset as well as on
+start, so one preset put them permanently out of step and every subsequent
+result was discarded as stale — including the one that stops the spinner.
+
+The reducer was correct in isolation and wrong in composition, which is exactly
+what its unit tests could not see: each case invented its own self-consistent
+numbers. They now drive it through a harness that models the component's real
+usage, and the two regression cases fail against the old reducer.
+
+Worth recording as a class, not an incident: a test that supplies both sides of
+a protocol will pass whether or not the two sides agree.
+
+### Deviations from the plan
+
+- The plan scoped the new wording scan over `roundtrip.py` **and**
+  `chat/prompt.py`. The prompt module names both banned words on purpose — it
+  is the instruction telling the model never to use them — so the scan covers
+  `roundtrip.py`, and the account-source lines are asserted in `test_chat.py`
+  where they are built.
+- `docs/features/chat.md` was listed conditional in P2 and was edited: D12
+  shipped, so it had to be.
+- Read-only mode's `not_round_tripped` gained `outside the window` alongside
+  `no usable date`, which the plan had already anticipated in the reason list.
+
+### Still open
+
+- **D-F** and **D-G** remain open, as scoped. D-F is unreachable from the
+  account-loading path (locks are cleared on every load) but still live on the
+  slider path.
+- The sandbox seeds are permanent. `NESSIE_ACCOUNT_ID` is implemented and
+  **not yet set anywhere**: seeding once and setting it on the box is a
+  judging-morning step, not a code step.
+- This branch is **not merged**. It waits on the firewall, the public deploy
+  checks, and the security branch, in that order.
