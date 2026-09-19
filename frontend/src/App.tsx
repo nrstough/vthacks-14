@@ -1,122 +1,170 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import BalanceChart from './components/BalanceChart'
+import PrescriptionList from './components/PrescriptionList'
+import type { LockState } from './components/PrescriptionList'
+import VerdictBand from './components/VerdictBand'
+import { SCENARIOS } from './fixtures/scenarios'
+import { money, solve } from './solver/mockSolver'
+import type { Locks } from './types'
 
-function App() {
-  const [count, setCount] = useState(0)
+const NO_LOCKS: Locks = { in: [], out: [] }
+const BASE = SCENARIOS[0].request
+
+export default function App() {
+  const [opening, setOpening] = useState(BASE.opening_balance_cents)
+  const [buffer, setBuffer] = useState(BASE.buffer_cents)
+  const [locks, setLocks] = useState<Locks>(NO_LOCKS)
+  const [newIds, setNewIds] = useState<string[]>([])
+  const previousPlan = useRef<string[]>([])
+
+  const request = useMemo(
+    () => ({ ...BASE, opening_balance_cents: opening, buffer_cents: buffer, locks }),
+    [opening, buffer, locks],
+  )
+
+  // Solving happens in an effect, not in render, because the real build swaps
+  // the solve() call for `await fetch('/api/solve', ...)`. Nothing else in the
+  // UI changes: the response shape is already the contract's. Hysteresis wants
+  // the plan the user was last looking at, which is what the ref holds.
+  const [res, setRes] = useState(() => solve(request, []))
+
+  useEffect(() => {
+    const before = previousPlan.current
+    const next = solve(request, before)
+    previousPlan.current = next.plan.map((p) => p.candidate_id)
+    setRes(next)
+    setNewIds(next.plan.map((p) => p.candidate_id).filter((id) => !before.includes(id)))
+  }, [request])
+
+  function onLockChange(id: string, next: LockState) {
+    setLocks((prev) => ({
+      in: next === 'in' ? [...prev.in.filter((x) => x !== id), id] : prev.in.filter((x) => x !== id),
+      out: next === 'out' ? [...prev.out.filter((x) => x !== id), id] : prev.out.filter((x) => x !== id),
+    }))
+  }
+
+  function preset(cents: number) {
+    setOpening(cents)
+    setLocks(NO_LOCKS)
+    previousPlan.current = []
+  }
+
+  const locked = locks.in.length + locks.out.length
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
+    <main className="shell">
+      <header className="topbar">
         <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
+          <p className="wordmark">
+            Overdraft Guard <span>&nbsp;/&nbsp; the smallest plan that clears</span>
+          </p>
+          <p className="tagline">
+            Sample checking account, September 19 to October 2, 2026. Move a slider or rule a change
+            out, and the plan is re-solved from scratch.
           </p>
         </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
+      </header>
+
+      <section className="controls">
+        <label className="ctl">
+          <span className="ctl-head">
+            Starting balance
+            <b className="num">{money(opening)}</b>
+          </span>
+          <input
+            type="range"
+            min={2000}
+            max={30000}
+            step={500}
+            value={opening}
+            onChange={(e) => setOpening(Number(e.target.value))}
+          />
+          <span className="ctl-presets">
+            {SCENARIOS.map((s) => (
+              <button
+                key={s.key}
+                type="button"
+                aria-pressed={s.request.opening_balance_cents === opening}
+                onClick={() => preset(s.request.opening_balance_cents)}
+              >
+                {money(s.request.opening_balance_cents)}
+              </button>
+            ))}
+          </span>
+        </label>
+
+        <label className="ctl">
+          <span className="ctl-head">
+            Cushion to keep
+            <b className="num">{money(buffer)}</b>
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={10000}
+            step={500}
+            value={buffer}
+            onChange={(e) => setBuffer(Number(e.target.value))}
+          />
+          <span className="ctl-note">How much you want left over on the worst day.</span>
+        </label>
       </section>
 
-      <div className="ticks"></div>
+      <VerdictBand res={res} req={request} />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      <section className="band">
+        <div className="band-head">
+          <h2>Daily balance, September 19 to October 2</h2>
+          <div className="legend">
+            <span>
+              <i className="l-base" />
+              Do nothing
+            </span>
+            <span>
+              <i className="l-plan" />
+              With the plan
+            </span>
+            <span>
+              <i className="l-zero" />
+              Zero
+            </span>
+            <span>
+              <i className="l-buffer" />
+              {money(buffer)} cushion
+            </span>
+          </div>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
+        <BalanceChart res={res} req={request} />
       </section>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      <section className="band">
+        <div className="band-head">
+          <h2>
+            {res.plan.length === 0
+              ? 'No changes needed'
+              : `${res.plan.length} change${res.plan.length === 1 ? '' : 's'}, in the order you have to make them`}
+          </h2>
+          {locked > 0 && (
+            <button type="button" className="reset" onClick={() => setLocks(NO_LOCKS)}>
+              Clear {locked} override{locked === 1 ? '' : 's'}
+            </button>
+          )}
+        </div>
+        <PrescriptionList
+          req={request}
+          res={res}
+          locks={locks}
+          newIds={newIds}
+          onLockChange={onLockChange}
+        />
+      </section>
+
+      <footer className="meta num">
+        <span>Solver: {res.meta.solver}</span>
+        <span>Status: {res.meta.status}</span>
+        <span>Solved in {res.meta.wall_ms} ms</span>
+        <span>{res.meta.candidates_considered} candidates on the table</span>
+      </footer>
+    </main>
   )
 }
-
-export default App

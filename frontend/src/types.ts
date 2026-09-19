@@ -1,0 +1,93 @@
+// Mirrors docs/api-contract.md. Keep the two in step.
+
+export type TxnKind = 'income' | 'bill' | 'discretionary'
+export type Action = 'skip' | 'defer' | 'downgrade' | 'cancel'
+
+export interface ScheduledTxn {
+  id: string
+  date: string
+  description: string
+  amount_cents: number // signed: + income, - outflow
+  kind: TxnKind
+  recurring: boolean
+}
+
+export interface Candidate {
+  id: string
+  label: string
+  detail: string
+  action: Action
+  target_txn_id: string
+  freed_cents: number
+  effective_date: string
+  recharge_date: string | null
+  lead_time_days: number
+  pain: number // 1..5
+}
+
+export interface Locks {
+  in: string[]
+  out: string[]
+}
+
+export interface SolveRequest {
+  as_of: string
+  horizon_end: string
+  opening_balance_cents: number
+  buffer_cents: number
+  scheduled: ScheduledTxn[]
+  candidates: Candidate[]
+  locks: Locks
+}
+
+export interface PlanItem {
+  candidate_id: string
+  label: string
+  detail: string
+  action: Action
+  date: string
+  freed_cents: number
+  pain: number
+  reason: string
+}
+
+export interface CertificateItem {
+  candidate_id: string
+  worst_shortfall_cents: number
+  worst_date: string | null
+}
+
+export interface Certificate {
+  irredundant: boolean
+  sentence: string
+  per_item: CertificateItem[]
+}
+
+export interface BalanceRow {
+  date: string
+  baseline_cents: number
+  with_plan_cents: number
+  is_payday: boolean
+  changes_here: string[]
+}
+
+export interface SolveResponse {
+  tier: 1 | 2 | 3
+  verdict: string
+  qualifier: string
+  plan: PlanItem[]
+  certificate: Certificate
+  shortfall: {
+    worst_cents: number
+    worst_date: string | null
+    total_cents: number
+  }
+  external_cash_needed: { amount_cents: number; by_date: string } | null
+  balances: BalanceRow[]
+  meta: {
+    solver: string
+    status: string
+    wall_ms: number
+    candidates_considered: number
+  }
+}
