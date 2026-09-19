@@ -316,3 +316,21 @@ def test_an_as_of_on_a_weekend_still_puts_pay_on_a_business_day(client):
     pay = [t for t in body["scheduled"] if t["kind"] == "income" and t["amount_cents"] > 0]
     assert pay
     assert all(date.fromisoformat(t["date"]).weekday() < 5 for t in pay)
+
+
+def test_an_as_of_with_no_room_for_the_horizon_is_422_not_500(client):
+    """9999-12-31 is a valid date. Adding the horizon to it is an OverflowError,
+    which reaches the client as an unhandled 500 rather than a refused request."""
+    for bad in ["9999-12-31", "9999-12-01"]:
+        r = client.post("/api/accounts/sample", json={"seed": 1, "as_of": bad})
+        assert r.status_code == 422, f"{bad} gave {r.status_code}"
+
+
+def test_a_far_future_as_of_that_does_fit_still_works(client):
+    r = client.post("/api/accounts/sample", json={"seed": 1, "as_of": "9999-10-01"})
+    assert r.status_code == 200, r.text
+
+
+def test_the_earliest_dates_are_accepted(client):
+    r = client.post("/api/accounts/sample", json={"seed": 1, "as_of": "0001-01-01"})
+    assert r.status_code == 200, r.text

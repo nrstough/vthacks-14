@@ -47,9 +47,22 @@ def _protectable(descriptors: Sequence[str]) -> set[str]:
     networks, not a style choice. Prose is not upper case. So: upper case, and
     more than one token.
 
-    A lower-case descriptor carrying a banned word therefore gets scrubbed like
-    any other prose. That is the intended failure direction — where the two rules
-    collide, the product's rule wins.
+    This is only half the rule; the other half is that the match is
+    CASE-SENSITIVE (see `scrub`). Qualifying on upper case and then matching
+    case-insensitively was a bypass rather than a protection: a descriptor of
+    "GUARANTEED SAVINGS" matched the prose "guaranteed savings" and shielded the
+    model's own claim.
+
+    Two consequences, both deliberate, both failing towards the rule:
+
+      * A lower-case or mixed-case descriptor — "Guaranteed Rate" — is never
+        protected, so it gets scrubbed like prose and its name is corrupted.
+      * A model that re-cases an upper-case descriptor loses the protection for
+        the same reason.
+
+    Both are the original D-C bug in a narrower window, and both are preferable
+    to letting a banned claim through. Where the two rules collide, the product's
+    rule wins.
     """
     return {
         d for d in descriptors
@@ -112,8 +125,15 @@ def scrub(text: str, protected: Sequence[str] = ()) -> str:
     for descriptor in sorted(_protectable(protected), key=lambda d: (-len(d), d)):
         # \s+ for the spaces: a model that reflows or line-wraps the descriptor
         # would otherwise slip past an exact-space match and be corrupted again.
+        # CASE-SENSITIVE, and that is the whole protection. Matching
+        # case-insensitively defeated the upper-case rule above: a descriptor of
+        # "GUARANTEED SAVINGS" then matched the prose "guaranteed savings" and
+        # shielded the model's own claim. A statement descriptor appears in the
+        # reply in statement casing; prose does not.
+        #
+        # \s+ for the spaces, so a reflowed or line-wrapped echo still matches.
         pattern = r"\s+".join(re.escape(part) for part in descriptor.split())
-        masked = re.sub(pattern, _mask, masked, flags=re.IGNORECASE)
+        masked = re.sub(pattern, _mask, masked)
 
     restored = _substitute(masked)
     for i, original in enumerate(saved):

@@ -424,9 +424,39 @@ def test_the_product_s_own_claim_is_still_scrubbed_alongside_it():
     assert "sufficient under the schedule shown" in out
 
 
-def test_casing_of_the_restored_descriptor_is_the_model_s_own():
+def test_a_recased_descriptor_loses_its_protection_and_that_is_deliberate():
+    """Matching is case-SENSITIVE, and that is the whole protection.
+
+    Qualifying the descriptor on upper case and then matching case-insensitively
+    was a bypass, not a guard: a descriptor of "GUARANTEED SAVINGS" matched the
+    prose "guaranteed savings" and shielded the model's own claim. So a re-cased
+    echo is treated as prose and scrubbed — the merchant's name is corrupted,
+    which is the original bug in a narrower window and the right way to fail.
+    """
     out = scrub("Skipping Guaranteed Auto Protection frees $38.59.", [_TRAP])
-    assert "Guaranteed Auto Protection" in out
+    assert "sufficient under the schedule shown" in out
+
+
+def test_a_crafted_descriptor_cannot_shield_a_product_claim():
+    """The bypass the audit found. `protected` is caller text."""
+    assert "guaranteed savings" not in scrub(
+        "Your savings are guaranteed savings.", ["GUARANTEED SAVINGS"]
+    )
+    assert "is guaranteed" not in scrub("This is guaranteed to clear.", ["is guaranteed"])
+
+
+def test_a_mixed_case_merchant_name_is_scrubbed_rather_than_trusted():
+    """"Guaranteed Rate" is a real lender. It is also indistinguishable from
+    prose, so the rule wins and the name is corrupted."""
+    assert "Guaranteed Rate" not in scrub("Paying Guaranteed Rate.", ["Guaranteed Rate"])
+
+
+def test_the_protection_does_not_depend_on_dict_ordering():
+    """sorted(set, key=len) broke ties on set iteration order, so the banned word
+    shipped on some PYTHONHASHSEED values and not others."""
+    trap2 = "GUARANTEED AUTO PROTECTIOX"
+    out = scrub(f"Skipping {_TRAP} frees $1.", [_TRAP, trap2])
+    assert _TRAP in out
 
 
 def test_a_single_token_descriptor_is_not_protected():

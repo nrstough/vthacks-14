@@ -1,11 +1,19 @@
 """Nessie as a data source, behind an adapter.
 
 `docs/features/nessie.md`. The transport lives in `client.py` and its exceptions
-never escape this module; what leaves here is either an account in the contract's
-own shape or one of the two errors `main.py` maps to a status code, exactly as
-`app/chat/__init__.py` does for Gemini.
+never escape this module.
 
-Two things shape everything below.
+**Nothing in `app/main.py` calls this package yet.** The two exception types below
+are the boundary a route will map to status codes, following
+`app/chat/__init__.py`'s precedent — but no such route exists, so nothing maps
+them today. The seed-and-read-back workflow, the `not_round_tripped` report and
+the fallback-disclosure flag are likewise unwritten. The feature doc has the full
+list of what is and is not here; do not infer behaviour from these docstrings
+alone.
+
+What does exist — the transport, the credential check, the money conversion, key
+redaction and row normalisation — is tested and has been run against the live
+sandbox. Two things shape it.
 
 **A read cannot confirm the key.** A wrong key returns `200 []`, which is what a
 valid key over an empty sandbox returns. So `verify()` writes a customer and
@@ -15,10 +23,12 @@ showing a judge a blank screen that looks like real, empty data.
 
 **Nessie cannot store a transaction history.** Its documented creatable surface
 is customers, accounts, deposits and bills; purchases have no documented create
-or list path (`docs/nessie-agent-brief.md`, caution 3). So a round trip preserves
-income and recurring bills and cannot preserve arbitrary discretionary charges.
-That loss is reported in `not_round_tripped` and never hidden — a demo that
-quietly drops half the account is worse than one that says what it dropped.
+or list path (`docs/nessie-agent-brief.md`, caution 3). So a round trip *would*
+preserve income and recurring bills and could not preserve arbitrary
+discretionary charges. Stated in the conditional because no round trip is
+implemented: when one is, that loss must be reported rather than hidden, since a
+demo which quietly drops half the account is worse than one that says what it
+dropped.
 """
 
 from __future__ import annotations

@@ -367,7 +367,16 @@ class SampleAccountRequest(Strict):
     @field_validator("as_of")
     @classmethod
     def _as_of(cls, v: str | None) -> str | None:
-        return None if v is None else iso(v)
+        if v is None:
+            return None
+        iso(v)
+        # `9999-12-31` is a valid date and a 500 waiting to happen: adding the
+        # horizon to it raises OverflowError inside the generator, which is an
+        # unhandled exception rather than a refused request. Leave room for the
+        # largest horizon this endpoint accepts.
+        if datetime.date.fromisoformat(v) > datetime.date.max - datetime.timedelta(days=46):
+            raise ValueError("as_of leaves no room for the horizon")
+        return v
 
 
 class SampleAccountResponse(Strict):

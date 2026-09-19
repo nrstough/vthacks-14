@@ -190,9 +190,22 @@ if [[ -n "$asset" ]] && ! curl -fsS --max-time 20 -o /dev/null "$ORIGIN$asset"; 
   exit 1
 fi
 
-if ! curl -fsS --max-time 20 -o /dev/null "$ORIGIN/api/accounts/sample" \
-      -H 'Content-Type: application/json' --data '{"seed":1}'; then
-  echo "the API is not reachable through $ORIGIN" >&2
+# A known scenario through the public origin, asserting the ANSWER and not just
+# that something replied. `gap` is tier 3 by construction — no combination of
+# changes closes it — so a wrong tier here means the solver on the box is not the
+# solver this repo tests, which is the failure a reachability check cannot see.
+sample="$(curl -fsS --max-time 20 "$ORIGIN/api/accounts/sample" \
+    -H 'Content-Type: application/json' --data '{"seed":1}' || true)"
+if ! grep -q '"source": *"modelled"' <<<"$sample"; then
+  echo "the sample-account endpoint is not answering correctly through $ORIGIN" >&2
+  exit 1
+fi
+
+tier="$(curl -fsS --max-time 30 "$ORIGIN/api/solve" \
+    -H 'Content-Type: application/json' --data @deploy/smoke-gap.json \
+    | sed -n 's/.*"tier": *\([0-9]\).*/\1/p' | head -1 || true)"
+if [[ "$tier" != "3" ]]; then
+  echo "public /api/solve returned tier '${tier:-<nothing>}' for the gap scenario; expected 3" >&2
   exit 1
 fi
 
