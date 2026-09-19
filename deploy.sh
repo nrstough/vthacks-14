@@ -131,6 +131,16 @@ ssh "$TARGET" APP_DIR="$APP_DIR" DOMAIN="$DOMAIN" 'bash -euo pipefail -s' <<'REM
     sed -i "s|__DOMAIN__|:80|g" /etc/caddy/Caddyfile
   fi
 
+  # Tell the service where the bundle is rather than letting it infer. The
+  # inference keys off the parent directory being named "backend", which holds in
+  # a checkout but not here: APP_DIR is a setting, and a box deployed to
+  # /opt/backend would resolve one level too high and serve a silent 404.
+  if ! grep -q '^OVERDRAFT_DIST=' /etc/overdraft-guard.env 2>/dev/null; then
+    printf 'OVERDRAFT_DIST=%s/frontend/dist\n' "$APP_DIR" >> /etc/overdraft-guard.env
+  else
+    sed -i "s|^OVERDRAFT_DIST=.*|OVERDRAFT_DIST=$APP_DIR/frontend/dist|" /etc/overdraft-guard.env
+  fi
+
   systemctl daemon-reload
   systemctl enable --now overdraft-guard
   systemctl restart overdraft-guard

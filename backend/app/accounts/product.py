@@ -151,6 +151,20 @@ def sample_account(
     # itself, so counting that day's charges would have the income cancel the dip
     # we are trying to plant. That error left 28 of 200 seeds with nothing to
     # solve, which is the one thing this profile exists to guarantee.
+    # A dip needs something to have left the account before payday. Four seeds in
+    # 300 drew every charge on or after the first payday, which made `before` 0,
+    # clamped the opening balance to 0, and produced an account with nothing to
+    # solve — while the test that was supposed to catch it walked an empty range
+    # and asserted 0 < buffer. Move a charge into the window rather than hope.
+    days_before = (first_payday - as_of).days
+    charges = [t for t in scheduled if t["amount_cents"] < 0]
+    if days_before > 0 and charges:
+        in_window = [t for t in charges if date.fromisoformat(t["date"]) < first_payday]
+        while len(in_window) < 2 and len(in_window) < len(charges):
+            moved = next(t for t in charges if t not in in_window)
+            moved["date"] = (as_of + timedelta(days=rng.randrange(0, days_before))).isoformat()
+            in_window.append(moved)
+
     before = sum(
         -t["amount_cents"]
         for t in scheduled

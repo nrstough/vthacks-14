@@ -33,6 +33,48 @@ _SCRUB = [
 ]
 
 
+def _protectable(descriptors: Sequence[str]) -> set[str]:
+    """Which descriptors may shield a banned word, and why so few.
+
+    `protected` is caller text: the descriptions ride in on the request, so a
+    client can name a transaction "is guaranteed" and, unguarded, the model's own
+    sentence survives inside the protected span. That is a bypass of the one rule
+    this product is built around, so the bar to qualify is deliberately narrow.
+
+    A bank statement descriptor is upper case. Every row of the merchant table is
+    (`app/accounts/merchants.py`), so are the shipped demo fixtures, and so is
+    everything a real feed produces — the casing is an artefact of the card
+    networks, not a style choice. Prose is not upper case. So: upper case, and
+    more than one token.
+
+    A lower-case descriptor carrying a banned word therefore gets scrubbed like
+    any other prose. That is the intended failure direction — where the two rules
+    collide, the product's rule wins.
+    """
+    return {
+        d for d in descriptors
+        if d and " " in d.strip() and d == d.upper() and any(c.isalpha() for c in d)
+    }
+
+
+def _substitute(text: str) -> str:
+    for pattern, replacement in _SCRUB:
+        text = pattern.sub(replacement, text)
+    return text
+
+
+def _has_banned(text: str, spans: Sequence[str]) -> bool:
+    """Is a banned word present anywhere outside the restored descriptors?
+
+    Blanking each restored descriptor and re-checking is enough: the only reason
+    a banned word may survive `_substitute` is that it sat inside one of them.
+    """
+    remainder = text
+    for span in spans:
+        remainder = remainder.replace(span, " ")
+    return remainder != _substitute(remainder)
+
+
 def scrub(text: str, protected: Sequence[str] = ()) -> str:
     """Rewrite the words the product never says, and leave the user's data alone.
 
@@ -52,22 +94,44 @@ def scrub(text: str, protected: Sequence[str] = ()) -> str:
     banned word cannot be told apart from product copy, and where it is ambiguous
     the rule wins.
     """
+    plain = _substitute(text)
+    if not protected:
+        return plain
+
     saved: list[str] = []
 
     def _mask(match: re.Match[str]) -> str:
         saved.append(match.group(0))
         return f"\x00{len(saved) - 1}\x00"
 
-    # Longest first, so a descriptor that contains a shorter one is masked whole.
-    for descriptor in sorted({d for d in protected if d and " " in d.strip()}, key=len, reverse=True):
-        text = re.sub(re.escape(descriptor), _mask, text, flags=re.IGNORECASE)
+    masked = text
+    # Longest first so a descriptor containing a shorter one is masked whole, and
+    # `-len, then the string` rather than a bare length key: ties would otherwise
+    # break on set iteration order, which varies with PYTHONHASHSEED. The same
+    # rule is why lexicon.py uses tuples, and the output here is user-facing.
+    for descriptor in sorted(_protectable(protected), key=lambda d: (-len(d), d)):
+        # \s+ for the spaces: a model that reflows or line-wraps the descriptor
+        # would otherwise slip past an exact-space match and be corrupted again.
+        pattern = r"\s+".join(re.escape(part) for part in descriptor.split())
+        masked = re.sub(pattern, _mask, masked, flags=re.IGNORECASE)
 
-    for pattern, replacement in _SCRUB:
-        text = pattern.sub(replacement, text)
-
+    restored = _substitute(masked)
     for i, original in enumerate(saved):
-        text = text.replace(f"\x00{i}\x00", original)
-    return text
+        restored = restored.replace(f"\x00{i}\x00", original)
+
+    # The final check, and the reason this is safe at all. `protected` is caller
+    # text — the descriptions ride in on the request — so a client can name a
+    # transaction "is guaranteed" and, without this, the model's own sentence
+    # would survive inside the protected span. If any banned word is still
+    # present outside the descriptors we put back, the protection has been turned
+    # into a bypass, and we fall back to scrubbing everything.
+    #
+    # That corrupts a merchant name in the rare ambiguous case, which is the old
+    # bug — and is the right direction to fail. Where the two rules collide, the
+    # product's rule wins.
+    if _has_banned(restored, saved):
+        return plain
+    return restored
 
 
 def status(config: GeminiConfig | None = None) -> ChatStatus:

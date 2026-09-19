@@ -65,3 +65,26 @@ def test_a_repo_checked_out_somewhere_odd_still_works(monkeypatch):
 def test_any_app_dir_name_works_on_the_box(app_dir, monkeypatch):
     got = resolve_as(f"{app_dir}/app/main.py", monkeypatch)
     assert got == Path(app_dir) / "frontend" / "dist"
+
+
+def test_an_app_dir_named_backend_is_covered_by_the_explicit_override(monkeypatch):
+    """The fix's own blind spot, and why deploy.sh sets OVERDRAFT_DIST.
+
+    APP_DIR is a setting. A box deployed to /opt/backend matches the name test and
+    resolves one level too high — the silent 404 all over again. The inference is
+    not what protects production; the explicit env var is.
+    """
+    naive = resolve_as("/opt/backend/app/main.py", monkeypatch)
+    assert naive == Path("/opt/frontend/dist"), "the inference really does get this wrong"
+
+    with_override = resolve_as(
+        "/opt/backend/app/main.py", monkeypatch, env="/opt/backend/frontend/dist"
+    )
+    assert with_override == Path("/opt/backend/frontend/dist")
+
+
+def test_deploy_sh_sets_that_override():
+    """A guard in the code is worthless if the deploy never engages it."""
+    deploy = (Path(__file__).resolve().parents[2] / "deploy.sh").read_text()
+    assert "OVERDRAFT_DIST=" in deploy, "deploy.sh must pin the dist path explicitly"
+    assert "/frontend/dist" in deploy

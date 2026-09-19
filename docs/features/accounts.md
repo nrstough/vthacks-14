@@ -47,7 +47,18 @@ risk for a cosmetic reason. One table, two declared profiles.
 - **A planted dip before the first payday**, computed rather than hoped for.
   Counted **strictly** before the payday: the payroll credit lands that same day,
   so counting on-or-before let the income cancel the dip. That error left 28 of
-  200 seeds with nothing to solve. Now 0 of 500.
+  200 seeds with nothing to solve.
+
+  A second version of the same mistake survived it: four seeds in 300 drew every
+  charge on or after the first payday, so there was nothing to dip *below*, the
+  opening balance clamped to zero, and the test meant to catch it walked an empty
+  range and asserted `0 < buffer`. The profile now moves charges into the window,
+  and the test refuses to run on an account with none.
+
+  A dip is not the same as a solvable dip. About 7% of seeds reach tier 3 with an
+  empty plan — a real and wanted outcome, since naming an unclosable shortfall
+  honestly is half the product — so a separate test pins the *distribution*
+  rather than assuming every account produces a plan.
 
 The seed is echoed on the response, so any account shown to a judge can be
 regenerated exactly from the response alone.
@@ -86,8 +97,15 @@ an id that no longer exists is a 422 on the whole solve, not a missing row.
 
 **Nessie cannot store a transaction history.** Its documented creatable surface
 is customers, accounts, deposits and bills; purchases have no documented create
-or list path. A round trip preserves income and recurring bills and cannot
-preserve arbitrary discretionary charges. That loss is reported, never hidden.
+or list path, and a transaction history is exactly what this product consumes.
+
+**Status: the adapter is verified but not yet wired to a route.** What exists and
+is tested is the transport, the credential check, the decimal money conversion,
+key redaction and `to_scheduled` normalisation. What does **not** exist yet is the
+seed-and-read-back workflow (account creation, deposits, bills, a normalised
+fetch) and the `not_round_tripped` report. Nothing in `app/main.py` calls this
+package. Any claim that a round trip preserves income and bills is a claim about
+code that has not been written — do not repeat it until it has.
 
 Live tests are marked `nessie` and excluded by a collection hook in
 `conftest.py`, not just by `addopts` — a `-m` on the command line replaces the
@@ -103,6 +121,13 @@ solve.
 
 ## Not in this change
 
-The on-screen rendering of `source: "modelled"` and of the Nessie fallback
-disclosure. This change ships both as API fields; displaying them belongs to the
-frontend lane. Nothing here claims an on-screen label it does not ship.
+- **The Nessie fallback-disclosure flag.** D8 said this change would ship it as
+  an API field. It does not — no route serves Nessie data, so there is nothing to
+  disclose about yet. It belongs with the seed-and-read-back work.
+- **The on-screen rendering of `source: "modelled"`.** That field does ship and is
+  required on every sample-account response; displaying it belongs to the
+  frontend lane.
+
+`source` is the only provenance field this change actually delivers. Said plainly
+here because the run spec's first draft claimed both, and a spec that overstates
+what shipped is worse than one that admits a gap.

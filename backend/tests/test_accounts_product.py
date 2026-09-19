@@ -117,6 +117,14 @@ def test_there_is_always_a_dip_before_the_first_payday(seed):
     """
     account = sample_account(seed=seed)
     first = min(t["date"] for t in paydays(account))
+    before = [t for t in account["scheduled"] if t["date"] < first and t["amount_cents"] < 0]
+
+    # Without this the test is vacuous. Four seeds in 300 drew every charge on or
+    # after the first payday; the loop below then walked an empty range and
+    # asserted `opening < buffer` against an opening the generator had already
+    # clamped to 0. It passed, and the account it passed on had nothing to solve.
+    assert before, f"seed {seed}: no charges before the first payday, so no dip is possible"
+
     balance = account["opening_balance_cents"]
     trough = balance
     for txn in sorted(account["scheduled"], key=lambda t: t["date"]):
@@ -237,3 +245,74 @@ def test_the_sample_feeds_the_other_two_endpoints_unchanged(client):
     )
     assert solved.status_code == 200, solved.text
     assert solved.json()["tier"] in (1, 2, 3)
+
+
+def test_most_seeds_produce_a_plan_worth_looking_at():
+    """The dip test proves a dip exists; it does not prove one can be fixed.
+
+    A tier-3 empty plan is a legitimate and important outcome — it is the `gap`
+    scenario, and naming the shortfall honestly is half this product's point. But
+    a generator that produced them often would be a poor demo, and the dip test
+    alone cannot see the difference. Measured at the time of writing: 21 of 300.
+    """
+    solved = 0
+    empty = []
+    for seed in range(60):
+        account = sample_account(seed=seed)
+        candidates = generate(CandidatesRequest.model_validate(window_of(account)))
+        body = {
+            **{k: account[k] for k in
+               ("as_of", "horizon_end", "opening_balance_cents", "buffer_cents", "scheduled")},
+            "candidates": [c.model_dump() for c in candidates.candidates],
+            "locks": {"in": [], "out": []},
+            "previous_plan": [],
+        }
+        res = solve(SolveRequest.model_validate(body))
+        if res.plan:
+            solved += 1
+        else:
+            empty.append((seed, res.tier))
+            # An empty plan is only honest at tier 3. At tier 1 or 2 it would mean
+            # the account never needed anything, which the dip rules out.
+            assert res.tier == 3, f"seed {seed}: empty plan at tier {res.tier}"
+    assert solved >= 48, f"only {solved}/60 seeds produced a plan; empty: {empty}"
+
+
+# ---- as_of: the field the contract documents and nothing exercised ----
+#
+# Every endpoint test above sends {}, {"seed": n} or {"horizon_days": n}. Not one
+# passed as_of, so a validator calling a one-argument helper with two arguments
+# shipped as a hard 500 on a documented field, under 1979 passing tests.
+
+
+def test_an_explicit_as_of_is_honoured(client):
+    body = client.post("/api/accounts/sample", json={"seed": 3, "as_of": "2026-03-02"}).json()
+    assert body["as_of"] == "2026-03-02"
+    assert body["horizon_end"] == "2026-03-31"
+    assert all(t["date"] >= "2026-03-02" for t in body["scheduled"])
+
+
+def test_as_of_changes_the_account(client):
+    a = client.post("/api/accounts/sample", json={"seed": 3, "as_of": "2026-03-02"}).json()
+    b = client.post("/api/accounts/sample", json={"seed": 3, "as_of": "2026-07-06"}).json()
+    assert a["scheduled"][0]["date"] != b["scheduled"][0]["date"]
+
+
+def test_a_malformed_as_of_is_a_422_not_a_500(client):
+    for bad in ["20260919", "2026-9-19", "not a date", "2026-13-01", ""]:
+        r = client.post("/api/accounts/sample", json={"seed": 1, "as_of": bad})
+        assert r.status_code == 422, f"{bad!r} gave {r.status_code}"
+
+
+def test_as_of_and_a_seed_together_still_reproduce(client):
+    args = {"seed": 77, "as_of": "2026-05-04"}
+    assert client.post("/api/accounts/sample", json=args).json() == \
+           client.post("/api/accounts/sample", json=args).json()
+
+
+def test_an_as_of_on_a_weekend_still_puts_pay_on_a_business_day(client):
+    # 2026-05-02 is a Saturday.
+    body = client.post("/api/accounts/sample", json={"seed": 8, "as_of": "2026-05-02"}).json()
+    pay = [t for t in body["scheduled"] if t["kind"] == "income" and t["amount_cents"] > 0]
+    assert pay
+    assert all(date.fromisoformat(t["date"]).weekday() < 5 for t in pay)

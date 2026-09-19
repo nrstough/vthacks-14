@@ -57,6 +57,17 @@ def _default_dist() -> Path:
         return Path(override)
     here = Path(__file__).resolve()
     root = here.parents[1]  # <repo>/backend on a laptop, $APP_DIR on the box
+
+    # In a checkout this directory is named `backend` by the repo's own layout —
+    # not a setting, so the test below is safe there.
+    #
+    # On the box it is $APP_DIR, which IS a setting (deploy.sh:
+    # APP_DIR="${APP_DIR:-/opt/overdraft-guard}"), so a box deployed to
+    # /opt/backend would match this test and resolve to /opt/frontend/dist — the
+    # exact silent 404 this function exists to prevent. The box therefore does not
+    # rely on this inference at all: deploy.sh writes OVERDRAFT_DIST into
+    # /etc/overdraft-guard.env and the override above wins. This branch is the
+    # local-development path.
     if root.name == "backend":
         root = root.parent
     return root / "frontend" / "dist"

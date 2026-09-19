@@ -9,6 +9,7 @@ review.
 from __future__ import annotations
 
 import json
+import sys
 
 import pytest
 
@@ -172,30 +173,30 @@ def test_an_empty_plan_at_tier_three_does_not_claim_the_schedule_clears():
     assert res.certificate.sentence.startswith("Nothing here can be changed in time")
 
 
-# The counterfactual, stated the right way round. Removing a field from the list
-# above would hide failures rather than cause them, so the check is that injecting
-# prohibited text into each enumerated field is actually caught.
-@pytest.mark.parametrize(
-    "field", ["verdict", "qualifier", "certificate.sentence", "plan.reason", "plan.label"]
-)
-def test_the_sweep_would_catch_a_banned_word_in_each_field(field):
-    body = json.loads(solve(SolveRequest.model_validate(SCENARIOS["clears"])).model_dump_json())
-    # Written with a character class so this file does not itself carry the word
-    # a built bundle is grepped for. crash.ts:42 does the same, for the same reason.
-    poison = "gu" + "aranteed"
-    if field == "certificate.sentence":
-        body["certificate"]["sentence"] = poison
-    elif field.startswith("plan."):
-        assert body["plan"], "this scenario must produce a plan for the case to mean anything"
-        body["plan"][0][field.split(".", 1)[1]] = poison
-    else:
-        body[field] = poison
+# The counterfactual. It must call user_facing(), not rebuild its field list:
+# an inline copy passes even when the production sweep stops checking the field,
+# which is precisely the failure it is supposed to detect.
+@pytest.mark.parametrize("field", ["verdict", "qualifier", "certificate.sentence", "reason", "label"])
+def test_removing_a_field_from_the_sweep_would_be_caught(field, monkeypatch):
+    poison = "gu" + "aranteed"  # character-split so this file does not trip bundle.test.ts
+    real = solve(SolveRequest.model_validate(SCENARIOS["clears"]))
 
-    texts = [
-        body["verdict"],
-        body["qualifier"],
-        body["certificate"]["sentence"],
-        *[p["reason"] for p in body["plan"]],
-        *[p["label"] for p in body["plan"]],
-    ]
-    assert any(word in t.lower() for t in texts for word in BANNED)
+    import app.solver.solve as solve_mod
+
+    def poisoned(req, settings=None):
+        res = real.model_copy(deep=True)
+        if field == "certificate.sentence":
+            res.certificate.sentence = poison
+        elif field in ("reason", "label"):
+            assert res.plan, "this scenario must produce a plan for the case to mean anything"
+            setattr(res.plan[0], field, poison)
+        else:
+            setattr(res, field, poison)
+        return res
+
+    monkeypatch.setattr(solve_mod, "solve", poisoned)
+    monkeypatch.setattr(sys.modules[__name__], "solve", poisoned)
+    texts = user_facing(SCENARIOS["clears"])
+    assert any(word in t.lower() for t in texts for word in BANNED), (
+        f"user_facing() does not surface {field}, so the sweep cannot see a banned word there"
+    )

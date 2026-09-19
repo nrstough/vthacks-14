@@ -138,6 +138,11 @@ def to_cents(amount: Any) -> int:
     arithmetic is exact, and a silently dropped tenth of a cent is the sort of
     thing that is only noticed when a balance disagrees with a bank's.
     """
+    # bool before the Decimal conversion: bool is an int subclass, so a JSON
+    # `true` in an amount field would otherwise become Decimal(1) and then $1.00,
+    # silently. Refusing is the only honest answer to "amount": true.
+    if isinstance(amount, bool):
+        raise NessieError(f"Nessie sent a boolean where an amount belongs: {amount!r}")
     try:
         value = Decimal(amount) if not isinstance(amount, Decimal) else amount
     except (InvalidOperation, TypeError, ValueError) as e:

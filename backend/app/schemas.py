@@ -367,12 +367,16 @@ class SampleAccountRequest(Strict):
     @field_validator("as_of")
     @classmethod
     def _as_of(cls, v: str | None) -> str | None:
-        return None if v is None else iso(v, "as_of")
+        return None if v is None else iso(v)
 
 
 class SampleAccountResponse(Strict):
-    """A modelled account, shaped so it can be posted straight to the other two
-    endpoints without translation.
+    """A modelled account, in the contract's own field shapes.
+
+    Not itself a request body for the other two endpoints: it carries `seed`,
+    `opening_balance_cents`, `buffer_cents` and `source`, and both request models
+    are `extra="forbid"`, so posting it verbatim is a 422. The caller picks the
+    fields each endpoint declares.
 
     `source` is required and always the literal "modelled". It is not decoration:
     this is generated data and nothing downstream may present it as a bank's.

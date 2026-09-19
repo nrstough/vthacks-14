@@ -223,8 +223,15 @@ Additive: the `/api/solve` and `/api/candidates` contracts above are unchanged,
 and this endpoint is optional — the client can carry its own accounts and never
 call it.
 
-Returns one **modelled** account, shaped so it can be posted straight to the
-other two endpoints with no translation step to drift out of step.
+Returns one **modelled** account, using the contract's own `ScheduledTxn` shape
+so no field needs translating.
+
+The response is not itself a request body for the other two endpoints: it carries
+`seed`, `opening_balance_cents`, `buffer_cents` and `source`, and both
+`SolveRequest` and `CandidatesRequest` are `extra="forbid"`, so posting it
+verbatim is a 422. Pick the fields each endpoint declares — `as_of`,
+`horizon_end` and `scheduled` for `/api/candidates`; those plus the two balances
+and the candidates for `/api/solve`.
 
 ```jsonc
 {
