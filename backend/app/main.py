@@ -107,7 +107,7 @@ def create_app(
     limiter = chat_limiter if chat_limiter is not None else RateLimiter()
 
     app = FastAPI(
-        title="Overdraft Guard",
+        title="Safe to Spend",
         docs_url="/api/docs" if docs else None,
         openapi_url="/api/openapi.json" if docs else None,
         # /redoc is the third console, and the app never set it: before this

@@ -235,7 +235,7 @@ export default function App() {
       <header className="topbar">
         <div>
           <p className="wordmark">
-            Overdraft Guard <span>&nbsp;/&nbsp; the smallest plan that clears</span>
+            Safe to Spend <span>&nbsp;/&nbsp; the smallest plan that clears</span>
           </p>
           <p className="tagline">
             {provenanceLine(account, base)} Move a slider or rule a change out, and the plan is
