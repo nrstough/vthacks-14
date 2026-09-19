@@ -13,6 +13,7 @@ Exact solver (OR-Tools CP-SAT), stateless server, no accounts, no database.
 - `frontend/` — Vite + React + TypeScript + Recharts; `src/solver/mockSolver.ts` is the
   brute-force stand-in kept as an independent oracle
 - `docs/api-contract.md` — the frozen `/api/solve` shape both sides build against
+- `docs/features/chat.md` — the Gemini explainer, `POST /api/chat`; needs `GEMINI_API_KEY` in `.env` (see `.env.example`)
 - `docs/specs/` — one frozen run spec per change · `docs/features/` — living feature docs
   · `docs/reports/` — plan files · `docs/consults/` — external research (VeriLM memo)
 - `wheels/` — offline Python wheels (not committed; for hotel-wifi installs)
