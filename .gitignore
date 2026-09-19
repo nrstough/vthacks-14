@@ -8,3 +8,4 @@ data/private/
 Checking.csv
 .env
 .npm-cache/
+.pytest_cache/

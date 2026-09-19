@@ -37,7 +37,8 @@ solver returns.
       "pain": 2                       // 1..5, disruption cost
     }
   ],
-  "locks": { "in": ["c_cancel_gym"], "out": [] }  // user overrides
+  "locks": { "in": ["c_cancel_gym"], "out": [] }, // user overrides
+  "previous_plan": ["c_skip_dd"]                    // optional, default []: candidate ids of the plan the user was last shown (hysteresis input; the server keeps no state)
 }
 ```
 
@@ -57,14 +58,22 @@ solver returns.
       "date": "2026-09-22",           // the day the user must act
       "freed_cents": 3180,
       "pain": 2,
+      "strictly_needed": true,        // false when it only protects the cushion
       "reason": "Covers the Sep 24 dip."
     }
   ],
   "certificate": {
     "irredundant": true,
+    "minimal_proven": true,           // false only if a solver stage hit its time limit (meta.status FEASIBLE)
     "sentence": "Remove any one and you're $41 under on the 24th.",
     "per_item": [
-      { "candidate_id": "c_skip_dd", "worst_shortfall_cents": 4100, "worst_date": "2026-09-24" }
+      {
+        "candidate_id": "c_skip_dd",
+        "worst_shortfall_cents": 4100,  // absolute worst dip with this change removed
+        "worst_date": "2026-09-24",
+        "marginal_cents": 4100,         // how much DEEPER the dip gets without this change
+        "marginal_days": 1              // how many more days below zero without it
+      }
     ]
   },
   "shortfall": {                      // what remains AFTER the plan
@@ -72,7 +81,7 @@ solver returns.
     "worst_date": null,
     "total_cents": 0
   },
-  "external_cash_needed": null,       // tier 3 only: { amount_cents, by_date }
+  "external_cash_needed": null,       // tier 3 only: { amount_cents, by_date }; by_date = FIRST day below zero, amount covers the deepest dip
   "balances": [                       // one row per day, as_of..horizon_end
     {
       "date": "2026-09-19",
@@ -82,7 +91,13 @@ solver returns.
       "changes_here": []              // candidate_ids taking effect this day
     }
   ],
-  "meta": { "solver": "cp-sat", "status": "OPTIMAL", "wall_ms": 84, "candidates_considered": 22 }
+  "meta": {
+    "solver": "cp-sat",               // or "brute-force"
+    "status": "OPTIMAL",              // OPTIMAL | FEASIBLE
+    "wall_ms": 84,
+    "candidates_considered": 22,
+    "excluded_locked_in": []          // locked-in ids dropped because their lead time has passed
+  }
 }
 ```
 
@@ -99,14 +114,22 @@ never appears in the response.
 
 ## Objective
 
-Lexicographic, minimised in order:
+Lexicographic, minimised in order (settled Sat 2026-09-19, decision D1 in
+`docs/specs/2026-09-19_solver-core.md`; the TS stand-in and the Python solver both
+implement exactly this):
 
-1. worst shortfall below zero
-2. total below-buffer exposure
-3. number of changes (cardinality)
-4. total pain
-5. hysteresis, changes against the previous plan
-6. candidate id, for a deterministic tiebreak
+1. days below zero
+2. worst shortfall below zero
+3. buffer-missed flag: 0 if every day is >= `buffer_cents`, else 1
+4. number of changes (cardinality)
+5. total below-buffer exposure, sum of max(0, buffer - balance)
+6. total pain
+7. hysteresis: symmetric difference against `previous_plan`
+8. sorted candidate-id tuple, for a deterministic tiebreak
+
+Consequence: the plan is the *smallest* set at every tier. If any set holds the
+cushion, the smallest such set wins (tier 1); otherwise the smallest set that clears
+zero (tier 2); otherwise fewest fee-days, then shallowest dip (tier 3).
 
 ## Notes
 
@@ -115,3 +138,17 @@ Lexicographic, minimised in order:
 - `certificate.sentence` is rendered verbatim. The solver owns the wording.
 - Locking a candidate in or out re-posts the whole request. There is no
   incremental endpoint and no session state on the server.
+- Schemas are strict: unknown fields are rejected (422); all `*_cents` are integers;
+  dates are `YYYY-MM-DD`; `opening_balance_cents` is the available balance at the start
+  of `as_of`.
+- Unknown ids in `locks`, or the same id in both lists, are a 422. A pinned (locked-in)
+  candidate whose lead time has passed is excluded and listed in `meta.excluded_locked_in`.
+- At most one chosen candidate per `target_txn_id` (enforced in the search by both the
+  stand-in and the server; two pinned candidates on one transaction keep the lower id and
+  list the other in `meta.excluded_locked_in`). `freed_cents` must not exceed the target
+  transaction's absolute amount (422). `target_txn_id` must exist in `scheduled` (422).
+- Certificate is marginal: an item is load-bearing iff removing it deepens the worst dip
+  or adds a day below zero relative to the plan itself; `irredundant` means every item is.
+- Ordering: `plan` by (date, id) in code-point order; `per_item` in plan order;
+  `changes_here` and `excluded_locked_in` sorted; ties on dates resolve to the first day.
+- Limits: horizon <= 366 days, <= 60 candidates, <= 2000 scheduled rows, |cents| <= 10^11.

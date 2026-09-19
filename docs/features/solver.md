@@ -52,7 +52,7 @@ genuinely needs 8 of 11 changes.
 - **CP-SAT** (OR-Tools 9.15): balances are linear expressions; days-below-zero and the
   buffer flag via half-reified enforcement literals; worst shortfall and exposure via
   epigraph variables. One solve per objective term, each term's found value pinned as a
-  bound for the next; term 8 as a single bit-weight objective. Total budget 6 s split
+  bound for the next; term 8 by sequential assumption-fixing in ascending-id order. Total budget 6 s split
   across stages; `num_workers=1`, `random_seed=0`. Only `x` is read back; every term is
   recomputed by simulation and asserted equal. Any stage `FEASIBLE` →
   `meta.status="FEASIBLE"`, `certificate.minimal_proven=false`, wording drops "fewest".
@@ -74,15 +74,19 @@ never "guaranteed". With zero changes at tier 3 the wording states the gap, not 
 
 ## Certificate
 
-For each chosen item, remove it and re-simulate against **zero** (not the buffer):
-worst shortfall and its date (first day of the maximum). `irredundant` iff every removal
-breaks zero. Items that only hold the cushion report 0 and are worded as such.
+For each chosen item, remove it and re-simulate. Report the absolute worst dip and its
+date, plus `marginal_cents` (how much deeper than the plan itself) and `marginal_days`.
+An item is load-bearing iff either marginal is > 0; `irredundant` iff all are. This is
+marginal rather than absolute because "plan-minus-one goes below zero" is vacuously true
+at tier 3. `plan[].strictly_needed` mirrors load-bearing for the UI.
 
 ## Ordering rules (shared with the oracle)
 
-`plan` sorted by (`date`, `candidate_id`); `certificate.per_item` in plan order;
-`changes_here` sorted by id; `worst_date` and the "tightest day" are the first day of
-their extremum.
+`plan` sorted by (`date`, `candidate_id`) in code-point order; `certificate.per_item` in
+plan order; `changes_here` and `meta.excluded_locked_in` sorted; `worst_date` and the
+"tightest day" are the first day of their extremum; `external_cash_needed.by_date` is the
+first day below zero (the day the money must be there), while `amount_cents` covers the
+deepest dip.
 
 ## Stability
 

@@ -1,6 +1,14 @@
 # VTHacks 14 — prize and track strategy
 
-Last updated: Fri Sept 18, 2026, ~8:45 PM (after the opening ceremony).
+Last updated: Sat Sept 19, 2026, ~01:00. (First written Fri ~8:45 PM after the opening ceremony.)
+
+> **Sat 01:00 corrections, verified against the raw Devpost page and mlh.com/events/vthacks-14/prizes:**
+> VTHacks 14 has **no DigitalOcean, no Backboard, and no "Best Use of Gen AI" track**. Earlier rows
+> saying otherwise came from MLH's generic season list. **Vultr is the only hosting track** (prize:
+> portable screens; $100 credit, no card, via mlh.link/vultr-signup + the gift code from the ceremony
+> or the MLH Coach). Decisions: host on **Vultr** (VM + Caddy, one-command `deploy.sh`); enter Capital
+> One (build, Sat AM, 90-min timebox), Vultr + Domain Name (with first deploy), Peraton (tick only);
+> Gemini only if deployed and ahead at Sat 14:00; TigerData most likely out; ANS out.
 
 ## Rules as understood
 
@@ -34,11 +42,11 @@ Last updated: Fri Sept 18, 2026, ~8:45 PM (after the opening ceremony).
 | Track | Cost | Decision |
 |---|---|---|
 | Best Domain Name from GoDaddy Registry | ~15 min: register a domain | **Enter.** Needed for HTTPS on a custom domain anyway. |
-| Best Use of DigitalOcean | ~30 min: App Platform from the GitHub repo, managed HTTPS, $200 credits | **Enter.** Preferred over Vultr: git-push deploy, no VM, no reverse proxy to hand-configure. |
-| Best Use of Vultr | ~1h: bare VM + Caddy | Skip. Same category as DigitalOcean; deploy to one host only. |
-| Best Use of Gemini API + Best Use of Gen AI | ~1h, one integration | **Enter both, Saturday.** One Gemini call renders the solver's plan as a plain-English explanation. The LLM stays at the edges and never inside the feasibility decision. |
+| ~~Best Use of DigitalOcean~~ | — | **Does not exist at VTHacks 14** (verified Sat 01:00). |
+| Best Use of Vultr | ~1h: VM + Caddy HTTPS + `deploy.sh`; $100 credit, no card | **Enter. Host here.** The only hosting track. |
+| Best Use of Gemini API | ~1h, one integration | **Sat 14:00 only if deployed and ahead.** One Gemini call renders the plan as a plain-English explanation; the LLM stays at the edges, never inside the feasibility decision. (No separate "Gen AI" track exists here.) |
 | Best Use of Tiger Data | ~3h | Skip unless well ahead Saturday. Their blurb names "financial prediction engines," but it's a database the stateless product doesn't need. |
-| Best Use of Backboard | — | Skip. Its pitch is persistent AI memory; our security argument is that the app holds no state. |
+| ~~Best Use of Backboard~~ | — | **Does not exist at VTHacks 14** (verified Sat 01:00). |
 | ElevenLabs, Solana, Presage, MongoDB Atlas | 2–4h each | Skip. |
 
 ## Rewards at a glance
@@ -63,9 +71,8 @@ Last updated: Fri Sept 18, 2026, ~8:45 PM (after the opening ceremony).
 |---|---|---|---|
 | Capital One: Best Use of Nessie | $250 gift card per member | ~2h | Enter, build for it |
 | Best Domain Name (GoDaddy Registry) | Digital gift card | ~15 min | Enter |
-| Best Use of DigitalOcean | Retro wireless mouse | ~30 min | Enter, host here |
-| Best Use of Gemini API | Google swag kit | ~1h (shared) | Enter if slots allow |
-| Best Use of Gen AI | Assorted prizes | same integration | Enter if slots allow |
+| Best Use of Vultr | Portable screens | ~1h | Enter, host here |
+| Best Use of Gemini API | MLH swag kit | ~1h | Sat 14:00 if ahead |
 | Peraton: Best Mission Critical AI | Not shown on slide | 0 | Enter only if slots allow |
 
 ### Stretch only (Saturday afternoon, if ahead)
@@ -74,7 +81,6 @@ Last updated: Fri Sept 18, 2026, ~8:45 PM (after the opening ceremony).
 |---|---|---|
 | GoDaddy: Best Use of ANS | 1st Meta Ray-Ban Gen 2 glasses; 2nd Beats Studio Pro; 3rd Cocopar 15.6" portable monitor | 3-4h (cancellation agent) |
 | Best Use of Tiger Data | Stream Deck Mini | ~3h |
-| Best Use of Vultr | Portable screens | ~1h, only instead of DigitalOcean |
 
 ### Not viable
 
@@ -87,9 +93,9 @@ Last updated: Fri Sept 18, 2026, ~8:45 PM (after the opening ceremony).
 | Solana | Ledger Nano S Plus | Blockchain; no product need |
 | Presage | Fitbit Inspire + credits | Camera vital-sign sensing |
 | MongoDB Atlas | M5Stack IoT kit | Database the product doesn't need |
-| Backboard | Tile Essentials Pack | Persistent memory contradicts stateless design |
+| Backboard | — | Not a track at this event |
 
-Under the three-slot assumption: Capital One, DigitalOcean, Domain Name. If the cap is sponsors-only, add Gemini, Gen AI, Peraton.
+Under the three-slot assumption (MLH counts): Capital One, Vultr, Domain Name. If the cap is sponsors-only: Capital One + Peraton, plus Vultr, Domain Name, and Gemini if built.
 
 ## Security stance for judges
 
@@ -101,15 +107,15 @@ Hard rule: never commit a key or a bank export. `.gitignore` covers `.env`, `Che
 
 ## Schedule gates
 
-- Deploy hello-world to DigitalOcean early Friday night, redeploy after every major block.
+- Deploy to the Vultr VM as soon as `/health` exists (Sat morning), redeploy after every major block via `deploy.sh`.
 - **Sat 18:30:** working deployed demo, or freeze all features and fix only.
 - **Sun 01:30:** code freeze. **Sun 08:00:** submission. Flip the repo to public before submitting.
 
 ## Open decisions (as of this update)
 
-1. Confirm the three-track wording in Discord. Working assumption (yes, MLH counts): enter Capital One, DigitalOcean, Domain Name; drop Peraton. If sponsors-only: Capital One + Peraton, plus Domain Name, DigitalOcean, Gemini, Gen AI.
-2. Optimizer (recommended; estimator is its built-in fallback) or estimator only.
+1. Confirm the three-track wording in Discord or at the organizer table Sat morning. Working assumption (MLH counts): Capital One, Vultr, Domain Name; drop Peraton. If sponsors-only: Capital One + Peraton, plus Vultr, Domain Name, Gemini if built.
+2. ~~Optimizer or estimator~~ — **decided Sat 01:00: optimizer** (exact CP-SAT; see `docs/features/solver.md`).
 3. Nessie API key (Nathan creates it at nessieisreal.com).
-4. DigitalOcean account + $200 credits (Nathan creates it, links GitHub).
+4. Vultr account + $100 MLH credit (Nathan signs up at mlh.link/vultr-signup; gift code from the ceremony or MLH Coach).
 5. Use Nathan's real bank export for an anonymized validation view: yes / no.
 6. Domain name.
