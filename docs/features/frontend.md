@@ -120,6 +120,26 @@ document body, so a user who has tabbed on is not yanked back.
 
 The verdict section is an `aria-live="polite"` region so a re-solve is announced.
 
+## Focus
+
+Ticking a checkbox moves its row between the plan and the left-out list, which unmounts the
+input. `src/lib/focus.ts` holds the rules, apart from React so they can be tested without a DOM:
+
+- Remember the row the user is standing on, from the toggle itself and from `onFocus`. A row
+  activated without being focused (Safari does not focus checkboxes on click) clears the memory
+  rather than leaving a stale one to grab focus later.
+- Restore only focus that was **lost** — parked on the body. Focus the user moved deliberately
+  is left alone.
+- Keep the memory until the answer on screen matches the user's current input, so a quick tick
+  and undo does not consume it on the first of two responses.
+- Open the "other changes" section before focusing into it; nothing inside a closed `details`
+  can take focus.
+- Suppress tracking during the restore itself, or the focus event writes the id straight back.
+
+Verified by hand in the browser, six sequences: toggled row moves; user moves to a surviving
+row; activation with no prior focus; a later unrelated re-solve; the left-out section collapsed;
+tick then undo inside the debounce.
+
 ## Design system
 
 `src/index.css`: tokens for background, panel, line, ink at three weights; one accent
@@ -166,6 +186,6 @@ Then the backend gate, because the parity tests run this frontend's oracle:
 ## Known gaps
 
 - No DOM test runner (none installable from the hotel); component rendering is verified by hand.
-- Bundle is 619 kB / 184 kB gzip, almost all Recharts. Only worth acting on if the deployed demo
+- Bundle is 621 kB / 184 kB gzip, almost all Recharts. Only worth acting on if the deployed demo
   feels slow.
 - No dark mode.

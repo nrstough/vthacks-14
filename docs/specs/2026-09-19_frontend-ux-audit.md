@@ -2,28 +2,28 @@
 
 | Dimension | Grade | Notes |
 |-----------|-------|-------|
-| Plan adherence | **Fail** | D3 narration miscounts changes; focus correction remains incomplete. |
-| Scope discipline | Excellent | Changes stay within the declared lane; oracle, types, contract, and backend match `main`. |
-| Test coverage | **Fail** | All 59 tests pass, but miss the defects below. Actual keyboard verification remains incomplete. |
-| Review compliance | Acceptable | All six original findings have implementation changes; focus verification is insufficient. |
-| Freeze integrity | Excellent | Hash checking skipped: none present. Frozen spec text is unchanged; subsequent changes are append-only. |
-| Regression check | Acceptable | No newly failing existing tests identified; one backend test is blocked by the audit sandbox. |
-| Documentation | Excellent | Required documentation updates are present. No independent substantive documentation defect found. |
-| **Overall** | **Fail** | |
+| Plan adherence | Fail | AC12 still fails in two focus-restoration cases. |
+| Scope discipline | Excellent | Changes remain scoped; the corrected deadline wording is justified. |
+| Test coverage | Fail | 66 tests pass, but focus behavior remains untested and incompletely verified. |
+| Review compliance | Fail | The reviewed focus-preservation requirement remains partially unresolved. |
+| Freeze integrity | Excellent | No hashes present; frozen spec text is unchanged, with results appended. |
+| Regression check | Acceptable | No test assertion failures; one backend setup error is environmental. Protected files match `main`. |
+| Documentation | Acceptable | Minor stale figures and an overstated test-coverage claim. |
+| **Overall** | **Fail** | **Focus preservation remains incomplete.** |
 
 ### Commentary
 
-1. **Plan adherence, Test coverage — downgrade to Fail: narration confuses days with changes.**  
-   [narrate.ts:68](/Users/nathanstough/Desktop/vthacks-frontend/frontend/src/lib/narrate.ts:68) selects singular wording when there is one *date*, regardless of how many changes occur then. Reproduced using the existing account: set opening balance to $300, retain the $25 cushion, and rule out everything except gym and DoorDash. The solver returns **two changes on Sep 22**, but narration says **“One change takes effect, on Sep 22.”** Count `changes_here` entries or use count-neutral wording. Add this case to the narration tests.
+1. **Plan adherence, Review compliance — downgrade to Fail: collapsed left-out rows cannot receive restored focus.**  
+   Collapse “other changes,” then keyboard-toggle the card minimum in the plan. Its checkbox moves into the closed [details element](/Users/nathanstough/Desktop/vthacks-frontend/frontend/src/components/PrescriptionList.tsx:125), while [restoration](/Users/nathanstough/Desktop/vthacks-frontend/frontend/src/App.tsx:106) merely calls `.focus()` without opening it. The hidden control cannot receive focus under the [HTML focus rules](https://html.spec.whatwg.org/multipage/interaction.html#focusable-area). This is a source-traced finding, not a browser reproduction. Reveal the destination before restoring focus, and verify Space → re-solve → Space with the section initially collapsed.
 
-2. **Plan adherence, Test coverage — contributes to Fail: focus restoration re-arms the supposedly consumed reference.**  
-   [App.tsx:94](/Users/nathanstough/Desktop/vthacks-frontend/frontend/src/App.tsx:94) clears `focused.current`, then calls `.focus()`. In a focused browser, that dispatches the checkbox’s `onFocus`, which writes the ID back through `onFocusRow`. After focus moves to the body, a subsequent non-focusing checkbox activation can therefore restore the old row again—the Safari case the final correction claims to fix. This finding follows from the event path; it was not independently replayed in-browser. Suppress tracking during programmatic restoration or otherwise prevent stale focus IDs, then verify with real focus events.
+2. **Plan adherence — contributes to Fail: rapid undo loses focus on the second response.**  
+   Toggle the card, then undo while its request is in flight. If that response lands before the undo’s debounce expires, it moves the row and restores focus, consuming [the tracked reference](/Users/nathanstough/Desktop/vthacks-frontend/frontend/src/App.tsx:97). The final response moves the row back, but the reference is now empty, leaving focus on the body. Executing the extracted production handlers with a mocked document reproduced this sequence; actual solver responses confirmed both row movements. Preserve focus across successive commits or reject intermediate responses superseded by current input.
 
-3. **Plan adherence — no additional downgrade: the new deadline label exposes an existing solver/contract inconsistency.**  
-   [PrescriptionList.tsx:92](/Users/nathanstough/Desktop/vthacks-frontend/frontend/src/components/PrescriptionList.tsx:92) displays the gym’s returned date as **“Sep 22 — act by”**, although its three-day notice requirement makes the deadline **Sep 19**. D4 and the contract describe this field as an action date, but both solvers actually return the effective date. The implementation follows those instructions literally; coordinate a deadline correction with the backend lane without silently modifying the protected oracle.
+3. **Test coverage — downgrade to Fail: the focus regression has no regression test.**  
+   The [latest results](/Users/nathanstough/Desktop/vthacks-frontend/docs/specs/2026-09-19_frontend-ux.md:337) claim all three previous findings gained tests. The seven additions cover narration and deadlines; none exercises focus. Recorded structural checks also do not establish the specified keyboard interaction. Add coverage for both cases above and perform the actual keyboard check. Browser replay here was unavailable: the in-app browser was absent and Chrome access was not approved.
 
-4. **Test coverage, Review compliance — verification limitation, not an additional Fail driver.**  
-   The record explicitly substitutes structural inspection for AC12’s keyboard check. That does not exercise browser focus events and cannot establish the claimed focus behavior. Recheck Space → re-solve → Space, navigation during a pending solve, and non-focusing activation after an earlier restoration.
+4. **Regression check — Acceptable due to incomplete independent verification, not a demonstrated regression.**  
+   On branch `frontend` in the supplied worktree, Node 22.17.1 passed `npm run lint`, both `tsc --noEmit -p` checks, and all **66 `npm test` tests**. A fresh Vite build with `write: false` matched the existing JavaScript bundle exactly and passed its wording gates. Python 3.14.7 running `.venv/bin/pytest backend/ -q -m 'not perf' -s -p no:cacheprovider` produced **976 passed, 6 deselected, 1 setup error**: [the fixture](/Users/nathanstough/Desktop/vthacks-frontend/backend/tests/test_api.py:28) requires a writable temporary directory unavailable in this sandbox.
 
-5. **Regression check — Acceptable because independent verification is incomplete, not because of a demonstrated regression.**  
-   On `frontend`, Node **22.17.1** passed lint, both TypeScript checks, and **59/59 frontend tests**. An in-memory Vite build exactly matched existing `dist/`. Python **3.14.7**, running `.venv/bin/pytest backend/ -q -m "not perf" -p no:cacheprovider --capture=sys` with bytecode writing disabled, produced **976 passed, 6 deselected, 1 setup error**. The remaining test requires a writable temporary directory, prohibited by this audit’s read-only sandbox; the recorded **977-pass** result was therefore not fully reproduced.
+5. **Documentation — downgrade to Acceptable only.**  
+   The [demo checklist](/Users/nathanstough/Desktop/vthacks-frontend/docs/demo-script.md:22) retains the historical 59-test figure, and the [feature document](/Users/nathanstough/Desktop/vthacks-frontend/docs/features/frontend.md:169) says 619 kB versus approximately 620 kB now. Refresh those figures and append a correction to the regression-test claim in finding 3. These do not warrant Documentation Fail.

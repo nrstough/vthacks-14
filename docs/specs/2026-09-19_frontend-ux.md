@@ -391,3 +391,52 @@ have one.
 On the audit's own regression note: it measured 976 passed and 1 setup error, because its
 sandbox is read-only and one test needs a writable temporary directory. Run normally in this
 worktree the suite is 977 passed, reproduced after every commit in this run.
+
+## Codex re-audit (~04:25) — **Fail**, two further focus defects, both real
+
+Full output: `docs/specs/2026-09-19_frontend-ux-audit.md` (overwritten per round). The three
+findings from the first Codex round were accepted as fixed. Two new ones, both source-traced
+rather than reproduced by the auditor, and both correct:
+
+1. **A restored checkbox inside the collapsed "other changes" section cannot take focus.** If the
+   user collapses that section and then toggles a plan row, the row lands inside a closed
+   `details`, and nothing inside one is focusable. Reproduced in the browser: focus went to the
+   body. The restore now opens the section first. Re-checked: focus lands on the row and the
+   section is open.
+2. **A quick tick-and-undo lost focus on the second response.** The first response restored focus
+   and consumed the remembered row; the second moved the row back with nothing left to restore.
+   The memory is now kept until the answer on screen matches the user's current input.
+   Reproduced and re-checked: focus ends on the toggled row, plan back to 3 changes.
+3. **The focus rules had no tests** — correct, and the reason was that they were tangled up in a
+   React effect. They now live in `src/lib/focus.ts`, apart from React, with **9 unit tests**
+   covering every rule including both defects above. Test count 66 → 75.
+
+A regression was caught while fixing 2, by re-running the earlier cases rather than assuming:
+adding `ruledOut` and `solvedRuledOut` to the effect's dependencies made it run at the moment of
+the toggle, while the row was still mounted, and throw the remembered row away before the
+response that unmounts it arrived. Case A went from "restored" to "focus lost". The effect is
+keyed on the response alone, with a comment saying why.
+
+Stale figures the audit flagged, both corrected: the demo checklist's test count and the feature
+doc's bundle size.
+
+### Focus behaviour, all six sequences re-verified after the fixes
+
+| Sequence | Result |
+|---|---|
+| Focus a row, toggle it, its row moves sections | restored to that row |
+| Focus a row, toggle it, tab to a row that survives | stays where the user went |
+| Activate with no prior focus, after an earlier restore | nothing grabbed |
+| A restore, then a later unrelated re-solve | nothing grabbed |
+| "Other changes" collapsed, then toggle a plan row | section opened, focus restored |
+| Tick, then undo inside the debounce | restored, plan back to 3 changes |
+
+### Final run
+
+| Command | Result |
+|---|---|
+| `npm run lint` | clean |
+| `npm run build` | clean, 620.51 kB / 184.04 kB gzip |
+| `npm test` | **75 passed, 0 failed** |
+| `.venv/bin/pytest backend/ -q -m "not perf"` | **977 passed**, 6 deselected |
+| oracle / types / contract / backend diff vs `main` | empty |

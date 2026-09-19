@@ -7,7 +7,8 @@ import { solveViaApi } from './lib/api'
 import { money } from './lib/format'
 import { emptyPlanText, footerLines, narrateChart } from './lib/narrate'
 import type { Overrides } from './lib/overrides'
-import { NONE, count, fromIds, toLocks, toggle } from './lib/overrides'
+import { NONE, count, fromIds, pendingIds, toLocks, toggle } from './lib/overrides'
+import { armOnToggle, decideRestore, domId } from './lib/focus'
 import { useDebounced } from './lib/useDebounced'
 import { solve } from './solver/mockSolver'
 import type { SolveResponse } from './types'
@@ -90,30 +91,46 @@ export default function App() {
   }, [debounced])
 
   useEffect(() => {
-    // Consume it: an id that survived into a later, unrelated response would
-    // pull focus somewhere the user has not been for a while. Safari does not
-    // focus a checkbox when you click it, so without this the next re-solve
-    // could jump to whichever row happened to be focused last.
-    const id = focused.current
-    focused.current = null
-    if (!id) return
-    // Only restore focus that was LOST when a row unmounted, which parks it on
-    // the body. If the user has tabbed on to a control that survived, pulling
-    // focus away would throw out their navigation.
     const active = document.activeElement
-    if (active && active !== document.body && active !== document.documentElement) return
+    const decision = decideRestore({
+      refId: focused.current,
+      // Focus parked on the body (or the root) means it was lost when a row
+      // unmounted, not moved there by the user.
+      focusWasLost: !active || active === document.body || active === document.documentElement,
+      // Nothing else is in flight: what is on screen answers what the user asked.
+      settled: pendingIds(ruledOut, solvedRuledOut).size === 0,
+    })
+    if (decision.clear) focused.current = null
+    if (!decision.focus) return
+
+    const el = document.getElementById(domId(decision.focus))
+    if (!el) return
+    // The row may have landed inside the collapsed "other changes" section, and
+    // nothing inside a closed <details> can take focus.
+    const section = el.closest('details')
+    if (section && !section.open) section.open = true
+    // Focusing dispatches the checkbox's own focus event, which would write the
+    // id straight back into the ref this just consumed.
     restoring.current = true
-    document.getElementById(`cant-${id}`)?.focus()
+    el.focus()
     restoring.current = false
+    // Deliberately keyed on the response alone. Running this when `ruledOut`
+    // changes would fire it at the moment of the toggle, while the row is still
+    // mounted and focus has not been lost, and it would throw the remembered
+    // row away before the answer that unmounts it ever arrives. The values it
+    // reads are this render's, which is the render the response produced.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [res])
 
   function onToggle(id: string) {
-    // Two signals feed the same ref, because neither covers everything. A
-    // toggle tells us where focus is at the moment of the change, which is the
-    // common case and works even where focus events do not fire. The onFocus
-    // handler below then keeps it current if the user tabs on to another row
-    // while the answer is still being solved.
-    if (document.activeElement?.id === `cant-${id}`) focused.current = id
+    // Two signals feed the same ref, because neither covers everything. The
+    // toggle tells us where focus is at the moment of the change, which works
+    // even where focus events do not fire; the onFocus handler below keeps it
+    // current if the user tabs on while the answer is still being solved.
+    focused.current = armOnToggle(focused.current, {
+      activeElementId: document.activeElement?.id ?? null,
+      toggledId: id,
+    })
     setRuledOut((prev) => toggle(prev, id))
   }
 
