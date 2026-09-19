@@ -148,3 +148,14 @@ test('compareAmounts returns only -1, 0 or 1', () => {
   assert.equal(far, 1)
   assert.ok(Math.abs(far) <= 1, 'the comparator must not leak a magnitude')
 })
+
+// formatUnits is presented as part of the float gate, so it has to behave like
+// one. Without the guard, formatUnits(12.34, 2) returns the string "12..34" —
+// silent garbage on screen, no throw, in a project whose rule is that no float
+// touches money. The parsers were gated and this was not.
+// Fails if the bigint check is removed.
+test('formatUnits refuses anything that is not a bigint', () => {
+  for (const bad of [12.34, 1234, '1234', null, undefined, {}]) {
+    assert.throws(() => formatUnits(bad as unknown as bigint, 2), TypeError)
+  }
+})

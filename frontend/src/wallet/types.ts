@@ -48,8 +48,12 @@ export type Outlook = {
  * statement about a schedule that would exist if changes nobody has made yet were
  * made. Only `affordable` may enable signing — see canSign(). Collapsing these
  * into one sentence erases the distinction that gates an irreversible transfer.
+ *
+ * Only kinds the ledger can actually produce are listed. A declared-but-unreachable
+ * variant would make the tests' completeness assertion unable to fail for the
+ * reason it was written.
  */
-export type VerdictKind = 'affordable' | 'conditional' | 'breaches' | 'never_clears'
+export type VerdictKind = 'affordable' | 'conditional' | 'never_clears'
 
 export type Verdict = {
   readonly kind: VerdictKind
@@ -149,6 +153,7 @@ export type ReceiptRejection =
   | 'sender_absent'
   | 'recipient_absent'
   | 'metadata_unavailable'
+  | 'ambiguous_balances'
   | 'network_mismatch'
 
 export type ReceiptResult =

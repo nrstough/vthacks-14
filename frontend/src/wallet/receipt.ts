@@ -17,11 +17,23 @@ import { toBase } from './units.ts'
  * strictNullChecks is off in this project and the compiler types `.find()` as
  * always-present. Nothing but this check and its test will catch it.
  */
-function balanceOf(rows: readonly TokenBalance[], account: string, mint: string): bigint | null {
+function balanceOf(
+  rows: readonly TokenBalance[],
+  account: string,
+  mint: string,
+): bigint | null | 'ambiguous' {
+  let found: bigint | null = null
   for (const row of rows) {
-    if (row.account === account && row.mint === mint) return toBase(row.amount)
+    if (row.account !== account || row.mint !== mint) continue
+    // A wallet may hold several token accounts for one mint and getTransaction
+    // lists each. Returning the first match would make the verdict depend on
+    // row order — the same defect the ledger's per-day netting exists to avoid,
+    // and no more acceptable here for being in a different file. There is no
+    // honest tie-break, so this refuses rather than guesses.
+    if (found !== null) return 'ambiguous'
+    found = toBase(row.amount)
   }
-  return null
+  return found
 }
 
 /**
@@ -41,7 +53,23 @@ export function verifyReceipt(
   // No receipt yet is not a rejection. A transfer that has not been looked up,
   // or whose lookup came back empty, is unresolved — saying "failed" here is the
   // claim the evidence does not support.
-  if (receipt === null) return { ok: false, reason: 'metadata_unavailable' }
+  // Loose equality on purpose: undefined from an RPC layer is the same absence
+  // as null, and with strictNullChecks off nothing else would stop it throwing
+  // out of a click handler.
+  if (receipt === null || receipt === undefined) {
+    return { ok: false, reason: 'metadata_unavailable' }
+  }
+  // Metadata that is missing entirely is unavailable, not evidence that the
+  // transfer did not touch the mint. Saying mint_absent here would be a claim
+  // about the transaction that the response does not support.
+  if (receipt.preTokenBalances === undefined || receipt.postTokenBalances === undefined) {
+    return { ok: false, reason: 'metadata_unavailable' }
+  }
+  if (receipt.preTokenBalances.length === 0 && receipt.postTokenBalances.length === 0) {
+    return { ok: false, reason: 'metadata_unavailable' }
+  }
+  // An absent err field is a missing field, not a reported success.
+  if (receipt.err === undefined) return { ok: false, reason: 'metadata_unavailable' }
 
   if (observedGenesisHash !== identity.asset.genesisHash) {
     return { ok: false, reason: 'network_mismatch' }
@@ -61,15 +89,24 @@ export function verifyReceipt(
   // for the sender is not a transfer we can read.
   const senderPre = balanceOf(receipt.preTokenBalances, identity.sender, mint)
   const senderPost = balanceOf(receipt.postTokenBalances, identity.sender, mint)
+  if (senderPre === 'ambiguous' || senderPost === 'ambiguous') {
+    return { ok: false, reason: 'ambiguous_balances' }
+  }
   if (senderPre === null || senderPost === null) return { ok: false, reason: 'sender_absent' }
 
   // The recipient may legitimately have had no account beforehand, in which case
   // absent means zero. Absent AFTER the transfer means it did not arrive.
   const recipientPreRaw = balanceOf(receipt.preTokenBalances, identity.recipient, mint)
-  const recipientPre = recipientPreRaw === null ? 0n : recipientPreRaw
   const recipientPost = balanceOf(receipt.postTokenBalances, identity.recipient, mint)
+  if (recipientPreRaw === 'ambiguous' || recipientPost === 'ambiguous') {
+    return { ok: false, reason: 'ambiguous_balances' }
+  }
+  const recipientPre = recipientPreRaw === null ? 0n : recipientPreRaw
   if (recipientPost === null) return { ok: false, reason: 'recipient_absent' }
 
+  // A zero-amount identity would otherwise verify against a receipt in which
+  // nothing moved. parseUnits rejects zero today; this does not rely on that.
+  if (identity.amount <= 0n) return { ok: false, reason: 'sender_delta_wrong' }
   if (senderPost - senderPre !== -identity.amount) {
     return { ok: false, reason: 'sender_delta_wrong' }
   }

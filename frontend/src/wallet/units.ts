@@ -54,6 +54,13 @@ export function parseUnits(input: string, decimals: number): ParseResult {
  * using bigint at all is that the wrongness never becomes possible.
  */
 export function formatUnits(base: bigint, decimals: number): string {
+  // formatUnits is presented as part of the float gate, so it has to behave like
+  // one. Without this, formatUnits(12.34, 2) returns the string "12..34" — silent
+  // garbage on screen, no throw, in a project whose rule is that no float touches
+  // money.
+  if (typeof base !== 'bigint') {
+    throw new TypeError('formatUnits takes base units as a bigint')
+  }
   const negative = base < 0n
   const digits = (negative ? -base : base).toString().padStart(decimals + 1, '0')
   const cut = digits.length - decimals

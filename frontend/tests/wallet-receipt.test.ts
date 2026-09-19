@@ -184,3 +184,48 @@ test('a malformed amount string is refused loudly rather than coerced', () => {
 test('verification is deterministic', () => {
   assert.deepEqual(check(receipt()), check(receipt()))
 })
+
+// --------------------------------------------------- audit-driven additions
+
+// A wallet may hold several token accounts for one mint and getTransaction
+// lists each. Returning the first match makes the verdict depend on row order —
+// the same defect the ledger's per-day netting exists to avoid. There is no
+// honest tie-break, so this must refuse rather than pick.
+// Fails if balanceOf goes back to returning the first match.
+test('duplicate balance rows are refused rather than resolved by order', () => {
+  const r = receipt()
+  const dup = { account: SENDER, mint: DEMO.mint, amount: '77777' }
+  const forward = check({ ...r, preTokenBalances: [...r.preTokenBalances, dup] })
+  const reversed = check({ ...r, preTokenBalances: [dup, ...r.preTokenBalances] })
+  assert.deepEqual(forward, reversed)
+  assert.equal((forward as { reason: string }).reason, 'ambiguous_balances')
+})
+
+// Missing metadata is not evidence that the transfer did not touch the mint.
+test('empty balance metadata is unavailable, not mint_absent', () => {
+  assert.equal(rejected({ ...receipt(), preTokenBalances: [], postTokenBalances: [] }), 'metadata_unavailable')
+})
+
+// Same conflation of absence with negative evidence the null-status rule avoids.
+test('a missing err field is unavailable, not a failed transaction', () => {
+  assert.equal(rejected(receipt({ err: undefined })), 'metadata_unavailable')
+})
+
+// With strictNullChecks off, an undefined from an RPC layer would otherwise
+// throw out of a click handler, where no error boundary catches it.
+test('an undefined receipt is handled, not thrown on', () => {
+  assert.equal(rejected(undefined as unknown as null), 'metadata_unavailable')
+})
+
+// Unreachable today because parseUnits rejects zero, but the verifier must not
+// depend on that: otherwise a receipt in which nothing moved verifies.
+test('a zero-amount identity never verifies', () => {
+  const r = receipt()
+  const zero = verifyReceipt(
+    { ...r, postTokenBalances: r.preTokenBalances },
+    { ...IDENTITY, amount: 0n },
+    SIGNATURE,
+    DEMO.genesisHash,
+  )
+  assert.equal(zero.ok, false)
+})
