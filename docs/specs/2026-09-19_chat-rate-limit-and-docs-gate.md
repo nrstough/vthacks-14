@@ -247,6 +247,18 @@ Its four points, and what was done:
    had been replaced. **Fixed**, and every test name in this document is now
    checked to exist.
 
+**A second audit run, at `62040b7`, graded Documentation Excellent** and
+raised one more, which was worth having:
+
+5. *Test coverage.* `test_two_apps_hold_independent_budgets` built two
+   limiter *objects*, not two applications, so it could not detect the
+   factory sharing one between them — a test whose name promised more than
+   it checked, which is the class this change has been hunting all along.
+   **Fixed**: it is renamed to what it actually tests, and
+   `test_two_applications_hold_independent_budgets` builds two default
+   applications and exhausts one. Confirmed by mutation: with a module-level
+   limiter the old test still passes and the new one fails.
+
 **Claude critique: five rounds, ending Acceptable with a recommendation to
 stop.** Recorded below.
 
@@ -256,7 +268,7 @@ stop.** Recorded below.
 
 | Suite | Before | After |
 |---|---|---|
-| `pytest backend/ -q` | 1,271 passed | **1,332 passed** (+61) |
+| `pytest backend/ -q` | 1,271 passed | **1,333 passed** (+62) |
 | `npm test` (frontend) | 209 passed | **216 passed** (+7) |
 
 `npm run lint` and `npm run build` clean. The frontend build runs before the
@@ -295,6 +307,7 @@ and the named test had to fail. All of the following bite:
 | Unit drops the docs variable | `test_the_unit_file_sets_the_name_the_app_reads` |
 | 429 branch never wired into the request path | frontend `chat-errors` (3 fail) |
 | Server detail echoed on a 429 | frontend `chat-errors` (3 fail) |
+| A module-level limiter shared by every application | `test_two_applications_hold_independent_budgets` |
 | App stops reading `os.environ` for the gate | `test_the_environment_variable_actually_reaches_the_app` |
 | The `ExecStart` continuation backslash is lost | `test_the_unit_parses_the_way_systemd_reads_it` |
 | Resync `at` on a backwards step (reopens the oscillation hole) | `test_a_clock_that_oscillates_cannot_manufacture_tokens`, `test_the_budget_resumes_once_the_clock_passes_where_it_had_been` |

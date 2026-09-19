@@ -92,7 +92,7 @@ def test_exactly_the_burst_is_admitted_then_one_is_refused():
     assert limiter.check("a").allowed is False
 
 
-def test_two_apps_hold_independent_budgets():
+def test_two_limiters_hold_independent_budgets():
     clock = Clock()
     one = RateLimiter(per_minute=20, burst=2, clock=clock)
     two = RateLimiter(per_minute=20, burst=2, clock=clock)
@@ -101,6 +101,22 @@ def test_two_apps_hold_independent_budgets():
     assert one.check("a").allowed is False
     # The second limiter has never seen this address.
     assert two.check("a").allowed is True
+
+
+def test_two_applications_hold_independent_budgets():
+    """The one above proves two limiter objects do not share. This proves the
+    factory builds two of them.
+
+    A module-level limiter would pass the test above and fail this one: the
+    same address would arrive at the second application already spent, and
+    one process serving two apps — which the test suite itself does — would
+    leak a budget between them.
+    """
+    first = TestClient(create_app(None), client=PEER)
+    second = TestClient(create_app(None), client=PEER)
+
+    assert [chat_post(first).status_code for _ in range(11)] == [422] * 10 + [429]
+    assert chat_post(second).status_code == 422  # a fresh budget, same address
 
 
 def test_the_budget_returns_after_the_window():
