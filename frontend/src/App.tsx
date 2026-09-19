@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import BalanceChart from './components/BalanceChart'
+import ErrorBoundary from './components/ErrorBoundary.tsx'
 import ChatPanel from './components/ChatPanel'
 import PrescriptionList from './components/PrescriptionList'
 import VerdictBand from './components/VerdictBand'
@@ -14,9 +15,16 @@ import { useDebounced } from './lib/useDebounced'
 import { solve } from './solver/mockSolver'
 import type { SolveRequest, SolveResponse } from './types'
 
+// Lazily loaded, so the wallet and its fixtures never enter the main chunk.
+// The planning demo is what is being judged; it must not carry the weight of a
+// side screen, and `npm run build` reports the two chunks separately so the
+// main one can be watched.
+const WalletView = lazy(() => import('./wallet/WalletView.tsx'))
+
 const BASE = SCENARIOS[0].request
 
 export default function App() {
+  const [tab, setTab] = useState<'plan' | 'wallet'>('plan')
   const [opening, setOpening] = useState(BASE.opening_balance_cents)
   const [buffer, setBuffer] = useState(BASE.buffer_cents)
   const [ruledOut, setRuledOut] = useState<Overrides>(NONE)
@@ -168,8 +176,49 @@ export default function App() {
             out, and the plan is re-solved from scratch.
           </p>
         </div>
+        <nav className="tabs" aria-label="Views">
+          <button
+            type="button"
+            className={tab === 'plan' ? 'on' : ''}
+            aria-pressed={tab === 'plan'}
+            onClick={() => setTab('plan')}
+          >
+            Checking account
+          </button>
+          <button
+            type="button"
+            className={tab === 'wallet' ? 'on' : ''}
+            aria-pressed={tab === 'wallet'}
+            onClick={() => setTab('wallet')}
+          >
+            Demo wallet
+          </button>
+        </nav>
       </header>
 
+      {tab === 'wallet' ? (
+        // Its OWN boundary, not the root one. A lazy chunk that fails to load
+        // throws into the nearest boundary, and if that were the root the whole
+        // planning demo would be replaced by a crash card over a side screen
+        // the judge was not even looking at.
+        <ErrorBoundary
+          inline={(detail) => (
+            <section className="wallet-down" role="alert">
+              <h2>The demo wallet did not load</h2>
+              <p>The checking account view is unaffected — switch back to it.</p>
+              <details>
+                <summary>What went wrong</summary>
+                <p className="crash-detail">{detail}</p>
+              </details>
+            </section>
+          )}
+        >
+          <Suspense fallback={<p className="wallet-loading">Loading the demo wallet…</p>}>
+            <WalletView />
+          </Suspense>
+        </ErrorBoundary>
+      ) : (
+      <>
       <section className="controls">
         <label className="ctl">
           <span className="ctl-head">
@@ -275,6 +324,8 @@ export default function App() {
       </section>
 
       <ChatPanel req={request} res={res} source={source} />
+      </>
+      )}
 
       <footer className="meta num">
         {footerLines(res).map((line) => (

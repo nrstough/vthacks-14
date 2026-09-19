@@ -13,6 +13,19 @@ import { crashDetail } from '../lib/crash'
 
 interface Props {
   children: ReactNode
+  /**
+   * An inline fallback, for a boundary wrapping part of the page rather than
+   * all of it.
+   *
+   * A root-only boundary turns any failure anywhere into a blank page with a
+   * crash card — including a failure in a lazily-loaded corner the user was not
+   * even looking at. Wrapping that corner in its own boundary with a small
+   * fallback keeps the rest of the screen working, which matters most for the
+   * planning demo: a wallet chunk that fails to load must not take it down.
+   *
+   * Omitted, the boundary behaves exactly as before: full-page crash card.
+   */
+  inline?: (detail: string) => ReactNode
 }
 
 interface State {
@@ -34,6 +47,7 @@ export default class ErrorBoundary extends Component<Props, State> {
   render(): ReactNode {
     const { detail } = this.state
     if (detail === null) return this.props.children
+    if (this.props.inline !== undefined) return this.props.inline(detail)
 
     return (
       <main className="shell">
