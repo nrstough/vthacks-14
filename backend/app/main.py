@@ -33,7 +33,7 @@ DEFAULT_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
 
 def create_app(dist_dir: Path | None = DEFAULT_DIST) -> FastAPI:
-    app = FastAPI(title="Overdraft Guard", docs_url="/api/docs", openapi_url="/api/openapi.json")
+    app = FastAPI(title="Safe to Spend", docs_url="/api/docs", openapi_url="/api/openapi.json")
 
     # Vite's dev server proxies /api here; in production the two are same-origin
     # because this process serves the built files below.

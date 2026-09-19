@@ -169,7 +169,7 @@ export default function App() {
       <header className="topbar">
         <div>
           <p className="wordmark">
-            Overdraft Guard <span>&nbsp;/&nbsp; the smallest plan that clears</span>
+            Safe to Spend <span>&nbsp;/&nbsp; the smallest plan that clears</span>
           </p>
           <p className="tagline">
             Sample checking account, September 19 to October 2, 2026. Move a slider or rule a change
