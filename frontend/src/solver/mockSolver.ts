@@ -407,7 +407,13 @@ export function solve(req: SolveRequest, previousPlanArg: string[] = []): SolveR
   for (const c of best) {
     changesByDay.set(c.effective_date, [...(changesByDay.get(c.effective_date) ?? []), c.id])
   }
-  const paydays = new Set(req.scheduled.filter((t) => t.kind === 'income').map((t) => t.date))
+  // Both the sign and the kind, never one alone. A negative income row is a
+  // clawback, and marking its day a payday reads as "Payday lands on <date>" on
+  // a day money left. Mirrors app/solver/assemble.py; the two must agree or the
+  // parity tests fail.
+  const paydays = new Set(
+    req.scheduled.filter((t) => t.kind === 'income' && t.amount_cents > 0).map((t) => t.date),
+  )
 
   const balances: BalanceRow[] = days.map((date, i) => ({
     date,

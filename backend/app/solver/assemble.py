@@ -74,7 +74,13 @@ def build_response(
     changes_by_day: dict[str, list[str]] = {}
     for c in plan_order:
         changes_by_day.setdefault(c.effective_date, []).append(c.id)
-    paydays = {t.date for t in req.scheduled if t.kind == "income"}
+    # A payday is income that actually ARRIVES. An income row may legitimately
+    # be negative — a clawback is still an income row — and marking that day a
+    # payday puts "Payday lands on <date>" on a day money left. Both the sign
+    # and the kind, never one alone: this is the same guard as
+    # app/candidates/generator.py:111-118, which records it as the class of two
+    # prior deferral bugs. The generator was fixed and this was not.
+    paydays = {t.date for t in req.scheduled if t.kind == "income" and t.amount_cents > 0}
 
     balances = [
         BalanceRow(

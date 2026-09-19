@@ -173,7 +173,45 @@ def test_plan_is_ordered_by_the_day_the_change_takes_effect(case):
 
 
 def test_paydays_are_marked(case):
+    # Both the sign and the kind. This previously reimplemented the assembler's
+    # own expression and compared it to itself, so it agreed with the code no
+    # matter what the code said — including while the code marked a clawback as
+    # a payday. This file's own header names the failure mode it fell into.
     raw, res = case
-    paydays = {t["date"] for t in raw["scheduled"] if t["kind"] == "income"}
+    paydays = {
+        t["date"]
+        for t in raw["scheduled"]
+        if t["kind"] == "income" and t["amount_cents"] > 0
+    }
     for b in res["balances"]:
         assert b["is_payday"] == (b["date"] in paydays)
+
+
+def test_a_clawback_day_is_not_marked_a_payday():
+    """A negative income row is money leaving, whatever it is called.
+
+    Mirrors test_candidates_policy.py::test_a_clawback_is_not_a_payday, which
+    pins the same rule one module over. The candidate generator was fixed for
+    this class twice; the assembler kept marking the day, so the chart drew a
+    payday marker and the narration read "Payday lands on <date>" on a day
+    money left. Latent only because the shipped fixtures carry no negative
+    income row — the synthetic account generator plants one 30% of the time.
+    """
+    req = SolveRequest.model_validate({
+        "as_of": "2026-09-21",
+        "horizon_end": "2026-09-30",
+        "opening_balance_cents": 50_000,
+        "buffer_cents": 2_500,
+        "scheduled": [
+            {"id": "t_pay", "date": "2026-09-25", "description": "PAYROLL",
+             "amount_cents": 40_000, "kind": "income", "recurring": True},
+            {"id": "t_claw", "date": "2026-09-28", "description": "PAYROLL ADJUSTMENT",
+             "amount_cents": -3_000, "kind": "income", "recurring": False},
+        ],
+        "candidates": [],
+        "locks": {"in": [], "out": []},
+        "previous_plan": [],
+    })
+    by_date = {b.date: b.is_payday for b in solve(req).balances}
+    assert by_date["2026-09-25"] is True, "real income is still a payday"
+    assert by_date["2026-09-28"] is False, "a clawback is not a payday"
