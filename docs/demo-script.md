@@ -18,14 +18,11 @@ proof, which is the only part nobody else has.
       solver and keeps working. Only mention it if the chip in the nav is spotted.
 - [ ] Refresh the two numbers in the build section. The suite keeps growing and
       quoting a stale figure to someone who then runs it is worse than rounding.
-      As of Sat 22:30 it is **2,167 backend tests plus 209 frontend tests**, and
-      the three demo accounts solve in roughly 3-8 ms (100 random accounts
-      average under 3 ms each). Re-measure with
+      As of Sun 00:05 it is **2,390 backend tests plus 286
+      frontend tests**, and the three demo accounts solve in roughly 3-8 ms
+      (100 random accounts average under 3 ms each). Re-measure with
       `.venv/bin/pytest backend/ -m perf -s`; the figures move a little between
       machines and runs, so quote the range.
-      (The frontend count went down, not up: deleting the Solana demo wallet
-      took 110 tests with it. Say "just over two hundred" and do not apologise
-      for it.)
 - [ ] Check you are on the **Plan** tab. A refresh always lands there, which is
       the safety net if anything gets lost mid-demo.
 
@@ -276,6 +273,21 @@ and the answer is re-verified against a zero balance after the plan is chosen.
 The language model is at the edges — it explains the plan and never decides it,
 and it is told plainly that this is generated demo data. Nothing it writes can
 change a number.
+
+That holds even though the explainer can now offer to change the plan, and the
+distinction is the answer if a judge presses on it:
+
+> The model may only **select** — a candidate to rule out, by an id it was
+> given. It cannot author a number. Every figure that follows comes from CP-SAT
+> re-solving from scratch. The one place a number crosses is a suggested
+> starting balance or cushion, and there the model may only repeat an amount
+> the person themselves said: ASCII-gated, bounded against the schema's limit,
+> clamped to the slider's own range, and printed on the button before anyone
+> can approve it.
+
+And there is a person between the model and the state. An offer is a button;
+nothing moves until it is tapped. So a model talked into offering something
+silly still achieves nothing — the worst outcome is a button nobody presses.
 
 **"Who is this for?"**
 Someone a bad week away from a thirty-five dollar fee on a five dollar

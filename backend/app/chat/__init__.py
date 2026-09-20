@@ -3,6 +3,11 @@
 The solver computes; the model explains. The request carries the solve, the
 system instruction renders every figure the model may use, and the reply is
 scrubbed for the two words the product never says before it goes back.
+
+The model may also end a reply with offers — to rule a change out, or to move
+a slider. They are read here, from the masked reply and before the scrubber,
+and returned alongside the words. Nothing is applied: an offer reaches the
+screen as a control, and a person taps it. See `suggestions`.
 """
 
 from __future__ import annotations
@@ -10,9 +15,22 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 
-from app.chat.gemini import GeminiConfig, GeminiError, generate_with_fallback
+from app.chat.gemini import (
+    FINISH_MAX_TOKENS,
+    GeminiConfig,
+    GeminiError,
+    generate_with_fallback,
+    generate_with_fallback_detailed,
+)
 from app.chat.prompt import system_instruction
 from app.chat.schemas import ChatRequest, ChatResponse, ChatStatus
+from app.chat.suggestions import extract, neutralise_markers, validate
+
+
+# Shown to the person verbatim: ChatUpstreamError's message is echoed through
+# the 502 and rendered as-is (frontend lib/chat.ts). So it is product copy, and
+# it obeys the wording rules like any other.
+EMPTY_AFTER_OFFERS = "Gemini answered with no words, only a suggestion."
 
 
 class ChatUnavailable(Exception):
@@ -35,6 +53,12 @@ _SCRUB = [
 
 _REF = "\u2e24M{}\u2e25"          # two-and-a-half em brackets; not on a keyboard
 _REF_RE = re.compile("\u2e24M(\\d+)\u2e25")
+# Public alias, promised stable to the ANS lane, which strips references out of
+# merchant text before it reaches a counterparty model. The "not on a keyboard"
+# reasoning above is an argument about humans: another LLM can emit the
+# brackets, and a counterparty that does gets a merchant name substituted into
+# text it authored. Same pattern, named so the dependency is legible.
+REF_RE = _REF_RE
 
 
 def descriptor_refs(descriptors: Sequence[str]) -> list[str]:
@@ -154,7 +178,29 @@ def chat(req: ChatRequest, config: GeminiConfig | None = None, source: str = "se
     # road.
     turns = [(m.role, mask_descriptors(m.text, refs)) for m in req.messages]
     try:
-        reply, model = generate_with_fallback(config, instruction, turns)
+        reply, model, finish = generate_with_fallback_detailed(
+            config, instruction, turns
+        )
     except GeminiError as e:
         raise ChatUpstreamError(str(e)) from e
-    return ChatResponse(reply=unmask_descriptors(scrub(reply), refs), model=model)
+
+    # Offers come off the masked reply, before the scrubber and before the
+    # descriptors go back. Every ordering here is load-bearing; `suggestions`
+    # says why at length.
+    body, raws = extract(reply)
+    if not body.strip():
+        # An answer that was only offers is not an answer. The emptiness check
+        # upstream in extract_text runs before this strip, so it passed.
+        raise ChatUpstreamError(EMPTY_AFTER_OFFERS)
+    # A capped answer offers nothing. The marker block is usually deleted
+    # outright by the upstream trim -- a marker line has no sentence end -- but
+    # one shape survives: a truncation that lands exactly on a dot inside an id
+    # ends the string with `.`, which IS a sentence end. `ID_RE` permits a
+    # trailing dot and candidates arrive from the request rather than from our
+    # generator, so `SUGGEST RULE OUT: c_gym.cancel` cut to `c_gym.` can match a
+    # DIFFERENT, entirely valid candidate while the prose describes the first.
+    # An earlier version of this change reasoned that no candidate id ends in a
+    # dot; that is true of the generator and not of the contract.
+    offers = [] if finish == FINISH_MAX_TOKENS else validate(raws, req.request.candidates)
+    display = neutralise_markers(unmask_descriptors(scrub(body), refs))
+    return ChatResponse(reply=display, model=model, suggestions=offers)

@@ -16,7 +16,7 @@ import {
 } from '../src/lib/accounts.ts'
 import { SCENARIOS } from '../src/fixtures/scenarios.ts'
 import { solve } from '../src/solver/mockSolver.ts'
-import type { Candidate, LoadedAccount, NessieAccountResponse, ScheduledTxn } from '../src/types.ts'
+import type { Candidate, ImportAccountResponse, LoadedAccount, NessieAccountResponse, ScheduledTxn } from '../src/types.ts'
 
 const scheduled: ScheduledTxn[] = [
   { id: 'n_a', date: '2026-09-20', description: 'KROGER #382', amount_cents: -6400, kind: 'discretionary', recurring: false },
@@ -313,4 +313,69 @@ test('every reason the server can send has words and a place in the order', () =
     const [singular] = REASON_TEXT[reason]
     assert.ok(line.includes(`1 ${singular}`), `${reason} is missing from: ${line}`)
   }
+})
+
+// ---- imported accounts -----------------------------------------------
+//
+// Both functions below have an early return that reads `account.seed`, and an
+// import has no seed. The arms have to come BEFORE those returns or the page
+// renders "seed undefined" and every import shares one conversation.
+
+function importedAccount(over: Partial<ImportAccountResponse> = {}): ImportAccountResponse {
+  return {
+    as_of: '2026-09-21',
+    horizon_end: '2026-10-20',
+    opening_balance_cents: 41000,
+    buffer_cents: 2500,
+    scheduled: [],
+    candidates: [],
+    meta: { rows_considered: 0, protected: [], unrecognised: [], not_actionable: [], truncated: false },
+    source: 'import',
+    streams: [],
+    provenance: {
+      history_start: '2024-08-19',
+      history_end: '2026-09-18',
+      history_days: 761,
+      imputed_zero_days: 421,
+      rows_used: 1060,
+      weeks_used_for_assumed: 8,
+      assumed_method: 'same_weekday_8_week_p60',
+      assumed_ids: ['f_20260922'],
+      next_payday: '2026-09-22',
+      pay_cadence: 'weekly',
+      income_not_counted_today: [],
+      income_already_posted: [],
+      stale_days: 3,
+      unscheduled_inflow_count: 165,
+      unscheduled_inflow_cents: 220000,
+      truncated_assumed_rows: 0,
+      rejected_rows: [],
+    },
+    ...over,
+  }
+}
+
+test('an imported account describes itself without a seed', () => {
+  const line = provenanceLine(importedAccount(), SCENARIOS[0].request)
+  assert.match(line, /Your own export/)
+  assert.match(line, /1060 transactions/)
+  assert.match(line, /same-weekday 60th percentile/)
+  assert.equal(line.includes('undefined'), false)
+  assert.equal(line.includes('seed'), false)
+})
+
+test('an import with too little history says bills only', () => {
+  const bare = importedAccount({
+    provenance: { ...importedAccount().provenance, assumed_method: null, weeks_used_for_assumed: null },
+  })
+  assert.match(provenanceLine(bare, SCENARIOS[0].request), /bills only/)
+})
+
+test('each import starts its own conversation', () => {
+  // Two exports can share a window and a stream count, so the key cannot be
+  // derived from the data: a constant would keep the previous account's chat.
+  const a = importedAccount()
+  assert.notEqual(chatKey(a, 1), chatKey(a, 2))
+  assert.equal(chatKey(a, 1).includes('undefined'), false)
+  assert.notEqual(chatKey(a, 1), chatKey(null))
 })

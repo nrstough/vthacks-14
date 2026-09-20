@@ -6,6 +6,9 @@ __pycache__/
 *.pyc
 data/private/
 Checking.csv
+# Any bank export, anywhere in the tree. The literal name above was one file;
+# a real export must never be committed under any name.
+*.csv
 .env
 .npm-cache/
 .pytest_cache/

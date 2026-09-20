@@ -88,6 +88,23 @@ pain 3.
 
 `freed_cents = abs(amount) * pct // 100`; a result of 0 drops the alternative.
 
+## Imported accounts: assumed rows are never offered
+
+`POST /api/accounts/import` builds its `CandidatesRequest` from DETECTED rows
+only. Its assumed everyday-spending rows (ids beginning `f_`) are
+`discretionary` and match no keyword, which is exactly the shape this
+generator turns into a full-skip candidate — so passing them in would make the
+product offer to cancel spending it had invented on the person's behalf. The
+exclusion is a filter at the caller, not a property of this module, and
+`backend/tests/test_history_api.py` pins both halves: that no candidate
+targets an `f_` row, and that the generator really would offer one if the
+filter were removed.
+
+That endpoint also rewrites every returned candidate's `label` and `detail`
+from the lexicon CATEGORY rather than the brand, because this module
+reproduces the merchant descriptor verbatim and an imported account's
+descriptors are a real person's.
+
 ## Rules the solver relies on
 
 - **Deferral recharge.** `recharge_date` is the earliest row with `kind == "income"` and

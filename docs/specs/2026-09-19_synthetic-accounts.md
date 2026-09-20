@@ -376,3 +376,27 @@ Still to do, and not this note's to decide:
   the route lives on `nessie-demo`, which is not merged. The box is serving
   `data-deploy`.
 - **The box bills at roughly $1.85/day.** Destroy it after judging.
+
+---
+
+## Addendum, 2026-09-19 (appended; the spec above is frozen and unedited)
+
+Two statements above were true when this spec was committed and are not true
+now. They are corrected here rather than in place, per `CLAUDE.md`.
+
+- **The domain is `safetospend.study`, not `safetospend.us`.** Lines under "Open
+  at commit" and "Still to do" name `safetospend.us`. That name was never
+  registered — `.us` does not permit WHOIS privacy — and it is **NXDOMAIN**.
+  Pointing a deploy at it fails the ACME challenge, and the failure reads like a
+  certificate problem when it is a DNS one. The registered name is
+  `safetospend.study`; `dig +short safetospend.study A` returns `64.177.48.139`
+  and `https://safetospend.study/health` returns `{"ok":true}`. See
+  `docs/handoffs/2026-09-19_domain-live-handoff.md`.
+
+- **The deploy no longer substitutes `:80`.** "the deploy currently substitutes
+  `:80` and serves plain HTTP" described the state at commit. The site has been
+  on HTTPS since the evening of 2026-09-19, and the automatic `:80` fallback has
+  been removed: `deploy.sh` now refuses to run with `DOMAIN` unset rather than
+  rewriting a live site to plain HTTP. `./deploy.sh --no-domain` selects `:80`
+  deliberately. The "Open at commit" firewall item is also closed — ufw permits
+  80/tcp and 443/tcp.

@@ -1,5 +1,21 @@
 # Handoff — finish the data/deploy lane (2026-09-19, Sat 18:15)
 
+> **Superseded in part, 2026-09-19 evening — the domain name below is dead.**
+>
+> Section 4 picks **`safetospend.us`**. That name was never registered (`.us`
+> does not permit WHOIS privacy) and is **NXDOMAIN**, so the `dig` wait in it
+> never returns and the `.deploy.env` one-liner in it would point a deploy at a
+> domain Let's Encrypt cannot validate.
+>
+> The live domain is **`safetospend.study`**. It is registered, its apex `A`
+> record points at `64.177.48.139`, and `https://safetospend.study/health`
+> returns `{"ok":true}`. See
+> [`2026-09-19_domain-live-handoff.md`](2026-09-19_domain-live-handoff.md) and
+> `.deploy.env.example`.
+>
+> Everything else here — the merge steps, the acceptance contract, the
+> out-of-scope list — is unaffected.
+
 **Purpose of this chat:** Get `data-deploy` merged and the site actually reachable
 by a judge. Sixteen commits of finished, audited work are sitting unmerged, and
 the deployed box serves nothing from outside because of a firewall rule only

@@ -18,6 +18,24 @@ export function toggle(current: Overrides, id: string): Overrides {
   return next
 }
 
+// Directional, where `toggle` is a flip. An offer names the state it wants,
+// not a change of state: routed through `toggle`, approving "rule this out"
+// for a row the person had already ruled out by hand would put it back, and
+// tapping twice would silently undo the first tap.
+export function ruleOut(current: Overrides, id: string): Overrides {
+  if (current.has(id)) return current
+  const next = new Set(current)
+  next.add(id)
+  return next
+}
+
+export function allow(current: Overrides, id: string): Overrides {
+  if (!current.has(id)) return current
+  const next = new Set(current)
+  next.delete(id)
+  return next
+}
+
 export function isRuledOut(current: Overrides, id: string): boolean {
   return current.has(id)
 }

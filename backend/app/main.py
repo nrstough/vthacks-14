@@ -15,6 +15,8 @@ from pathlib import Path
 from typing import Literal, Mapping
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -23,12 +25,15 @@ from app.accounts.product import sample_account
 from app.candidates import generate
 from app.chat import ChatUnavailable, ChatUpstreamError, chat, status as chat_status
 from app.chat.schemas import ChatRequest, ChatResponse, ChatStatus
+from app.history import ImportRefused, import_account
 from app.nessie import NessieUnavailable, NessieUpstreamError
 from app.nessie.roundtrip import account_from_nessie
 from app.ratelimit import RateLimiter, client_key
 from app.schemas import (
     CandidatesRequest,
     CandidatesResponse,
+    ImportAccountResponse,
+    ImportRequest,
     NessieAccountResponse,
     SampleAccountRequest,
     SampleAccountResponse,
@@ -167,6 +172,33 @@ def create_app(
     async def _nessie_upstream(_: Request, exc: NessieUpstreamError) -> JSONResponse:
         return JSONResponse(status_code=502, content={"detail": str(exc)})
 
+    @app.exception_handler(ImportRefused)
+    async def _import_refused(_: Request, exc: ImportRefused) -> JSONResponse:
+        # 422, not 500: the rows are well formed and simply cannot be planned.
+        # The message says which of the two reasons applies.
+        return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation(request: Request, exc: RequestValidationError) -> JSONResponse:
+        """FastAPI's own 422 body, except on the import route.
+
+        The default error echoes the offending value back in `input`, and for
+        a `missing` field that value is the WHOLE ROW, while for a list over
+        its `max_length` it is the WHOLE LIST. On the import route that means
+        a malformed 20,001-row upload answers with the person's entire bank
+        statement. `ctx` goes too: it can carry a non-serialisable exception
+        object, and re-encoding it here is what would turn a 422 into a 500.
+
+        Every other route keeps the body it has today, byte for byte, because
+        clients and tests read its exact shape.
+        """
+        errors = jsonable_encoder(exc.errors())
+        if request.url.path == "/api/accounts/import":
+            errors = [
+                {k: v for k, v in error.items() if k not in ("input", "ctx")} for error in errors
+            ]
+        return JSONResponse(status_code=422, content={"detail": errors})
+
     @app.get("/health")
     def health() -> dict[str, bool]:
         return {"ok": True}
@@ -212,6 +244,13 @@ def create_app(
     @app.post("/api/accounts/nessie", response_model=NessieAccountResponse)
     def api_nessie_account(req: SampleAccountRequest) -> NessieAccountResponse:
         return NessieAccountResponse.model_validate(account_from_nessie(req))
+
+    # A person's own bank export, planned and forgotten. Recurring income and
+    # bills are found by cadence; everyday spending is ASSUMED from the last
+    # eight weeks and is labelled as an assumption everywhere it appears.
+    @app.post("/api/accounts/import", response_model=ImportAccountResponse)
+    def api_import_account(req: ImportRequest) -> ImportAccountResponse:
+        return ImportAccountResponse.model_validate(import_account(req, date.today()))
 
     # Mounted last. A mount at "/" registered first would shadow every route
     # above it, and the API would answer 404 for /health and 405 for the two

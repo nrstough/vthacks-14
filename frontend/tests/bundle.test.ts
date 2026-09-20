@@ -83,6 +83,23 @@ test('the built bundle carries the plan tab label', () => {
   assert.ok(found, 'the Plan pill label is missing from the bundle')
 })
 
+// Same reasoning as the sandbox button, one step further: the approve control
+// is the gate. If it vanished, the explainer would still describe offers it
+// could no longer hand over, and the page would look deliberate rather than
+// broken. The label itself is composed at runtime from money(), so the grep is
+// on the fixed aria-label stem.
+test('the built bundle still carries the approve control', () => {
+  const found = bundles().some((code) => code.includes('Apply: '))
+  assert.ok(found, 'the suggestion approve control is missing from the bundle')
+})
+
+// The note under the input is the honest description of what the explainer can
+// do. It said the model "can't change the plan" until offers existed; if it
+// ever says that again beside a live approve control, the page is lying.
+test('the built bundle does not claim the explainer cannot change the plan', () => {
+  for (const code of bundles()) assert.doesNotMatch(code, /can.{0,3}t change the\s*plan/i)
+})
+
 function stylesheets(): string[] {
   const files = readdirSync(DIST).filter((f) => f.endsWith('.css'))
   assert.ok(files.length > 0, 'no built CSS in dist/assets — run `npm run build` first')
