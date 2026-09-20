@@ -80,6 +80,9 @@ export default function App() {
   // could reach the screen.
   const importedRows = useRef<ReturnType<typeof parseBankCsv>['rows']>([])
   const importSeq = useRef(0)
+  // Counts ACCOUNTS, not solves. The explainer's offers are cleared when this
+  // changes; see adopt().
+  const [accountGen, setAccountGen] = useState(0)
   const [importBalance, setImportBalance] = useState('')
   const [pendingFile, setPendingFile] = useState<string | null>(null)
   const [importNote, setImportNote] = useState<string | null>(null)
@@ -264,6 +267,12 @@ export default function App() {
     // Invalidate any solve still in flight for the previous account: its answer
     // would otherwise land on these rows and look like an answer about them.
     seq.current++
+    // And the explainer's offers, which were earned against the old account.
+    // Deliberately NOT `seq`, which counts solves rather than accounts: passing
+    // that to the panel wiped every pending offer on any re-solve, including
+    // the one an offer had just caused, so an approved offer vanished instead
+    // of reading as applied. Found in the browser, not by a test.
+    setAccountGen((g) => g + 1)
     setSolvedRequest(null)
     setSolvedRuledOut(NONE)
     setNewIds([])
@@ -643,7 +652,7 @@ export default function App() {
                 res={res}
                 source={source}
                 accountSource={account?.source ?? 'preset'}
-                generation={seq.current}
+                generation={accountGen}
                 onApply={applySuggestion}
               />
             </div>
