@@ -34,10 +34,17 @@ additive form costs nothing.
    `generate(...)` becomes `return generate_detailed(...)[0]`.
 3. **New** `generate_with_fallback_detailed(...) -> tuple[str, str, str | None]`,
    with `generate_with_fallback(...)` returning its first two elements.
-4. `chat()` calls the `_detailed` form. The plain names stay exported and stay
-   monkeypatchable, so `test_chat.py:530` and `:559` keep working untouched.
+4. `chat()` calls the `_detailed` form.
 
-**Breaks: nothing.**
+**Breaks: two** — `test_chat.py:543` and `:574`, corrected by the Codex review.
+The first draft claimed the plain names staying exported kept those
+monkeypatches working. It does not: they patch `app.chat.generate_with_fallback`
+and `chat()` now calls `generate_with_fallback_detailed`, so the patch never
+intercepts and both tests would attempt real transport with a dummy key. Repoint
+both patches at the `_detailed` name and give their fakes a third element.
+
+Two updates, against six for the in-place change, and the four positional
+callers (`:340`, `:397`, `:406`, `:414`) stay green.
 
 ## Step 2 — `backend/app/chat/schemas.py` (was Step 3)
 
@@ -85,10 +92,21 @@ has none).
 `**SUGGEST RULE OUT: c_gym**` must parse, or every bolded marker becomes "strip,
 no suggestion" and the feature silently never fires.
 
-**`_AMOUNT_RE` = `^-?\$?(\d{1,3}(,\d{3})*|\d+)(\.\d{2})?$`.** The first draft
-made comma grouping mandatory, which rejects `$1200` — what Gemini writes about
-half the time. Still ASCII-only, still rejects `"1,50"`, `"1.2.3"`, `".5"`,
-underscores, non-ASCII digits and a leading `+`.
+**`_AMOUNT_RE` = `^-?\$?([0-9]{1,3}(,[0-9]{3})*|[0-9]+)(\.[0-9]{2})?$`.**
+
+Two corrections. The first draft made comma grouping mandatory, which rejects
+`$1200` — what Gemini writes about half the time. And it used `\d`, which in
+Python is **Unicode-aware**, so the pattern that was described as a strict ASCII
+gate accepted non-ASCII digits outright. Verified on this project's interpreter:
+
+    r'^-?\$?(\d{1,3}(,\d{3})*|\d+)(\.\d{2})?$'   matches '٥٠', '５０', '12.٣٤'
+    the [0-9] form above                           rejects all three
+
+This mattered more than a tidy-up: the regex was the *sole* defence against
+`int()`'s permissiveness, and it had the identical hole. Every `\d` in this
+module is `[0-9]`, and the module compiles with `re.ASCII` as belt and braces.
+`"1,50"`, `"1.2.3"`, `".5"`, `"5."`, underscores and a leading `+` all still
+fail.
 
 **`to_cents(raw) -> int | None`** — length cap, then regex gate, then: capture a
 leading `-`, parse the absolute value, default a missing fractional half to
@@ -213,13 +231,18 @@ Inserting a section after `:60` renumbers every line cited below it.
 3. **:63-66** — the bullet naming the sliders and `"Can't do this"` changes from
    "tell the person to do it" to "offer it".
 4. **:67-69** — same rewrite for "point to the controls".
-5. **:73-74** — the carve-out. As written it bans headings, bullets and all
+5. **:63-66 again** — the "Use only figures that appear in the context below"
+   rule now contradicts carrying an amount the person stated in conversation,
+   which is by definition not in the rendered solve (Codex finding 5). Add an
+   explicit exemption: an amount the person says may be copied into a marker,
+   while computing or estimating any figure stays forbidden.
+6. **:73-74** — the carve-out. As written it bans headings, bullets and all
    markdown, which forbids the marker line. Must state the markers are the one
    exception and go last, after the prose.
-6. **:128** — soften "because the server was unreachable" to state only which
+7. **:128** — soften "because the server was unreachable" to state only which
    solver ran. It is asserted, never observed, and a 422 from an out-of-contract
    value would have the chat tell a judge the server was down.
-7. **:1-12** — module docstring: "The model explains. It never computes" gains
+8. **:1-12** — module docstring: "The model explains. It never computes" gains
    the offer channel, still true on numbers.
 
 Slider bounds are **not** added to the instruction. The backend does not know
@@ -377,6 +400,13 @@ message index, not on the turn.
    fixture (`:199-209`), so the candidate ids are identical across a preset
    change and id re-validation catches nothing there.
 
+   **A pending reply must be rejected too**, not just received suggestions
+   cleared (Codex finding 2). A request sent before `adopt()` can land after it
+   and repopulate controls that an effect has already cleared, because the panel
+   stays mounted across a preset change. `send()` captures the generation at
+   dispatch and drops the response if it no longer matches, alongside the
+   existing `ctl.signal.aborted` guard. Clearing state on its own is not enough.
+
    What a preset change actually invalidates is `adopt()` (**:181-197**):
    `setRuledOut(NONE)`, `setOpening`, `setBuffer`, `seq.current++`. A stale
    `rule_out` would re-introduce an override the person just had cleared; a stale
@@ -404,7 +434,28 @@ visually subordinate to the message.
 
 ## Step 12 — frontend tests
 
-`frontend/tests/chat-suggestions.test.ts`, ~8 tests. The load-bearing one is
+**The harness does not exist, and the first draft ignored that** (Codex finding
+4). `package.json:11` is `node --experimental-strip-types --test tests/*.test.ts`
+— no DOM, no React renderer, and adding one means a new dependency on venue wifi
+against a `node_modules` this worktree only symlinks. So the component-level
+assertions as first written cannot be executed.
+
+The work is split instead:
+
+- **Pure and fully tested** — every decision moves into `lib/suggestions.ts` as
+  plain functions over plain data: which suggestions are live given a generation,
+  what key a suggestion has, what a tap produces for each `kind`, and the two
+  clamps. This is where the real coverage goes, and it is the same shape as
+  `wallet/units.ts` and its existing test file.
+- **Verified by the build** — `tsc -b` proves the wiring type-checks, and the new
+  `bundle.test.ts` grep proves the control is present in the shipped bundle.
+- **Verified by hand, and said plainly** — that a tap is required before state
+  moves is asserted on the pure layer, but the *component* honouring it is
+  checked in the browser during Verification, not automatically. Acceptance
+  criterion 4 is therefore part automated, part manual, and the run spec must say
+  so rather than imply otherwise.
+
+`frontend/tests/chat-suggestions.test.ts`, ~8 tests against the pure layer. The load-bearing one is
 *a suggestion becomes a control, not applied state* — that assertion is the
 feature's entire safety claim. Plus: directional apply, double-tap idempotence,
 already-ruled-out, post-clamp label equals applied value, cushion clamped to
