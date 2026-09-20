@@ -18,7 +18,7 @@ proof, which is the only part nobody else has.
       solver and keeps working. Only mention it if the chip in the nav is spotted.
 - [ ] Refresh the two numbers in the build section. The suite keeps growing and
       quoting a stale figure to someone who then runs it is worse than rounding.
-      As of Sat 22:30 it is **2,165 backend tests plus 204 frontend tests**, and
+      As of Sat 22:30 it is **2,165 backend tests plus 205 frontend tests**, and
       the three demo accounts solve in roughly 3-8 ms (100 random accounts
       average under 3 ms each). Re-measure with
       `.venv/bin/pytest backend/ -m perf -s`; the figures move a little between
@@ -110,7 +110,7 @@ page otherwise — and opens itself the moment you rule something out, so the
 row you just moved is on screen when it lands. Verified in the browser on the
 exact click path a judge uses, mouse only, no keyboard focus: three changes
 becomes seven, the list opens, and "Pay the card minimum" is in it, struck
-through, reading "Can do this". It also reopens if you have collapsed it by
+through, reading "Can’t do this" and now ticked. It also reopens if you have collapsed it by
 hand and then rule out a second change. If you ever see a row appear to vanish
 here, the list closed and did not reopen — click the summary and carry on.
 
@@ -147,7 +147,7 @@ That paragraph is the impact answer. Do not cut it for time.
 > The hard part was trusting it. So there are two independent implementations,
 > a brute force and the constraint model, and they're checked against each
 > other on generated accounts. Two hundred instances, zero disagreements.
-> Thirteen hundred tests. Solves in under ten milliseconds."
+> Over two thousand tests. Solves in under ten milliseconds."
 
 If they want one more level:
 

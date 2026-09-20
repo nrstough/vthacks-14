@@ -19,8 +19,8 @@ screen is either returned by the solver or derived from dates and ids alone.
    with the what-if sliders beside it. The chart container is an image described by the text;
    the SVG is hidden from assistive tech.
 3. **Plan band**: the chosen changes in the order they take effect, then the left-out changes
-   with a reason each. Full width, with the left-out list collapsed until it has something to
-   show — see The override model.
+   with a reason each. Full width, with the left-out list collapsed until the reader rules
+   something out — see The override model for what that does and does not cover.
 
 **Ask** is the explainer, on its own tab. It replaces the main area rather than sitting beside
 the plan, because it is a thing judges probe rather than a thing that is presented: the
@@ -103,9 +103,9 @@ The older bug this all descends from is still worth avoiding: a single visual st
 it; two labels over two resting states was an over-correction.
 
 `src/lib/overrides.ts` owns the set and its translation to `locks`. `src/lib/cant.ts` owns the
-reading: `controlFor(section, ruledOut, id, label)` returns `{ id, checked, text, ariaLabel }`
-and `PrescriptionList.tsx` renders whatever it returns, so the two readings exist in exactly
-one place. The DOM ids are still `cant-<candidate id>` (`domId` in `src/lib/focus.ts`), because
+reading: `controlFor(ruledOut, id, label)` returns `{ id, checked, text, ariaLabel }` and
+`PrescriptionList.tsx` renders whatever it returns, so the one reading exists in exactly one
+place. It took a `section` argument while there were two readings; that parameter is gone. The DOM ids are still `cant-<candidate id>` (`domId` in `src/lib/focus.ts`), because
 focus restoration prefix-tests them; the id did not change when the label did.
 
 `locks.in` is always empty; pinning is not on the screen. Which section a row sits in is the
@@ -121,6 +121,24 @@ the claim worth making.
 `src/lib/considered.ts` decides when it opens: **any increase** in the override count opens it,
 a drop to zero closes it, and anything else leaves it alone. The last part is what lets a
 reader collapse it by hand without the next re-solve reopening it.
+
+**What this deliberately does not cover.** The rule watches the override count, not membership
+of the plan. A change can move into the left-out list without the count changing — drag the
+balance slider up and the solver stops needing a change, so its row leaves the plan while the
+section is shut. That row is not seen landing.
+
+This is a choice, not an oversight. Opening the section on every re-solve that reshuffles the
+plan would make it pop open repeatedly during a slider drag, which is the demo's smoothest
+beat and the one place the page must not jump. The row that has to be seen landing is the one
+the reader just acted on, and that is exactly the case the override count catches. A row
+leaving the plan because the whole answer changed is not a row anyone is tracking.
+
+One more interaction, low-severity and recorded rather than fixed: the focus-restore effect
+opens the section imperatively to focus a row inside it, and `onToggle` now writes that back
+into state. So a hand-collapsed section can be reopened by focus restore, defeating the
+`leave` branch. Reaching it needs a remembered row, focus genuinely lost, and that row inside
+the collapsed section — and collapsing puts focus on the `<summary>`, which makes it hard to
+arrange.
 
 Opening on any increase rather than only on the first override is load-bearing, not tidiness.
 A reader who rules out A, collapses the list, then rules out B produces 1 → 2; if that left the

@@ -67,17 +67,20 @@ test('the built bundle carries no demo wallet', () => {
   for (const code of bundles()) assert.doesNotMatch(code, /wallet-down/)
 })
 
-// The two pills are the whole navigation. If either label is missing the app
-// still renders, which is exactly why this is worth a grep rather than an eye.
-test('the built bundle carries both tab labels', () => {
+// The two pills are the whole navigation, so it is worth knowing they shipped.
+//
+// Only "Plan" is checked here, and that is not laziness. "Ask" is also the
+// explainer's submit-button text, so a bundle grep for it passes even with the
+// Ask pill deleted — a pin that cannot fail is worse than no pin, because it
+// reads like coverage. What the pills are actually made of is pinned at the
+// source instead, in `tabs.test.ts`.
+test('the built bundle carries the plan tab label', () => {
   // As a quoted string literal, not a bare substring: "Plan" on its own also
   // matches `withPlan`, which the chart uses everywhere. The minifier emits
   // backticks, so all three quote forms count.
-  for (const name of ['Plan', 'Ask']) {
-    const quoted = [`"${name}"`, `'${name}'`, `\`${name}\``]
-    const found = bundles().some((code) => quoted.some((q) => code.includes(q)))
-    assert.ok(found, `the ${name} pill label is missing from the bundle`)
-  }
+  const quoted = ['"Plan"', "'Plan'", '`Plan`']
+  const found = bundles().some((code) => quoted.some((q) => code.includes(q)))
+  assert.ok(found, 'the Plan pill label is missing from the bundle')
 })
 
 function stylesheets(): string[] {

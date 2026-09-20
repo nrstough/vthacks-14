@@ -17,11 +17,17 @@ const evalJs = async expr => (await send('Runtime.evaluate', { expression: expr,
 // meant a renamed or unmounted control produced a screenshot of whatever was
 // already on screen — and that file then got committed under docs/shots/ as
 // evidence of a view that was never rendered.
-const clickText = async t => {
-  const r = await evalJs(`(() => { const b = [...document.querySelectorAll('button')].find(x => x.textContent.trim() === ${JSON.stringify(t)}); if (!b) return 'missing'; b.click(); return 'ok' })()`)
-  if (r !== 'ok') throw new Error(`no button reads exactly ${JSON.stringify(t)} — nothing was captured for it`)
+// `scope` matters: "Ask" is both a pill and the explainer's submit button, so
+// an unscoped search picks whichever comes first in the DOM and would quietly
+// shoot the wrong view. Throws rather than returning 'missing', which is how a
+// screenshot of a view that was never rendered used to get committed as
+// evidence.
+const clickText = async (t, scope = 'button') => {
+  const r = await evalJs(`(() => { const b = [...document.querySelectorAll(${JSON.stringify(scope)})].find(x => x.textContent.trim() === ${JSON.stringify(t)}); if (!b) return 'missing'; b.click(); return 'ok' })()`)
+  if (r !== 'ok') throw new Error(`no ${scope} reads exactly ${JSON.stringify(t)} — nothing was captured for it`)
   return r
 }
+const clickPill = t => clickText(t, '.pillnav button')
 const shot = async name => { await sleep(700); const r = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true }); writeFileSync(`${prefix}-${name}.png`, Buffer.from(r.result.data, 'base64')); console.log('wrote', `${prefix}-${name}.png`) }
 await send('Page.enable'); await send('Runtime.enable')
 for (const [w, h, tag] of [[1440, 900, 'desktop'], [390, 844, 'mobile']]) {
@@ -29,7 +35,7 @@ for (const [w, h, tag] of [[1440, 900, 'desktop'], [390, 844, 'mobile']]) {
   await send('Page.navigate', { url: base }); await sleep(1800)
   await shot(`${tag}-plan`)
   console.log('tier3 click:', await clickText('$60.00')); await sleep(900); await shot(`${tag}-tier3`)
-  console.log('ask click:', await clickText('Ask')); await sleep(900); await shot(`${tag}-ask`)
-  console.log('back to plan:', await clickText('Plan')); await sleep(600)
+  console.log('ask click:', await clickPill('Ask')); await sleep(900); await shot(`${tag}-ask`)
+  console.log('back to plan:', await clickPill('Plan')); await sleep(600)
 }
 ws.close(); process.exit(0)

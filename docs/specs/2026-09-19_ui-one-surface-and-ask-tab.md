@@ -437,6 +437,102 @@ survives with exactly six matches, none inside a deleted block.
 
 See above; raw output in `docs/reports/2026-09-19_ui-one-surface-and-ask-tab-plan-review.md`.
 
-## Results
+## Results — executed Sat 2026-09-19, ~22:10–23:00
 
-To be appended after execution.
+Committed at `a2299fc`, with the audit fixes in the commit that follows it.
+
+**Correction to `a2299fc`'s own message.** It says "Nine browser checks and screenshots at
+1440 and 390 recorded in the run spec." That was wrong twice over when it was written: there
+are **eleven** checks, not nine, and this section still said "to be appended". The checks had
+been run — the evidence below is real — but the record did not exist at the time the message
+claimed it. Recorded here rather than by amending history.
+
+### Commands
+
+```
+cd frontend && npm run lint          exit 0
+cd frontend && npm run build         exit 0   637.38 kB / 189.06 kB gzip, ONE chunk (was two)
+cd frontend && npm test              209 pass, 0 fail, 0 skipped
+.venv/bin/pytest backend/ -q -rs     2165 passed, 10 deselected, 22.18s
+grep -c "SKIPPED.*test_parity"       0
+```
+
+Frontend arithmetic: 292 − 110 wallet = 182; +3 bundle, +1 cant, +7 considered, +2 focus,
++2 styles, +8 tabs = 205 at `a2299fc`; then −1 vacuous bundle pin and +5 source pins from the
+audit = **209**.
+
+### Acceptance criteria
+
+| # | Criterion | Result |
+|---|---|---|
+| 1 | No Solana/wallet string in the bundle | **Pass**, automated. Also zero `.wallet` in `src/`. |
+| 2 | No `.wallet` selector in the stylesheet | **Pass**, automated, the D12 inverse pin. |
+| 3 | Pills read Plan/Ask, Plan default, dot on Plan | **Pass.** Helpers in `tabs.test.ts`; the wiring pinned at source after the audit found the helpers could have been exported and ignored. Browser: pills `Plan`/`Ask`, `aria-current` on Plan, dot present on the Plan pill at tier 3 and absent from Ask. |
+| 4 | Conversation survives tab switches; status-call delta zero | **Pass**, browser only. Asked a question, switched to Plan before the reply, switched back: both turns intact, log scrolled to the latest. `/api/chat/status` delta **0** across three round trips (absolute 2 on load — StrictMode double-invokes). |
+| 5 | List starts collapsed, opens on override, closes on reset | **Pass.** All three transitions automated. Browser: collapsed on load; ticking the card row by mouse with no keyboard focus (the Safari path) opened it with the row visible; hand-collapse then a second override reopened it; both `Clear n overrides` and a preset re-collapsed it, including from a hand-opened list at zero overrides. |
+| 6 | Focus restored only when plan visible, row survives | **Pass**, automated, both counterfactuals including `clear === false`. |
+| 7 | Plan tab materially shorter | **Pass.** 2,563 → **1,770px** at 1440 (−31%). Tier 3 2,840 → 2,634. Ask 1,044. |
+| 8 | Chip on both tabs, no banned word | **Pass.** Strings automated; the chip is in `<header>` outside the tab switch, now pinned at source. Browser: identical text on both tabs. Backend-down case **not re-run** — the chip's offline text is unchanged code and was verified before this change. |
+| 9 | Frontend green at the new floor; backend unmoved | **Pass**, see Commands. |
+| 10 | `minmax(0, 1fr)` still ≥ 6 | **Pass.** Exactly six, zero headroom, none inside a deleted block. |
+
+### Browser checks
+
+1. **Chat not rendered on Plan** — wrapper computes `display: none`, panel returns **0** client rectangles, **0** focusable descendants in the tab order. Before the `.main > [hidden]` rule: `display: flex`, 363px tall, **6** focusable descendants.
+2. **Conversation survives** — see criterion 4.
+3. **Status-call delta 0** — see criterion 4.
+4. **Tick opens the list** — 3 changes → 7, list opened, "Pay the card minimum" in it, struck through, ticked.
+5. **Hand-collapse then second override reopens** — passed; row visible.
+6. **Both reset paths collapse** — passed, including the 0 → 0 case.
+7. **Chip on both tabs** — identical. Backend-down half not re-run; see criterion 8.
+8. **Scroll jump at the tick beat** — 1048 → 1630 before; after the change the page no longer scrolls at all at the default preset (0 → 0), because the collapsed list shortens the document enough that the focused row is already in view. Improved, not worsened.
+9. **Rendered pills** — see criterion 3.
+10. **Scroll position across a tab switch** — not preserved. Recorded as a known gap.
+11. **Screenshots** — `docs/shots/2026-09-19_ui-one-surface-and-ask-tab/`, six files. Desktop downscaled to 1200 tall; mobile kept at native 390 wide, because downscaling a 390×3149 page by its longest edge crushes it to 148px and proves nothing.
+
+### Tab order, measured
+
+Plan tab: **3** checkboxes plus the left-out `<summary>`, zero inside `.chart-wrap`, zero
+inside the hidden explainer. It was 11 checkboxes before the list began collapsed; the other
+eight join when it opens. Rows inside a closed `<details>` still report client rectangles in
+Chrome but are not focusable, so tabbability has to be tested by attempting focus.
+
+### Deviations
+
+1. **D18 was added mid-execution**, after Nathan saw the finished left-out list. It changed
+   `cant.ts` and `cant.test.ts`, neither of which was in "What will change", and it has no
+   acceptance criterion and never went through the Codex plan review. The change is sound and
+   tested; the process record is not, and that is the deviation.
+2. **D16 shipped incomplete and was fixed after the audit.** The `is-new` suppression inside
+   `apply()` covers only responses landing while Plan is hidden. The ordinary path — tick, watch
+   the highlight, then visit Ask and come back — left `newIds` set, so the animation replayed on
+   remount, which is the one outcome D16 named unacceptable. Now also cleared on leaving Plan.
+   Browser-confirmed: 5 rows highlighted while watching, 0 after the round trip.
+3. **The left-out list does not open for rows that leave the plan without an override change.**
+   Deliberate; reasoning in `docs/features/frontend.md`.
+4. **One bundle pin was vacuous.** "Ask" is also the explainer's submit-button text, so the pin
+   passed with the Ask pill deleted. Replaced by source pins.
+5. **Backend-down chip check not re-run.** Unchanged code, verified before this change.
+
+## Claude critique (adversarial, Opus)
+
+Round 1 graded **Fail**, on Test coverage and Documentation. Thirteen findings; the ones that
+mattered:
+
+- `.rx-row.is-new` re-flashing on the Plan → Ask → Plan round trip (deviation 2) — verified in
+  code, the one thing D16 called unacceptable, and documented as fixed when it was not.
+- `docs/demo-script.md` told the presenter the left-out row reads "Can do this" — the string
+  D18 had deleted, in the file that gets read aloud under pressure.
+- `docs/features/frontend.md` still documented `controlFor(section, …)` two paragraphs below the
+  table saying there is one reading.
+- The commit message claimed a Results section that did not exist, and said nine checks when
+  the spec lists eleven.
+- The "Ask" bundle pin could not fail.
+- `shoot.mjs` had the same ambiguity, in the script the same commit had hardened.
+- The frontend count in the demo script was off by one.
+- Acceptance criteria 3 and 5 had no automated coverage of their rendering halves.
+- Mobile screenshots downscaled to 96px wide.
+
+All fixed. The audit also confirmed D1–D15, D17 and D18 implemented as stated, all 7 Codex plan
+items and all 9 critique items in code, exact test arithmetic, no CLAUDE.md violation, and that
+escalating the footer contradiction rather than resolving it was the right call.

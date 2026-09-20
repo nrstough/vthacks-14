@@ -22,7 +22,7 @@ export default function ChatPanel({
   res,
   source,
   accountSource = 'preset',
-  visible = true,
+  visible,
 }: {
   req: SolveRequest
   res: SolveResponse
@@ -30,8 +30,11 @@ export default function ChatPanel({
   accountSource?: AccountSource
   /** Whether this panel is the showing tab. The panel stays mounted when it
    *  is not, so the conversation survives; see the scroll effect below for
-   *  why it still has to know. */
-  visible?: boolean
+   *  why it still has to know.
+   *
+   *  Required, deliberately. A default of `true` would let a future call site
+   *  omit it and silently reintroduce the exact bug the prop exists to fix. */
+  visible: boolean
 }) {
   const [messages, setMessages] = useState<ChatTurn[]>([])
   const [draft, setDraft] = useState('')

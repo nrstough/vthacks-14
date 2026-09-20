@@ -91,6 +91,19 @@ export default function App() {
     planVisibleRef.current = planVisible
   }, [planVisible])
 
+  // Leaving the plan tab retires the "new row" highlight.
+  //
+  // Suppressing it inside `apply` covers only responses that LAND while the
+  // plan is hidden. The ordinary path is the other one: the reader ticks a
+  // row, the answer arrives while they are watching, the highlight plays out,
+  // and `newIds` then just sits there. Switching to Ask unmounts the list;
+  // coming back mounts it again with those ids still set, and a 900ms
+  // animation re-announces rows as new that the reader watched arrive minutes
+  // ago. The highlight has done its job by then, so drop it on the way out.
+  useEffect(() => {
+    if (!planVisible) setNewIds([])
+  }, [planVisible])
+
   // Open the left-out list when a change moves into it, close it when the
   // reader is back to no overrides. The rule is a transition rather than
   // `count > 0` so that collapsing the list by hand is not undone by the next
