@@ -35,7 +35,7 @@ reason on screen is either returned by the solver or derived from dates and ids 
 
 ## Account sources
 
-Two buttons beside the presets load a whole account, not just a pair of balances:
+Three controls beside the presets load a whole account, not just a pair of balances:
 `as_of`, `horizon_end`, `scheduled`, both balances, and a fresh candidate set.
 
 - **Provenance is stated, never implied.** The status line above the verdict says which
@@ -57,6 +57,33 @@ Two buttons beside the presets load a whole account, not just a pair of balances
 - **A loaded balance is put on the slider grid** by moving the floor, not the balance.
 - **The explainer remounts** when the account changes, so a conversation never spans two
   accounts.
+
+## Importing a bank export
+
+A third source control beside the two account buttons: a file input labelled
+"Import a bank export". The CSV is parsed in the browser
+(`src/lib/importCsv.ts`), the person types today's balance, and the rows go to
+`POST /api/accounts/import`. The file itself never leaves the page; the rows
+do, merchant names included, because the server needs them to group and
+classify. They are not stored, not logged, and never returned: every row and
+candidate that comes back is labelled by category.
+
+Import fails closed when the server is unreachable: the built-in solver can
+re-solve a request but cannot detect streams in raw history, so there is
+nothing honest to fall back to. Presets keep working offline as before.
+
+Below the chart, `ProvenancePanel` says what the plan is built from: the
+income and recurring charges found, the next payday in words, the assumed
+everyday-spending figure with its method, how many quiet days were counted as
+zero, one-off inflows left out, and a stale-export warning past a week. Every
+stream has a tick box; unticking one rebuilds the request without its rows and
+without the candidates aimed at them, and re-ticking restores them because the
+rebuild always starts from the original response.
+
+A standalone sentence under the verdict — passed to `VerdictBand` as `note` —
+says that everyday spending is an assumption. It is a separate sentence rather
+than an extra clause because tiers 2 and 3 do not end in "Sufficient under the
+schedule shown".
 
 ## The override model
 

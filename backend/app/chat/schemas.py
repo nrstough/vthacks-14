@@ -27,7 +27,7 @@ class ChatRequest(Strict):
     response: SolveResponse  # what the solver answered; the only source of numbers
     # Where the account itself came from, which is not the same question as
     # which solver ran. Defaulted so every existing client keeps working.
-    account_source: Literal["preset", "modelled", "nessie"] = "preset"
+    account_source: Literal["preset", "modelled", "nessie", "import"] = "preset"
 
     @model_validator(mode="after")
     def _last_turn_is_the_user(self) -> ChatRequest:

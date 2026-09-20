@@ -354,3 +354,111 @@ behind the dev proxy answers with an empty 500.
 
 Responses: `200` with the body above, or `422` when `horizon_days` is out of
 range, `as_of` is not an ISO date, or an unknown field is sent.
+
+
+## `POST /api/accounts/import`
+
+Plans from a person's own bank export. Additive: `/api/solve` and
+`/api/candidates` are unchanged, and a client that never imports never calls
+this. Stateless like everything else — the rows are planned and forgotten.
+
+The browser parses the CSV; this endpoint takes rows, not a file.
+
+```jsonc
+{
+  "rows": [                            // 1..20000
+    { "date": "2026-08-04",            // YYYY-MM-DD, 1970-01-01..2100-12-31
+      "description": "KROGER #382",    // 1..200 chars, used and never returned
+      "amount_cents": -2500 }          // signed, non-zero, |amount| <= 10^8
+  ],
+  "as_of": "2026-09-21",               // optional, default the server's today
+  "horizon_days": 30,                  // optional, 14..45
+  "opening_balance_cents": 41280,      // required: exports carry no balance.
+                                       // The balance INCLUDING anything that
+                                       // posted today — see the cutoff below.
+  "buffer_cents": 2500                 // optional, default 2500
+}
+```
+
+```jsonc
+{
+  "as_of": "2026-09-21",
+  "horizon_end": "2026-10-20",
+  "opening_balance_cents": 41280,
+  "buffer_cents": 2500,
+  "scheduled": [ /* ScheduledTxn, exactly as /api/solve accepts them */ ],
+  "candidates": [ /* Candidate, likewise */ ],
+  "meta": { /* the same CandidatesMeta /api/candidates returns */ },
+  "source": "import",
+  "streams": [
+    { "id": "s_001",
+      "kind": "income",                // income | bill | discretionary
+      "label": "Income (weekly)",      // from the CATEGORY, never the brand
+      "category": "unknown",
+      "cadence": "weekly",             // weekly | biweekly | semimonthly | monthly
+      "anchor": "Tuesday",
+      "amount_cents": 47500,
+      "occurrences": 35,
+      "last_seen": "2026-09-16",
+      "active": true,                  // false = lapsed, nothing projected
+      "source_row_indexes": [3, 10],   // indexes into the REQUEST's rows
+      "projected_ids": ["t_s_001_01"] }
+  ],
+  "provenance": {
+    "history_start": "2024-08-19", "history_end": "2026-09-18",
+    "history_days": 761, "imputed_zero_days": 421, "rows_used": 1060,
+    "weeks_used_for_assumed": 8,
+    "assumed_method": "same_weekday_8_week_median",  // null if under 56 days
+    "assumed_ids": ["f_20260922"],
+    "next_payday": "2026-09-22", "pay_cadence": "weekly",
+    "income_not_counted_today": ["s_001"],   // due today, not yet posted
+    "income_already_posted": ["s_002"],      // its period is already in the balance
+    "stale_days": 3,
+    "unscheduled_inflow_count": 165, "unscheduled_inflow_cents": 220000,
+    "truncated_assumed_rows": 0,
+    "rejected_rows": [{ "index": 7, "reason": "after_as_of" }]
+  }
+}
+```
+
+**No merchant name is ever returned.** Descriptions are needed to group and
+classify and are used for nothing else; every row and candidate in the
+response is labelled from its lexicon category. That is also why this route's
+422 body carries neither `input` nor `ctx` — FastAPI's default echoes the
+offending value, which for a missing field is the whole row and for an
+oversized list is the whole statement. Every other route's 422 body is
+unchanged.
+
+**Assumed rows** have ids beginning `f_`, `kind: "discretionary"`,
+`recurring: false`, and a description beginning `Everyday spending (assumed`.
+They are an estimate — the median of the same weekday over the last eight
+weeks — and **no candidate ever targets one**: the solver plans around
+assumed spending and never proposes cancelling it. A client must not present
+them as transactions that exist.
+
+**The balance cutoff.** `opening_balance_cents` includes everything posted
+through `as_of`. An income occurrence due on `as_of` is therefore *not*
+projected — if it posted it is already in the balance, and if it has not,
+counting it is optimistic — and its stream id appears in
+`income_not_counted_today`. More generally, an occurrence is skipped when a
+posted row in the export matches it: each row is assigned to the occurrence
+it is NEAREST to, so a payment that arrived early or late settles the
+occurrence it belongs to rather than its neighbour's. A row further than
+half an interval from every occurrence matches none. Matching is per
+stream, never per payee: two subscriptions at one merchant share a payee
+and only one may have been taken.
+
+`stale_days` is the raw gap between the last exported day and `as_of`, always
+present and often zero. It is a NUMBER, not a flag: do not read non-zero as
+stale. This app's own threshold is seven days.
+
+**Rejections, never silent drops.** A row after `as_of` or more than three
+years old is reported in `rejected_rows` with its index. If nothing survives,
+the answer is a 422 rather than an empty plan.
+
+Responses: `200` with the body above; `422` for malformed input, for fewer
+than ten usable rows, for a history where every row was rejected, for a
+projection that would exceed the 2000-row schedule limit, and for a recurring
+charge or a day's spending too large to fit a scheduled amount (rows are
+capped individually, but a day is the sum of its rows). Assumed rows are truncated before any detected row is
+dropped, and the count appears in `truncated_assumed_rows`.

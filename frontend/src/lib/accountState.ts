@@ -6,13 +6,18 @@
 // load leaving the buttons disabled forever. Both are one-line tests here and
 // neither is testable through the component, which nothing in tests/ mounts.
 
-import type { LoadedAccount, SolveRequest } from '../types'
+import type { ImportAccountResponse, LoadedAccount, SolveRequest } from '../types'
 
-export type LoadKind = 'modelled' | 'nessie'
+export type LoadKind = 'modelled' | 'nessie' | 'import'
 
 export interface AccountState {
   account: LoadedAccount | null
   base: SolveRequest
+  // The import response exactly as it arrived. Unticking a stream rebuilds
+  // the base from THIS, never from the current base, so re-ticking restores
+  // the rows instead of needing a second import.
+  original: ImportAccountResponse | null
+  excluded: ReadonlySet<string>
   loading: LoadKind | null
   error: string | null
   // The token of the load currently in flight, handed in by the caller. A
@@ -33,9 +38,20 @@ export type AccountAction =
   | { type: 'succeed'; seq: number; account: LoadedAccount; base: SolveRequest }
   | { type: 'fail'; seq: number; message: string }
   | { type: 'preset'; base: SolveRequest }
+  | { type: 'streams'; excluded: ReadonlySet<string>; base: SolveRequest }
+
+const NOTHING_EXCLUDED: ReadonlySet<string> = new Set<string>()
 
 export function initial(base: SolveRequest): AccountState {
-  return { account: null, base, loading: null, error: null, seq: NO_LOAD }
+  return {
+    account: null,
+    base,
+    original: null,
+    excluded: NOTHING_EXCLUDED,
+    loading: null,
+    error: null,
+    seq: NO_LOAD,
+  }
 }
 
 export function accountReducer(state: AccountState, action: AccountAction): AccountState {
@@ -49,6 +65,10 @@ export function accountReducer(state: AccountState, action: AccountAction): Acco
         ...state,
         account: action.account,
         base: action.base,
+        original: action.account.source === 'import' ? action.account : null,
+        // A fresh import starts with nothing unticked; carrying the previous
+        // selection over would apply it to ids that no longer exist.
+        excluded: NOTHING_EXCLUDED,
         loading: null,
         error: null,
       }
@@ -65,10 +85,17 @@ export function accountReducer(state: AccountState, action: AccountAction): Acco
       return {
         account: null,
         base: action.base,
+        original: null,
+        excluded: NOTHING_EXCLUDED,
         loading: null,
         error: null,
         seq: NO_LOAD,
       }
+
+    case 'streams':
+      // Only meaningful for an import, and only while one is loaded.
+      if (state.original === null) return state
+      return { ...state, excluded: action.excluded, base: action.base }
   }
 }
 
@@ -88,3 +115,8 @@ export const fail = (seq: number, message: string): AccountAction => ({
   message,
 })
 export const preset = (base: SolveRequest): AccountAction => ({ type: 'preset', base })
+export const streams = (excluded: ReadonlySet<string>, base: SolveRequest): AccountAction => ({
+  type: 'streams',
+  excluded,
+  base,
+})

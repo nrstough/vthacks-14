@@ -111,6 +111,15 @@ ACCOUNT_SOURCE = {
         "plainly if the user asks where it came from. Amounts are whole dollars because "
         "the sandbox stores whole dollars."
     ),
+    "import": (
+        "Account: imported from the user's OWN bank export, so the recurring income and "
+        "bills are real. Merchant names were deliberately not sent to you; each row is "
+        "labelled by category instead. Rows described as \"Everyday spending (assumed "
+        "from your last 8 weeks)\" are NOT transactions that exist: they are an estimate "
+        "from the median of the same weekday over the user's last eight weeks. Never "
+        "call them scheduled charges, never suggest cancelling one, and say they are an "
+        "assumption if the user asks about them."
+    ),
 }
 
 

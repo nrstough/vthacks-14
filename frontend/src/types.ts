@@ -3,7 +3,7 @@
 // Where the account on screen came from, which is a different question from
 // which solver produced the numbers. A union, not an enum: the project compiles
 // with erasableSyntaxOnly and Node's type stripping needs the same.
-export type AccountSource = 'preset' | 'modelled' | 'nessie'
+export type AccountSource = 'preset' | 'modelled' | 'nessie' | 'import'
 
 export type TxnKind = 'income' | 'bill' | 'discretionary'
 export type Action = 'skip' | 'defer' | 'downgrade' | 'cancel'
@@ -178,4 +178,64 @@ export interface NessieAccountResponse {
   not_round_tripped: NotRoundTripped[]
 }
 
-export type LoadedAccount = SampleAccountResponse | NessieAccountResponse
+export type Cadence = 'weekly' | 'biweekly' | 'semimonthly' | 'monthly'
+export type RejectReason = 'after_as_of' | 'older_than_3_years' | 'zero_amount'
+
+export interface ImportRow {
+  date: string
+  description: string
+  amount_cents: number
+}
+
+// A recurring payee the server found by cadence. `label` is built from the
+// lexicon CATEGORY, never the merchant brand: the raw descriptor stays in the
+// request and is never returned.
+export interface Stream {
+  id: string
+  kind: 'income' | 'bill' | 'discretionary'
+  label: string
+  category: string
+  cadence: Cadence
+  anchor: string
+  amount_cents: number
+  occurrences: number
+  last_seen: string
+  active: boolean
+  source_row_indexes: number[]
+  projected_ids: string[]
+}
+
+export interface ImportProvenance {
+  history_start: string
+  history_end: string
+  history_days: number
+  imputed_zero_days: number
+  rows_used: number
+  weeks_used_for_assumed: number | null
+  assumed_method: 'same_weekday_8_week_median' | null
+  assumed_ids: string[]
+  next_payday: string | null
+  pay_cadence: Cadence | null
+  income_not_counted_today: string[]
+  income_already_posted: string[]
+  stale_days: number
+  unscheduled_inflow_count: number
+  unscheduled_inflow_cents: number
+  truncated_assumed_rows: number
+  rejected_rows: { index: number; reason: RejectReason }[]
+}
+
+export interface ImportAccountResponse {
+  as_of: string
+  horizon_end: string
+  opening_balance_cents: number
+  buffer_cents: number
+  scheduled: ScheduledTxn[]
+  candidates: Candidate[]
+  meta: CandidatesResponse['meta']
+  source: 'import'
+  streams: Stream[]
+  provenance: ImportProvenance
+}
+
+export type LoadedAccount = SampleAccountResponse | NessieAccountResponse | ImportAccountResponse

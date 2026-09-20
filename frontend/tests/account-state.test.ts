@@ -16,9 +16,10 @@ import {
   initial,
   preset,
   start,
+  streams,
   succeed,
 } from '../src/lib/accountState.ts'
-import type { AccountState } from '../src/lib/accountState.ts'
+import type { AccountState, LoadKind } from '../src/lib/accountState.ts'
 import { SCENARIOS } from '../src/fixtures/scenarios.ts'
 import type { LoadedAccount } from '../src/types.ts'
 
@@ -43,7 +44,7 @@ function page() {
     get state() {
       return state
     },
-    startLoad(kind: 'modelled' | 'nessie') {
+    startLoad(kind: LoadKind) {
       const mine = ++token
       state = accountReducer(state, start(kind, mine))
       return mine
@@ -53,6 +54,9 @@ function page() {
     },
     break_(mine: number, message: string) {
       state = accountReducer(state, fail(mine, message))
+    },
+    toggleStreams(excluded: ReadonlySet<string>) {
+      state = accountReducer(state, streams(excluded, state.base))
     },
     choosePreset() {
       // The component bumps its token here as well as resetting the reducer,
@@ -92,13 +96,20 @@ test('a result for a load the user has replaced is ignored', () => {
   assert.equal(p.state.loading, 'nessie')
 })
 
+// `LoadedAccount` now includes an imported account, which has no seed. These
+// tests only ever settle modelled accounts, so narrow rather than widen them.
+function seedOf(account: LoadedAccount | null): number | undefined {
+  if (account === null || account.source === 'import' || account.source === 'nessie') return undefined
+  return account.seed
+}
+
 test('the second of two loads is the one that lands', () => {
   const p = page()
   const first = p.startLoad('modelled')
   const second = p.startLoad('nessie')
   p.settle(first, modelled(1))
   p.settle(second, modelled(2))
-  assert.equal(p.state.account?.seed, 2)
+  assert.equal(seedOf(p.state.account), 2)
   assert.equal(p.state.loading, null)
 })
 
@@ -159,7 +170,7 @@ test('a load still lands after the user has used a preset', () => {
   const mine = p.startLoad('nessie')
   p.settle(mine, modelled(7))
   assert.equal(p.state.loading, null, 'the spinner must stop')
-  assert.equal(p.state.account?.seed, 7, 'the account must land')
+  assert.equal(seedOf(p.state.account), 7, 'the account must land')
 })
 
 test('loads keep landing after several presets', () => {
@@ -168,7 +179,88 @@ test('loads keep landing after several presets', () => {
     p.choosePreset()
     const mine = p.startLoad('modelled')
     p.settle(mine, modelled(i))
-    assert.equal(p.state.account?.seed, i)
+    assert.equal(seedOf(p.state.account), i)
     assert.equal(p.state.loading, null)
   }
+})
+
+// ---- imported accounts -----------------------------------------------
+
+function importAccount(assumed = ['f_1']): LoadedAccount {
+  return {
+    as_of: '2026-09-21',
+    horizon_end: '2026-10-20',
+    opening_balance_cents: 41000,
+    buffer_cents: 2500,
+    scheduled: [],
+    candidates: [],
+    meta: { rows_considered: 0, protected: [], unrecognised: [], not_actionable: [], truncated: false },
+    source: 'import',
+    streams: [],
+    provenance: {
+      history_start: '2026-01-01',
+      history_end: '2026-09-18',
+      history_days: 261,
+      imputed_zero_days: 0,
+      rows_used: 10,
+      weeks_used_for_assumed: 8,
+      assumed_method: 'same_weekday_8_week_median',
+      assumed_ids: assumed,
+      next_payday: '2026-09-22',
+      pay_cadence: 'weekly',
+      income_not_counted_today: [],
+      income_already_posted: [],
+      stale_days: 0,
+      unscheduled_inflow_count: 0,
+      unscheduled_inflow_cents: 0,
+      truncated_assumed_rows: 0,
+      rejected_rows: [],
+    },
+  } as LoadedAccount
+}
+
+test('an import keeps the original response, so unticking can rebuild from it', () => {
+  const p = page()
+  const mine = p.startLoad('import')
+  p.settle(mine, importAccount())
+  assert.equal(p.state.original?.source, 'import')
+  assert.equal(p.state.excluded.size, 0)
+})
+
+test('a stale import that lands after a preset is ignored', () => {
+  const p = page()
+  const mine = p.startLoad('import')
+  p.choosePreset()
+  p.settle(mine, importAccount())
+  assert.equal(p.state.account, null, 'the preset must win')
+  assert.equal(p.state.original, null)
+  assert.equal(p.state.loading, null, 'the control must re-enable')
+})
+
+test('a second import clears the first one’s unticks', () => {
+  const p = page()
+  const first = p.startLoad('import')
+  p.settle(first, importAccount())
+  p.toggleStreams(new Set(['s_001']))
+  assert.equal(p.state.excluded.size, 1)
+
+  const second = p.startLoad('import')
+  p.settle(second, importAccount(['f_2']))
+  assert.equal(p.state.excluded.size, 0, 'ticks from the previous export name ids that no longer exist')
+})
+
+test('a stream toggle before any import is ignored rather than crashing', () => {
+  const p = page()
+  const before = p.state
+  p.toggleStreams(new Set(['s_001']))
+  assert.deepEqual(p.state, before)
+})
+
+test('choosing a preset forgets the imported account entirely', () => {
+  const p = page()
+  const mine = p.startLoad('import')
+  p.settle(mine, importAccount())
+  p.choosePreset()
+  assert.equal(p.state.original, null)
+  assert.equal(p.state.excluded.size, 0)
 })
