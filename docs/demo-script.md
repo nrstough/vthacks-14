@@ -173,12 +173,19 @@ click on the nav. The second pill, **Ask**, is a Gemini explainer that answers
 questions about the plan currently on screen. It is there for judges who
 probe, not for the script, and nothing in the four minutes depends on it.
 
-**Do not open it unprompted.** As of Sat 22:40 it is unreliable: measured
-round trips of 28 and 34 seconds, one answer that came back as a fragment of
-its own system prompt, and one failure that fell through the whole model chain
-(`gemini-3.8-flash` → `gemini-3.5-flash` → `gemini-2.5-flash`) to a model
-Google has retired for new keys. That is a backend/model-config problem in the
-chat lane, not the tab.
+**Treat it as optional.** As of Sat 23:30 it answers correctly but not
+reliably: measured 3 of 5 questions answered, at 4.5s, 4.3s and 19s, with two
+timeouts costing about 50s each. A timeout shows "The explainer failed" and
+costs you nothing else — the plan is untouched.
+
+It was worse earlier, and the cause is now understood and fixed. The model
+chain was `gemini-3.8-flash` -> `gemini-3.5-flash` -> `gemini-2.5-flash`: the
+primary was out of quota (429, retried once, ~2.5s wasted per question), the
+middle one ground for 20-26s on this prompt and returned junk or nothing —
+that is where the answer that was a fragment of its own system prompt came
+from — and the last had been retired by Google, so the error you saw named
+the wrong model entirely. `gemini-3.6-flash` is the primary now and answers
+this prompt in about 4s. What remains is upstream latency, not configuration.
 
 If a judge asks what it is, say it explains the plan in words and that every
 number in it comes from the solver, not the model — which is true and is the
