@@ -9,42 +9,60 @@ frontend consumes a shape the backend defines.
 
 ---
 
-## Step 1 — `gemini.py`: the finish reason, and reasoning parts
+## Step 1 — `gemini.py`: reasoning parts, and a detailed variant
 
-**Why first:** D2 depends on knowing the finish reason in `chat()`, and every
-later step consumes it.
+**Revised after the critique.** The first draft changed `generate` and
+`generate_with_fallback` in place. That breaks six tests, not the two the spec
+recorded: `test_chat.py:340` asserts `gemini.generate(...) == "ok"`, and `:397`,
+`:406`, `:414` unpack a 2-tuple from `generate_with_fallback`. Additive variants
+break none.
 
-`extract_text(payload) -> str` (**:194**) keeps its signature. Five tests assert
-on its string return (`test_chat.py:272,277,289,299,315`) and there is no reason
-to break them. The finish reason is read in `generate` from the payload it
-already has.
+Worse, the justification was thin. The amendment claimed `SUGGEST OPENING:
+$1,200.` survives `trim_to_sentence` and parses to 120000 cents. The first half
+is true; the second is not, because `_AMOUNT_RE` (Step 2) rejects a bare
+trailing dot — `(\.\d{2})?$` needs two digits or none. Every other truncation
+that could survive the trim has no sentence end and is deleted whole, or fails
+the candidate-membership check. The finish-reason gate is therefore
+**defence-in-depth, not the load-bearing guard**, and is kept only because the
+additive form costs nothing.
 
-1. **:200** — add the `thought` filter (D11). Currently:
-   ```python
-   text = "".join(p.get("text", "") for p in parts if isinstance(p, dict)).strip()
-   ```
-   becomes a comprehension that also skips a part whose `thought` is truthy.
-   Signature unchanged, so the five tests stay green.
+1. **:200** — add the `thought` filter (D11). Signature unchanged, so the five
+   `extract_text` tests stay green.
+2. **New** `generate_detailed(...) -> tuple[str, str | None]` — the current body
+   of `generate`, also returning
+   `(payload.get("candidates") or [{}])[0].get("finishReason")`.
+   `generate(...)` becomes `return generate_detailed(...)[0]`.
+3. **New** `generate_with_fallback_detailed(...) -> tuple[str, str, str | None]`,
+   with `generate_with_fallback(...)` returning its first two elements.
+4. `chat()` calls the `_detailed` form. The plain names stay exported and stay
+   monkeypatchable, so `test_chat.py:530` and `:559` keep working untouched.
 
-2. **:132-161** — `generate` returns `tuple[str, str | None]`. At **:161**,
-   `return extract_text(payload)` becomes the text plus
-   `(payload.get("candidates") or [{}])[0].get("finishReason")`. Read from the
-   same payload; no second call.
+**Breaks: nothing.**
 
-3. **:164-192** — `generate_with_fallback` returns
-   `tuple[str, str, str | None]` — text, model, finish reason. Docstring at
-   **:170** updated.
+## Step 2 — `backend/app/chat/schemas.py` (was Step 3)
 
-4. Export `FINISH_MAX_TOKENS` (already a constant at **:49**) for `chat()` to
-   compare against rather than re-typing the literal.
+**Reordered after the critique:** `suggestions.py` constructs `Suggestion`
+objects at runtime, so it must import from `schemas.py`. If `schemas.py` also
+imported `MAX_SUGGESTIONS` from `suggestions.py`, that is a cycle that
+`from __future__ import annotations` does not break. The constant lives here,
+beside `MAX_TURNS`/`MAX_TURN_CHARS` at **:15-16**, and the dependency runs one
+way only.
 
-**Breaks:** `test_chat.py:530` and `:559` monkeypatch `generate_with_fallback`
-with a fake returning a 2-tuple. Both fakes gain a third element. Fixed in
-Step 8, not here, so the suite is red only between steps.
+1. **:15-16** — add `MAX_SUGGESTIONS = 3`, `MAX_AMOUNT_CHARS = 20`.
+2. Import `Cents`, `Id` from `app.schemas` alongside **:13**.
+3. New `Suggestion(Strict)` after **:37** — `kind`, `candidate_id`,
+   `amount_cents`, and a `@model_validator(mode="after")` enforcing exactly one
+   payload matched to `kind`, mirroring `_last_turn_is_the_user` (**:32-36**).
+4. **:39-41** — `ChatResponse` gains
+   `suggestions: list[Suggestion] = Field(default_factory=list, max_length=MAX_SUGGESTIONS)`,
+   defaulted for the reason `account_source` is (**:29-30**).
+
+`ChatRequest` is not touched: `Strict` is `extra="forbid"`, so a request-side
+field would 422 every chat call on any client/server skew.
 
 ---
 
-## Step 2 — new `backend/app/chat/suggestions.py`
+## Step 3 — new `backend/app/chat/suggestions.py` (was Step 2)
 
 **Constraint that shapes this:** `test_chat.py:18` imports five names from
 `app.chat`, and `:543`/`:574` monkeypatch `app.chat.generate_with_fallback`. So
@@ -52,54 +70,64 @@ Step 8, not here, so the suite is red only between steps.
 name, and those five names stay re-exported. A new module is safe; moving `chat()`
 is not.
 
-Contents:
+Imports `MAX_SUGGESTIONS`, `MAX_AMOUNT_CHARS`, `Suggestion` from `.schemas`.
 
-```
-MAX_SUGGESTIONS = 3
-MAX_AMOUNT_CHARS = 20
-```
+**`_STRIP_RE` — loose in punctuation, strict in case.** The first draft was
+case-insensitive, which deletes ordinary prose: a reply ending *"Suggest ruling
+that change out if you can live without it."* would strip that whole sentence
+off the screen and produce nothing, and Step 6's new brief rules push the model
+toward exactly that phrasing. Case is what separates a marker from prose. The
+looseness belongs in `\r`, surrounding `*`, trailing punctuation and a missing
+final newline (`extract_text` calls `.strip()`, so the common single-marker case
+has none).
 
-- `_STRIP_RE` — deliberately loose (D10): a trailing line whose first
-  non-whitespace token is `SUGGEST`, case-insensitive, tolerant of `\r`, of
-  surrounding `*`, and of the last line having no newline (D10 notes
-  `extract_text` calls `.strip()`, so the common single-marker case has none).
-- `_PARSE_RE` — strict: `^SUGGEST (RULE OUT|ALLOW|OPENING|CUSHION): (\S.*?)\s*$`.
-- `_AMOUNT_RE` — `^-?\$?\d{1,3}(,\d{3})*(\.\d{2})?$`, applied only after a
-  `len() <= MAX_AMOUNT_CHARS` check. The length cap comes first because
-  `int("9"*4400)` raises and would be a 500.
-- `to_cents(raw) -> int | None` — regex gate, then strip `$` and `,`, then split
-  on `.` and parse both halves with `int()`. No float, no `Decimal`, no coercion.
-  Returns `None` on anything the regex did not accept.
-- `extract(reply) -> tuple[str, list[Raw], bool]` — walks trailing lines from the
-  end, collecting spans. Returns the body with those spans removed, the raw
-  parsed markers, and whether any line matched `_STRIP_RE` but not `_PARSE_RE`.
-  Stripping uses the captured spans, never a re-match after `scrub` (D10).
-- `validate(raws, candidates, ruled_out) -> list[Suggestion]` — dedupes, caps at
-  `MAX_SUGGESTIONS`, drops unknown verbs, drops an id absent from `candidates`,
-  drops an amount `to_cents` rejected. Modelled on the existing
-  "does this id exist" check at `app/schemas.py:204-214`.
+**`_PARSE_RE` — strict, but tolerant of the same `*` the strip tolerates.**
+`**SUGGEST RULE OUT: c_gym**` must parse, or every bolded marker becomes "strip,
+no suggestion" and the feature silently never fires.
+
+**`_AMOUNT_RE` = `^-?\$?(\d{1,3}(,\d{3})*|\d+)(\.\d{2})?$`.** The first draft
+made comma grouping mandatory, which rejects `$1200` — what Gemini writes about
+half the time. Still ASCII-only, still rejects `"1,50"`, `"1.2.3"`, `".5"`,
+underscores, non-ASCII digits and a leading `+`.
+
+**`to_cents(raw) -> int | None`** — length cap, then regex gate, then: capture a
+leading `-`, parse the absolute value, default a missing fractional half to
+`"0"`, combine, then apply the sign. The first draft's "split on `.` and parse
+both halves" is wrong twice: `to_cents("-12.34")` returns `-1166` because the
+sign lands on the dollars half only, and `"$5"` has no second half at all, which
+is an `IndexError` and a 500. Mirror `dollars()` (`prompt.py:81-84`) in reverse.
+No float, no `Decimal`.
+
+**`neutralise_markers(text) -> str`** — the D9 guard, named here because the
+first draft used it in Step 5 without ever defining it. Defangs marker-shaped
+text in the final display copy, after unmasking.
+
+**`extract(reply) -> tuple[str, list[Raw]]`** — walks trailing lines from the
+end, skipping blank lines so a blank between two markers does not strand the
+first. Returns the body with the captured spans removed and the raw markers.
+Stripping uses those spans, never a re-match after `scrub`: a candidate id
+containing `guarantee` or `infeasib` is legal under `ID_RE` (`schemas.py:34`) and
+`scrub` would rewrite it mid-marker. The third return value of the first draft,
+`had_residue`, is dropped — nothing consumed it, and a dead guard is worse than
+none.
+
+Known limit, accepted and documented rather than solved: a marker followed by a
+closing sentence yields no suggestion, because the walk stops at the first
+non-marker line from the end. The raw marker then stays in the body where
+`neutralise_markers` defangs it. Safe, but the offer is lost. Recorded in
+Step 13.
+
+**`validate(raws, candidates, ruled_out) -> list[Suggestion]`** — dedupes, caps
+at `MAX_SUGGESTIONS`, drops unknown verbs, drops an id absent from `candidates`
+(modelled on `app/schemas.py:204-214`), drops an amount `to_cents` rejected,
+**drops an amount outside `±CENTS_ABS`**, and wraps construction in
+`try/except ValidationError: continue`. Both of the last two are required:
+`$999,999,999,999.99` passes the regex and the 20-char cap but is ~1000x
+`CENTS_ABS` (`app/schemas.py:25,40`), and the resulting `ValidationError` has no
+handler in `main.py:149-157` — an unhandled 500, violating D6 outright. It is
+also precisely the steering attack D8 anticipates.
 
 Amounts are **not** clamped here. D5: bounds are frontend-only and dynamic.
-
----
-
-## Step 3 — `backend/app/chat/schemas.py`
-
-1. Import `Cents`, `Id` from `app.schemas` (alongside the existing import at
-   **:13**).
-2. New `Suggestion(Strict)` after **:37**:
-   - `kind: Literal["rule_out", "allow", "opening", "cushion"]`
-   - `candidate_id: Id | None = None`
-   - `amount_cents: Cents | None = None`
-   - `@model_validator(mode="after")` enforcing exactly one of the two, matched
-     to `kind` — house style, mirroring `_last_turn_is_the_user` at **:32-36**.
-3. **:39-41** — `ChatResponse` gains
-   `suggestions: list[Suggestion] = Field(default_factory=list, max_length=MAX_SUGGESTIONS)`.
-   Defaulted for the same reason `account_source` is (**:29-30**): every existing
-   client keeps working.
-
-`ChatRequest` is **not** touched. `Strict` is `extra="forbid"`, so a request-side
-field would 422 every chat call on any client/server skew.
 
 ---
 
@@ -109,12 +137,12 @@ field would 422 every chat call on any client/server skew.
 whole post-processing pipeline. Rewrite that span:
 
 ```
-reply, model, finish = generate_with_fallback(config, instruction, turns)
-body, raws, had_residue = extract(reply)
+reply, model, finish = generate_with_fallback_detailed(config, instruction, turns)
+body, raws = extract(reply)
 suggestions = [] if finish == FINISH_MAX_TOKENS else validate(
     raws, req.request.candidates, set(req.request.locks.out))
 if not body.strip():
-    raise ChatUpstreamError(...)          # D6, post-strip emptiness
+    raise ChatUpstreamError(EMPTY_AFTER_STRIP)   # D6, post-strip emptiness
 display = neutralise_markers(unmask_descriptors(scrub(body), refs))   # D9
 return ChatResponse(reply=display, model=model, suggestions=suggestions)
 ```
@@ -131,6 +159,14 @@ Four things this ordering is doing deliberately:
 - **`neutralise_markers` after unmasking** (D9) — a descriptor literally named
   `SUGGEST RULE OUT: x` is restored here and would otherwise appear on screen
   looking like a live marker.
+
+`EMPTY_AFTER_STRIP` is a named constant, not an inline string, because
+`ChatUpstreamError`'s message is echoed to the screen verbatim
+(`chat.ts:91`, pinned by `chat-errors.test.ts:90-93`). It is user-visible copy
+and must contain neither `guarantee` nor `infeasib`.
+
+`main.py:155-157` already maps `ChatUpstreamError` to 502 — verified, no route
+change needed.
 
 `scrub()` keeps its signature (`test_chat.py:242` is a parametrised pure-function
 test over it). `_STRIP_RE` and friends live in `suggestions.py`, imported here;
@@ -155,6 +191,14 @@ The sharpest step, because four existing tests read this text.
 - No new text may contain the phrase `demo data`, which `test_chat.py:613`
   asserts is absent from the whole instruction on the preset path.
 - `:174-182` must keep emitting every candidate id (`test_chat.py:151-152`).
+- **`:128` must keep the literal `built-in local solver`.**
+  `test_chat.py:187-190` asserts that exact phrase is in the instruction on a
+  local solve, and `:128` is the only place it appears — the same line item 6
+  below rewrites. Soften the *causal clause* only, never the phrase.
+- The `RULED OUT by the user` assertion is at `test_chat.py:184`, not `:183`.
+
+**Apply these edits bottom-up, or by content rather than by line number.**
+Inserting a section after `:60` renumbers every line cited below it.
 
 **Edits:**
 
@@ -203,8 +247,31 @@ The ones that carry the most weight:
   `"1,50"`, `"1.2.3"`, `".5"`, `"5."`
 - a thought part never reaches the reply (D11)
 
-Existing tests updated, each for the reason the spec records:
-`test_chat.py:112` (exact dict equality), `:530` and `:559` (2-tuple fakes).
+Plus the ones the critique's own counter-examples demand:
+
+- ordinary prose ending "Suggest ruling that change out..." is not stripped
+- a bolded marker still parses
+- `$1200` with no comma grouping parses
+- `to_cents("-12.34")` is -1234, not -1166
+- `"$5"` with no fractional half does not raise
+- `$999,999,999,999.99` is dropped, not a 500 (bounded by `CENTS_ABS`)
+- a blank line between two markers strands neither
+- a marker followed by a closing sentence yields no suggestion and no residue
+
+**Existing tests updated: one.** `test_chat.py:112`
+`test_reply_comes_back_with_the_model`, which asserts `r.json() == {...}` by
+exact dict equality and cannot survive a new response field.
+
+The first draft expected five. The additive `_detailed` variants in Step 1 spare
+`:530` and `:559` (their 2-tuple fakes still bind the unchanged names) and
+`:340`/`:397`/`:406`/`:414` (which the in-place change would have broken and the
+spec never listed). `chat-errors.test.ts:38` is spared because Step 7 adds no
+parameter. `test_chat.py:164` is a constraint on the new brief text, not a
+guaranteed break.
+
+`test_ratelimit.py` survives — verified: `:544` asserts status codes only, and
+its `fake_post` returns a payload with no `finishReason`, which is `None` and
+harmless.
 
 ---
 
@@ -250,26 +317,45 @@ to it would 422 the *next* request. Suggestions live in parallel state keyed by
 message index, not on the turn.
 
 1. **:31** — beside `messages`, add `suggestions: Record<number, Suggestion[]>`
-   and an `applied: Set<string>` of suggestion keys.
+   and an `applied: Set<string>` keyed `${messageIndex}:${suggestionIndex}`.
+   Not content-derived, or a legitimate re-offer six turns later renders
+   already-disabled; not a bare index, or two suggestions on one message collide.
+
+   Indexing by message index is safe: `messages` is append-only (**:75**), and
+   the error rollback at **:81** removes only the user turn just added, which
+   never carries suggestions.
 2. **:73-75** — destructure `suggestions` and record them against the index of
    the assistant message being appended.
-3. **:76-82** — the error path rolls `messages` back; the parallel state must
-   roll back in the same place.
+3. **:76-82** — the error path rolls `messages` back. No parallel rollback is
+   needed (see the keying note above); the first draft called for one, which
+   would have been a no-op dressed as a guard. The aborted-request path is
+   already covered by the `ctl.signal.aborted` guards at **:74**/**:77**.
 4. **:106-110** — under an assistant bubble, render one approve control per
    surviving suggestion. Pattern to imitate: `CantDo` in
    `PrescriptionList.tsx:13-41`, including the `aria-label` carrying the item's
    own label because identical labels are indistinguishable to a screen reader.
 5. **D8** — the label is composed client-side from the validated payload, using
-   `money()` from `lib/format.ts:5-10`, showing the **post-clamp** value. Never
-   model prose. This is the last honest surface; the text above it is
-   attacker-influenced.
+   `money()` from `lib/format.ts:5-10`. Never model prose. This is the last
+   honest surface; the text above it is attacker-influenced.
+
+   **The label must clamp against the same live value App will use at tap
+   time**, or acceptance criterion 9 fails: `sliderBounds` recomputes `min` from
+   the current opening (`accounts.ts:140-146`), so moving the slider between
+   render and tap makes a statically-clamped label lie. ChatPanel already
+   receives the live, undebounced request (`App.tsx:423` passes `request`, not
+   `debounced`), so compose it as
+   `money(clampOpening(s.amount_cents, req.opening_balance_cents))` using the
+   same exported helper App applies.
 6. **:88** — the control disables the moment it is tapped, independently of
    `disabled`, which only covers send.
 7. **:159-162** — rewrite the note that says the model "can't change the plan or
    act on your account". New copy must avoid `guarantee` and `infeasib`
    (`bundle.test.ts:28-34` greps the built bundle).
-8. Props **:20-30** gain one callback. `noUnusedParameters` is on, so an unused
-   prop fails the build.
+8. Props **:20-30** gain one callback, plus a generation counter (Step 10).
+   `noUnusedParameters` is on, so an unused prop fails the build.
+9. `Suggestion` is a type — import it with `import type`.
+   `tsconfig.app.json:14` sets `verbatimModuleSyntax`, so a value import fails
+   `tsc -b`.
 
 ---
 
@@ -277,18 +363,34 @@ message index, not on the turn.
 
 1. **:421-427** — pass the callback.
 2. New `applySuggestion(s)`:
-   - `rule_out` / `allow` — **re-validate the id against the live candidate set
-     at tap time** (D12), then `setRuledOut(prev => ruleOut(prev, id))` or
-     `allow`. Receipt-time validation is insufficient: `chatKey` returns
-     `'preset'` for all three presets (`accounts.ts:132-135`), so the panel does
-     not remount across a preset change.
-   - `opening` — `setOpening(clampOpening(cents, opening))`.
+   - `rule_out` / `allow` — re-validate the id against the live candidate set at
+     tap time, then `setRuledOut(prev => ruleOut(prev, id))` or `allow`.
+   - `opening` — `setOpening(prev => clampOpening(cents, prev))`. **Functional
+     form required:** two taps in one tick would otherwise both clamp against the
+     pre-first-tap value. `setBuffer(clampCushion(cents))` is fine, the cushion
+     bounds being absolute.
    - `cushion` — `setBuffer(clampCushion(cents))`.
-3. Do **not** touch `focused.current` / `armOnToggle`. A suggestion tap changes
+
+3. **D12's stated premise was wrong, and the real guard is different.** The spec
+   justified tap-time re-validation by preset switching. But `App.tsx:27` is
+   `const FIXTURE = SCENARIOS[0].request` and all three presets pass that same
+   fixture (`:199-209`), so the candidate ids are identical across a preset
+   change and id re-validation catches nothing there.
+
+   What a preset change actually invalidates is `adopt()` (**:181-197**):
+   `setRuledOut(NONE)`, `setOpening`, `setBuffer`, `seq.current++`. A stale
+   `rule_out` would re-introduce an override the person just had cleared; a stale
+   amount was earned against a different balance. So pass a generation counter to
+   ChatPanel and clear `suggestions`/`applied` in an effect keyed on it.
+
+   Tap-time id re-validation is still kept — it is the right guard for a *loaded
+   account*, where the candidate set genuinely changes — but it is not the guard
+   D12 claimed.
+4. Do **not** touch `focused.current` / `armOnToggle`. A suggestion tap changes
    `ruledOut` from outside the row list, where no row holds focus, and the
    restoration effect at **:129-160** is deliberately keyed on `[res]` alone.
-4. `adopt()` **:181-197** — nothing to add if suggestion state lives entirely in
-   `ChatPanel`. Confirm at execution rather than assume.
+5. `adopt()` **:181-197** — increment the generation counter here so the effect
+   in item 3 fires.
 
 ---
 
@@ -306,7 +408,13 @@ visually subordinate to the message.
 *a suggestion becomes a control, not applied state* — that assertion is the
 feature's entire safety claim. Plus: directional apply, double-tap idempotence,
 already-ruled-out, post-clamp label equals applied value, cushion clamped to
-$100, opening not snapped, and a suggestion not surviving a preset change.
+$100, and opening not snapped.
+
+**Not** *a suggestion not surviving a preset change* as first drafted — that test
+cannot pass, because all three presets share one fixture and the ids are
+identical. The real assertion is *a suggestion does not survive `adopt`*: approve
+a `rule_out`, switch preset, confirm `ruledOut` is empty and the suggestion is
+gone rather than re-applying the override `adopt` just cleared.
 
 Also extend `bundle.test.ts` with a grep pinning the approve control's presence —
 its own stated reason (**:41-55**) is that a missing control "would look like a
@@ -338,11 +446,21 @@ design choice rather than a build failure".
 ```
 .venv/bin/pytest backend/tests/test_chat.py backend/tests/test_chat_suggestions.py -q
 .venv/bin/pytest backend/ -q
-cd frontend && npm test && npm run lint && npm run build
+cd frontend && npm run build && npm test && npm run lint
 ```
 
-`npm run build` is not optional here: `npm test` erases types without checking
-them, so a signature break in `chat-errors.test.ts` surfaces only in the build.
+**Build first.** The first draft ran `npm test` first, which guarantees a red
+first run: `bundle.test.ts:17-24` reads `../dist/assets/` and deliberately
+refuses to skip when it is missing, so Step 12's new grep would run against the
+*previous* bundle and fail, and `&&` would stop the chain before the build ever
+ran. Note this is also the opposite order from `CLAUDE.md`'s Checks section.
+
+`npm run build` is not optional: `npm test` erases types without checking them,
+so a signature break in `chat-errors.test.ts` surfaces only in the build.
+
+The new `bundle.test.ts` grep must target a fixed literal — the approve label is
+composed from `money()` at runtime, so only a stable prefix such as the
+aria-label stem is greppable.
 
 Then drive it in the browser against a live key: ask the explainer to leave a
 subscription alone, confirm a control appears and the plan does **not** move,
