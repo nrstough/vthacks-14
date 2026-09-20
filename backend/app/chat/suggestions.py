@@ -79,6 +79,12 @@ def to_cents(raw: str) -> int | None:
     never reaches int() -- CPython refuses to convert a string of more than 4300
     digits, and an uncaught ValueError here is a 500 on /api/chat.
     """
+    # Before stripping, not after. str.strip() with no argument removes Unicode
+    # whitespace, so a non-breaking space inside an amount would be taken off
+    # here and the remainder would sail through a pattern that only ever sees
+    # ASCII -- making the gate approximately ASCII-only rather than actually so.
+    if not raw.isascii():
+        return None
     text = raw.strip()
     if not text or len(text) > MAX_AMOUNT_CHARS:
         return None
