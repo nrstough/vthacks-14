@@ -313,4 +313,83 @@ _Pending._
 
 ## Results
 
-_Pending._
+**Backend:** 2362 passed, 10 deselected (`.venv/bin/pytest backend/ -q`, 23s).
+Baseline on the merged tree before this change was 2312, so 50 new tests, all
+in `backend/tests/test_chat_suggestions.py`.
+
+**Frontend:** build clean, lint clean with no warnings, 363 passed 0 failed
+(`npm run build && npm test && npm run lint`). Baseline was 344, so 19 new.
+
+Build runs before test deliberately: `bundle.test.ts` reads `dist/assets` and
+refuses to skip when it is missing, so the documented order in `CLAUDE.md`
+would grep a stale bundle on a first run.
+
+**Existing tests changed: one.** `test_chat.py:112`, an exact dict equality on
+the whole response body, which cannot survive a new field. The plan expected
+five; the additive `_detailed` variants in Step 1 spared the rest.
+
+### Verified in the browser, against a live key
+
+Backend on 8002, frontend on 5173 proxied to it. Asked the explainer: "I go to
+the gym four times a week, I'm not cancelling that membership."
+
+1. It answered in prose and offered a button, *Apply: Rule out Cancel the gym
+   membership*. The marker line itself did not appear on screen.
+2. **The plan did not move.** `cant-c_gym` still read "Can't do this",
+   the footer still said eleven changes considered. This is the whole safety
+   claim and it was checked before the tap, not after.
+3. On the tap: the row moved to the left-out list, the footer dropped to ten
+   changes considered, the solve re-ran in 9 ms, and the button read
+   "Applied — Rule out Cancel the gym membership" and disabled itself.
+
+The model's own wording held up under real conditions. It wrote "I can offer to
+rule out cancelling the gym membership", not a past tense, and closed with "the
+solver will run again from scratch to see what else works" rather than
+predicting the plan it had not seen. It cited $34.99 and -$8.25 on September 24,
+both of which are marginal figures already in its context.
+
+### One defect found, and only in the browser
+
+The panel clears its offers when the account changes, and the counter wired to
+that was `seq`, which increments on **every solve** rather than every account.
+So approving an offer re-solved, the re-solve bumped the counter, and the offer
+being approved was cleared before it could read as applied. Any slider movement
+would have done the same to a waiting offer.
+
+Every test passed either way, because the bug was in which of two counters a
+prop was wired to. Fixed in `0108130` with a counter bumped only in `adopt()`.
+
+### Deviations from the plan
+
+- **Step 1 reduced to one line plus two additive variants**, after the lane
+  agreement with `ans-identity`, which also edits `gemini.py`. The `finishReason`
+  gate stayed as defence-in-depth; the critique had already shown it was not
+  load-bearing, since the amount pattern rejects every truncated marker that
+  survives `trim_to_sentence`.
+- **`REF_RE` exported** from `app.chat`, not in the plan. The ANS lane depends
+  on the masking pattern to strip references out of merchant text before a
+  counterparty model sees them; it asked for a public alias rather than import
+  a private name across a lane boundary.
+- **The amount gate refuses non-ASCII before stripping**, not after. A test
+  caught it: `str.strip()` removes Unicode whitespace, so a non-breaking space
+  came off before the pattern looked and `\xa012` parsed as $12. The value was
+  right, which is how that kind of hole stays open.
+- **Dev servers started with Bash**, against the usual rule. `preview_start`
+  reads the primary checkout's `.claude/launch.json`, which is on another
+  lane's branch and tracked, so adding a config there would have dirtied their
+  tree.
+
+### Not done, and why
+
+- **`CLAUDE.md`** was marked conditional in the plan and is left to the user.
+  Its Checks section omits `npm test` though `package.json` defines it and
+  twenty test files exist, and it lists build after test rather than before.
+  Both are real; neither is mine to change unasked.
+- **`safetospend.us`** appears in two handoffs and a run spec; the live domain
+  is `safetospend.study`. All of them are frozen documents belonging to other
+  lanes, so they are flagged rather than rewritten.
+- **A user typing a masking reference into the chat** (`\u2e24M0\u2e25`) is
+  echoed by the model and expanded to a merchant name on the way out. Raised by
+  the ANS lane. Near-harmless here — one user, stateless, they already know
+  their own merchants — and it stops being harmless only if a transcript is
+  ever rendered to someone other than its author. Recorded, not fixed.

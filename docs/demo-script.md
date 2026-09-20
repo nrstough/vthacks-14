@@ -18,7 +18,7 @@ proof, which is the only part nobody else has.
       solver and keeps working. Only mention it if the chip in the nav is spotted.
 - [ ] Refresh the two numbers in the build section. The suite keeps growing and
       quoting a stale figure to someone who then runs it is worse than rounding.
-      As of Sat 14:00 it is 1,333 backend tests plus 216 frontend tests, and the
+      As of Sat 20:30 it is 2,362 backend tests plus 363 frontend tests, and the
       three demo accounts solve in roughly 3-8 ms (100 random accounts average
       under 3 ms each). Re-measure with `.venv/bin/pytest backend/ -m perf -s`;
       the figures move a little between machines and runs, so quote the range.
@@ -129,7 +129,7 @@ That paragraph is the impact answer. Do not cut it for time.
 > The hard part was trusting it. So there are two independent implementations,
 > a brute force and the constraint model, and they're checked against each
 > other on generated accounts. Two hundred instances, zero disagreements.
-> Thirteen hundred tests. Solves in under ten milliseconds."
+> Two thousand tests. Solves in under ten milliseconds."
 
 If they want one more level:
 
@@ -231,6 +231,23 @@ and the answer is re-verified against a zero balance after the plan is chosen.
 The language model is at the edges — it explains the plan and never decides it,
 and it is told plainly that this is generated demo data. Nothing it writes can
 change a number.
+
+That holds even though the explainer can now act on the plan, and it is worth
+being precise about why, because there are two paths into the solver's inputs
+and a judge will ask about both:
+
+> In neither path can the model author a number. It may only **select** — a
+> candidate to rule out, or an offer from a catalogue — and every figure the
+> solver sees is recomputed from data the model could not write. The one place
+> a number crosses is a suggested starting balance or cushion, and there the
+> model may only repeat an amount the person themselves said: it is gated by an
+> ASCII-only pattern, bounded against the schema's limit, clamped to the
+> slider's own range, and printed on the button before anyone can approve it.
+
+And in the explainer's case there is a person between the model and the state.
+An offer is a button. Nothing moves until it is tapped, which is why a model
+that is talked into offering something silly still cannot do anything: the
+worst it achieves is a button nobody presses.
 
 **"Who is this for?"**
 Someone a bad week away from a thirty-five dollar fee on a five dollar
