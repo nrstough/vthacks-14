@@ -9,6 +9,72 @@ frontend consumes a shape the backend defines.
 
 ---
 
+## Re-grounding, 2026-09-19, after merging `main`
+
+The plan was written against `9027677`. While it was being reviewed, `main`
+advanced 46 commits and `chat-output-budget` was merged into it by another lane,
+which resolves the spec's open question without us. `main` is now merged into
+`chat-acts` at `7bf0128` — clean, this branch being docs-only. Baseline on the
+merged tree: **2312 backend tests, 344 frontend tests, build OK.** (The spec's
+"~1,333" came from an older audit; the suite has roughly doubled.)
+
+Ten of the fifteen files this plan touches moved, `index.css` by +1048/-153 and
+`App.tsx` by +396/-209. **Every line number below is as of `7bf0128`.** The
+design (D1-D12) is unaffected — it rests on the shape of the pipeline, not on
+offsets — but the anchors are corrected here.
+
+| Plan cited | Now | Note |
+|---|---|---|
+| `__init__.py:157`, `:160` | unchanged | the pipeline is untouched |
+| `schemas.py:15-16`, `:39-41` | unchanged | |
+| `prompt.py:25`, `:50`, `:52`, `:58` | unchanged | the four byte-identical constraints survive |
+| `prompt.py:128` | **`:138`** | "built-in local solver" |
+| `prompt.py:181` | **`:196`, text changed** | now names the left-out list |
+| `prompt.py:63-66` | text changed | now names both lists |
+| `test_chat.py:112` | `:112`/`:115` | the exact-dict assertion |
+| `test_chat.py:187-190` | **`:210`** | |
+| `test_chat.py:530`, `:559` | **`:563`, `:594`** | the two monkeypatches |
+| `test_chat.py:613` | **`:632`** | "demo data" |
+| `ChatPanel.tsx:106-110`, `:159-162` | **`:109`, `:162`** | `:31` and `:73` unchanged |
+| `App.tsx:27` | **`:46`** | `FIXTURE = SCENARIOS[0].request` still holds, so the D12 correction stands |
+| `App.tsx:294-300` | **`:553-554`** | opening slider |
+| `App.tsx:353-359` | **`:570`** | cushion still hardcoded `max={10000}` — D5 stands |
+| `App.tsx:421-427` | **`:611-612`** | |
+| `accounts.ts:132-135` | **`:144`** | see below |
+| `accounts.ts:140-146` | **`:156`** | `sliderBounds` signature unchanged |
+| `index.css:451-550` | **invalid** | re-locate the explainer block at execution |
+
+### Three things the merge changed on the substance, not the numbers
+
+**1. The generation counter Codex asked for already exists.** `chatKey` is now
+`chatKey(account, importSeq = 0)` (`accounts.ts:144`) and `App.tsx:612` passes
+`chatKey(account, importSeq.current)`. Step 10 should reuse `importSeq` rather
+than invent a second counter, and must check whether `adopt()` already bumps it —
+if it does, the received-suggestion half of the fix is free and only the
+in-flight half remains.
+
+**2. There is a fifth account source, `"import"`, and it carries a rule that
+collides with this feature.** `prompt.py:111-120` tells the model that rows
+described as "Everyday spending (assumed from your last 8 weeks)" are **not
+transactions that exist**, and: *"never suggest cancelling one"*. The new offer
+section must state precedence explicitly, or the model is given a capability and
+a prohibition over the same rows with nothing to arbitrate them. Simplest honest
+rule: never offer anything against an assumed row, and say why if asked.
+
+This also deserves its own test — *an assumed spending row is never offered* —
+which is not in the P2 inventory because the source did not exist when P2 was
+written.
+
+**3. The tick now means two things, in two lists.** New `frontend/src/lib/cant.ts`
+gives `controlFor(section, ...)`: in the plan list the control reads
+"Can't do this", in the left-out list "Can do this" with the tick inverted, and
+its own comment says the words carry the meaning because "a tick meaning two
+things silently is the bug the one control replaced". D8's client-composed label
+must use that same vocabulary rather than inventing a third phrasing, and Step 5's
+prompt edits must use the two-list wording the context lines now use.
+
+---
+
 ## Step 1 — `gemini.py`: reasoning parts, and a detailed variant
 
 **Revised after the critique.** The first draft changed `generate` and
