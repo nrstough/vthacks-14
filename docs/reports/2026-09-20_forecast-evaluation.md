@@ -142,6 +142,60 @@ is still worse than the baseline. Every figure above is the equal-weight mean of
 the three seeds' **predictions** — which is not the same as the mean of their
 scores, and not the same as their best.
 
+## Round three: scoring the thing that actually matters
+
+Mean absolute error treats over-prediction and under-prediction as equally
+bad. This product does not. Under-predicting spending tells someone they have
+room they do not have, which is the failure it exists to prevent;
+over-predicting is a warning they did not need. Scoring on MAE was the wrong
+test, and it was flattering nobody in particular.
+
+So: two costs per fortnight, averaged over all 692 windows.
+
+* **unseen** — spending the plan did not warn about. The unsafe error.
+* **nuisance** — spending the plan expected that never happened.
+
+The baseline has a dial for this. It is a percentile, and moving it trades one
+cost directly against the other:
+
+| Predictor | Unseen | Nuisance |
+|---|---:|---:|
+| baseline p40 | $190.10 | $5.72 |
+| baseline p50 | $134.99 | $19.58 |
+| **baseline p60 (shipped)** | **$92.41** | **$54.98** |
+| baseline p65 | $71.88 | $82.07 |
+| baseline p70 | $55.29 | $113.09 |
+| baseline p75 | $35.60 | $164.37 |
+| baseline p80 | $21.65 | $230.73 |
+
+And here is where every model lands, against the baseline set to the SAME
+nuisance cost:
+
+| Model | Unseen | Nuisance | Baseline at that nuisance | Verdict |
+|---|---:|---:|---:|---|
+| anchor large ×3 | $81.87 | $72.67 | $79.01 | on the curve |
+| direct small ×3 | $81.58 | $74.12 | $77.91 | on the curve |
+| anchor medium ×3 | $90.13 | $68.18 | $82.41 | on the curve |
+| anchor small ×3 | $95.67 | $59.60 | $88.91 | on the curve |
+
+**No model beats the curve. They land on it.** Every one of them buys a
+safety/nuisance tradeoff that a single percentile already offers, and the
+percentile offers it per person, for free, with no training data, no profile
+reference and no checkpoint to ship. That is a stronger and more useful
+negative result than "the MAE is 4.9% worse", because it does not depend on
+the metric: whatever point on the tradeoff you want, the dial reaches it.
+
+It also relocates the open question. It is no longer "is the model good
+enough" but **"where on this curve should the product sit"**, which is a
+product decision rather than an ML one. The shipped p60 leaves $92 of
+spending unwarned per fortnight on this account. p65 or p70 would be safer
+and noisier. Nobody has chosen that point deliberately yet.
+
+One thing no predictor here fixes: even at p80, 18% of fortnights still spend
+more than predicted, by $122 on average. There is no percentile and no model
+that makes an assumption safe to lean on. That is why the screen calls it an
+assumption.
+
 ## What this is not
 
 One account. Overlapping windows. A profile none of the models was trained
