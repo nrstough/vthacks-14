@@ -244,7 +244,14 @@ test('the panel only ever applies an offer from a click handler', () => {
   // green, which is exactly the condition that let the accountGen defect ship.
   assert.match(src, /const sentAt = generation/)
   assert.match(src, /sentAt !== genNow\.current/)
-  assert.match(src, /genNow\.current = generation[\s\S]{0,80}inFlight\.current\?\.abort\(\)/)
+  assert.match(src, /genNow\.current = generation[\s\S]{0,120}inFlight\.current\.abort\(\)/)
+
+  // And the abort must release the input. `send`'s finally deliberately leaves
+  // `pending` alone on an abort, because there it always came from a newer send
+  // that had just set it. This abort has no newer send behind it, so without
+  // this the box and the Ask button stay disabled for the rest of the session
+  // after any account change mid-reply.
+  assert.match(src, /inFlight\.current\.abort\(\)[\s\S]{0,600}setPending\(false\)/)
   // Two and only two: the declaration, and the click handler that reaches it.
   // A third would be a second route into applying an offer, which is the thing
   // this test exists to prevent.

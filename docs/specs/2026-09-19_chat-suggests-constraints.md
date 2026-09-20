@@ -312,12 +312,44 @@ that bundle.
 
 ## Audit
 
-_Pending._
+**Claude critique:** Fail, then Acceptable after two rounds. The first found
+twelve, of which three were graded Fail: the `finishReason` gate recorded as
+shipped when it had been dropped, D12's tap-time re-validation specified and
+never written, and a trailing newline that silently killed every offer. The
+second found six more, including that the fix to the false record had
+introduced fresh false line citations.
+
+**Codex:** Fail on the first pass, and it found two things both Claude rounds
+missed.
+
+1. **The ASCII gate was bypassed above itself.** `to_cents` refuses non-ASCII,
+   and the test asserting so called `to_cents` directly. But `extract` applied
+   a Unicode-aware `.strip()` to the parsed value and the reply was rstripped
+   the same way, so a non-breaking space was removed before the gate ever ran
+   and `SUGGEST OPENING: \xa012` produced a legal 1200-cent offer. The same
+   defect had been found and fixed one layer down earlier in the change, and
+   reintroduced one layer up without the test noticing, because the test never
+   travelled the path the model's text actually takes. All whitespace handling
+   on this path is now ASCII-only, and the test is end-to-end through the
+   endpoint.
+
+2. **A preset switch mid-reply disabled the chat permanently.** The generation
+   effect aborts the in-flight request, but `send`'s `finally` clears `pending`
+   only when the request was *not* aborted — correct where an abort always came
+   from a newer send, wrong for this one, which has no newer send behind it.
+   The input and the Ask button stayed disabled for the rest of the session.
+   Introduced by the account-generation guard added in the first Claude round.
+
+Both are fixed, both have tests, and the second is pinned at source alongside
+the other lifecycle guards, since none of them can be exercised without a DOM.
+
+One Codex finding was documentation only: this spec described `CLAUDE.md`'s
+Checks section wrongly, corrected above.
 
 ## Results
 
-**Backend:** 2367 passed, 10 deselected (`.venv/bin/pytest backend/ -q`, 27s).
-Baseline on the merged tree before this change was 2312, so 55 new tests, all
+**Backend:** 2374 passed, 10 deselected (`.venv/bin/pytest backend/ -q`, 24s).
+Baseline on the merged tree before this change was 2312, so 62 new tests, all
 in `backend/tests/test_chat_suggestions.py`.
 
 **Frontend:** build clean, lint clean with no warnings, 369 passed 0 failed
@@ -429,9 +461,12 @@ prop was wired to. Fixed in `0108130` with a counter bumped only in `adopt()`.
 ### Not done, and why
 
 - **`CLAUDE.md`** was marked conditional in the plan and is left to the user.
-  Its Checks section omits `npm test` though `package.json` defines it and
-  twenty test files exist, and it lists build after test rather than before.
-  Both are real; neither is mine to change unasked.
+  Its Checks section omits frontend tests altogether — `package.json` defines
+  `test` and there are twenty test files — so following it literally runs none
+  of them. An earlier version of this line said it "lists build after test",
+  which was wrong: it does not list the tests at all. The ordering point still
+  holds for whatever replaces it, since `bundle.test.ts` reads `dist/` and
+  refuses to skip, so a build has to precede a test run.
 - **`safetospend.us`** appears in two handoffs and a run spec; the live domain
   is `safetospend.study`. All of them are frozen documents belonging to other
   lanes, so they are flagged rather than rewritten.

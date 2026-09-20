@@ -156,7 +156,12 @@ def extract(reply: str) -> tuple[str, list[tuple[str, str]]]:
     # the raw markers in the body. It only ever worked because extract_text
     # happens to .strip() upstream -- a different module, on a file another lane
     # edits. Depending on that was the bug; this is the fix.
-    lines = reply.rstrip().split("\n")
+    #
+    # ASCII whitespace only, never bare .rstrip(). Nothing on this path may
+    # normalise away a non-ASCII character, or the amount gate checks for
+    # something an earlier step has already removed -- which is exactly how a
+    # non-breaking space came to parse as a legal amount twice.
+    lines = reply.rstrip(" \t\r\n").split("\n")
     cut = len(lines)
     found: list[tuple[str, str]] = []
 
@@ -174,7 +179,12 @@ def extract(reply: str) -> tuple[str, list[tuple[str, str]]]:
         cut = i
         parsed = _PARSE_RE.match(line)
         if parsed:
-            found.append((VERBS[parsed.group(1)], parsed.group(2).strip()))
+            # strip(" \t"), never bare .strip(): the latter is Unicode-aware
+            # and would take a non-breaking space off the front of an amount
+            # here, so `to_cents` would receive a clean ASCII "12" and never
+            # see the character its gate exists to refuse. The gate was made
+            # ASCII-only one layer down and then bypassed one layer up.
+            found.append((VERBS[parsed.group(1)], parsed.group(2).strip(" \t")))
 
     return "\n".join(lines[:cut]).rstrip(), list(reversed(found))
 

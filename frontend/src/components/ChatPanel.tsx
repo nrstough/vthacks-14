@@ -135,7 +135,18 @@ export default function ChatPanel({
   // air, which would otherwise land after the change and put offers back.
   useEffect(() => {
     genNow.current = generation
-    inFlight.current?.abort()
+    if (inFlight.current) {
+      inFlight.current.abort()
+      inFlight.current = null
+      // And release the input. `send`'s own finally deliberately leaves
+      // `pending` alone when the request was aborted, because an abort there
+      // always came from a newer send that had just set it. This abort has no
+      // newer send behind it, so nothing would ever clear it: the box and the
+      // Ask button would stay disabled for the rest of the session. A stale
+      // completion cannot undo this, since its finally still sees an aborted
+      // signal and returns.
+      setPending(false)
+    }
   }, [generation])
 
   // The LIVE candidate ids, rebuilt whenever the request changes. An offer is

@@ -414,3 +414,59 @@ def test_two_different_amounts_are_both_kept():
 
 def test_quoting_a_marker_shaped_line_keeps_its_indentation():
     assert neutralise_markers("  SUGGEST: hi") == '  "SUGGEST: hi"'
+
+
+# --------------------------------------------------------------------------
+# found by the Codex audit
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "amount",
+    # Leading and interior only -- the positions upstream normalisation cannot
+    # reach. ANY trailing whitespace, ASCII or not, is removed by extract_text's
+    # .strip() before this module runs; that case has its own test below.
+    ["\xa012", "\u200b12", "\u20281200", "1\xa0200", "\xa0$1,200.00"],
+)
+def test_non_ascii_whitespace_in_an_amount_never_becomes_an_offer(
+    client, solved, says, amount
+):
+    """End to end, not just against to_cents.
+
+    The gate was made ASCII-only inside to_cents and then bypassed twice above
+    it: `extract` called a Unicode-aware .strip() on the value, and the reply
+    was rstripped the same way. Both removed the character the gate exists to
+    refuse, so to_cents received a clean "12" and returned 1200. The unit test
+    passed throughout, because it called to_cents directly and never travelled
+    the path the model's text actually takes.
+    """
+    says(f"As you like.\nSUGGEST OPENING: {amount}")
+    r = post(client, solved)
+    assert r.status_code == 200
+    assert r.json()["suggestions"] == []
+
+
+def test_a_trailing_non_ascii_space_at_the_very_end_is_normalised_upstream(
+    client, solved, says
+):
+    """Honest about the one case this module does not own.
+
+    `extract_text` (gemini.py) calls a Unicode-aware .strip() on the whole
+    reply before `chat()` is reached, so a non-breaking space that is the last
+    character of the entire reply is gone before any of this runs. That file
+    belongs to another lane by agreement, and the case is hygiene rather than a
+    hole: "12\xa0" normalises to "12", which is the number that was written.
+    Recorded as a test so it is a known boundary rather than a surprise.
+    """
+    says("As you like.\nSUGGEST OPENING: 12\xa0")
+    assert post(client, solved).json()["suggestions"] == [
+        {"kind": "opening", "candidate_id": None, "amount_cents": 1200}
+    ]
+
+
+def test_ascii_whitespace_around_an_amount_is_still_tolerated(client, solved, says):
+    """The fix must not make the parser brittle about ordinary spacing."""
+    says("As you like.\nSUGGEST CUSHION:   $50.00  ")
+    assert post(client, solved).json()["suggestions"] == [
+        {"kind": "cushion", "candidate_id": None, "amount_cents": 5000}
+    ]
