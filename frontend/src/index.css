@@ -1058,6 +1058,24 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 
 .chat-note { margin: var(--s1) 0 0; font-size: 12px; color: var(--ink-3); }
 
+/* An offer the explainer made. Subordinate to the message it sits under: it is
+   a thing you may do, not the answer you asked for. Disabled once tapped, so a
+   second tap cannot re-apply and the log still shows what was approved. */
+.chat-apply {
+  display: block;
+  margin: var(--s1) 0 0;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.chat-apply:hover:not(:disabled) { border-color: var(--line-strong); }
+.chat-apply:disabled { color: var(--ink-3); cursor: default; opacity: 0.75; }
+
 /* ---------- crash ---------- */
 
 /* Only ever seen when the tree threw. Plain on purpose: this is the one screen

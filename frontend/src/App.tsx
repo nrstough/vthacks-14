@@ -31,7 +31,9 @@ import {
 import { money, shortDate } from './lib/format'
 import { emptyPlanText, footerLines, narrateChart } from './lib/narrate'
 import type { Overrides } from './lib/overrides'
-import { NONE, count, fromIds, toLocks, toggle } from './lib/overrides'
+import { NONE, allow, count, fromIds, ruleOut, toLocks, toggle } from './lib/overrides'
+import type { Resolved } from './lib/suggestions'
+import { clampCushion, clampOpening } from './lib/suggestions'
 import { armOnToggle, decideRestore, domId, sameInputs } from './lib/focus'
 import { useDebounced } from './lib/useDebounced'
 import { solve } from './solver/mockSolver'
@@ -218,6 +220,33 @@ export default function App() {
       toggledId: id,
     })
     setRuledOut((prev) => toggle(prev, id))
+  }
+
+  // An approved offer. Directional, never `toggle`: the offer names the state
+  // it wants, so approving "rule this out" for a row already ruled out by hand
+  // has to leave it ruled out rather than flip it back.
+  //
+  // The focus machinery is deliberately not touched. It exists to put focus
+  // back on a row that a re-solve unmounted, and a tap in the chat panel is not
+  // on a row at all -- arming it here would hand the restore a bogus id.
+  function applySuggestion(r: Resolved) {
+    switch (r.kind) {
+      case 'rule_out':
+        setRuledOut((prev) => ruleOut(prev, r.id))
+        break
+      case 'allow':
+        setRuledOut((prev) => allow(prev, r.id))
+        break
+      case 'opening':
+        // Functional, and re-clamped against the value at apply time: the
+        // opening slider's bounds are computed from the current opening, so a
+        // value clamped at render is only right if nothing moved since.
+        setOpening((prev) => clampOpening(r.cents, prev))
+        break
+      case 'cushion':
+        setBuffer(clampCushion(r.cents))
+        break
+    }
   }
 
   function onFocusRow(id: string) {
@@ -614,6 +643,8 @@ export default function App() {
                 res={res}
                 source={source}
                 accountSource={account?.source ?? 'preset'}
+                generation={seq.current}
+                onApply={applySuggestion}
               />
             </div>
           </>

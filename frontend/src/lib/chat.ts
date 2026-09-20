@@ -15,6 +15,46 @@ export interface ChatStatus {
   model: string | null
 }
 
+// An offer the model made about what the solver is asked. Never applied on
+// arrival: it becomes a control, and a person taps it.
+//
+// A union of string literals rather than a TS enum, because tsconfig sets
+// erasableSyntaxOnly and an enum emits runtime code.
+export type SuggestionKind = 'rule_out' | 'allow' | 'opening' | 'cushion'
+
+export interface Suggestion {
+  kind: SuggestionKind
+  candidate_id: string | null
+  amount_cents: number | null
+}
+
+const KINDS: readonly string[] = ['rule_out', 'allow', 'opening', 'cushion']
+
+// The server validated these already. This is the second check, because the
+// value crossing here ends up driving solver input, and `as` is a promise the
+// compiler cannot keep: a field that arrives malformed is a runtime shape, not
+// a type error. Anything that does not fit is dropped, never coerced.
+export function readSuggestions(raw: unknown): Suggestion[] {
+  if (!Array.isArray(raw)) return []
+  const out: Suggestion[] = []
+  for (const item of raw) {
+    if (typeof item !== 'object' || item === null) continue
+    const s = item as Record<string, unknown>
+    if (typeof s.kind !== 'string' || !KINDS.includes(s.kind)) continue
+    const id = s.candidate_id
+    const cents = s.amount_cents
+    const wantsId = s.kind === 'rule_out' || s.kind === 'allow'
+    if (wantsId) {
+      if (typeof id !== 'string' || !id) continue
+      out.push({ kind: s.kind as SuggestionKind, candidate_id: id, amount_cents: null })
+    } else {
+      if (typeof cents !== 'number' || !Number.isSafeInteger(cents)) continue
+      out.push({ kind: s.kind as SuggestionKind, candidate_id: null, amount_cents: cents })
+    }
+  }
+  return out
+}
+
 export class ChatError extends Error {
   status: number | undefined
 
@@ -69,7 +109,7 @@ export async function askViaApi(
   // Appended last, with a default: a positional caller that predates account
   // loading keeps compiling and keeps meaning what it meant.
   accountSource: AccountSource = 'preset',
-): Promise<{ reply: string; model: string }> {
+): Promise<{ reply: string; model: string; suggestions: Suggestion[] }> {
   let r: Response
   try {
     r = await fetch(`/api/chat?source=${source}`, {
@@ -91,5 +131,10 @@ export async function askViaApi(
     if (r.status === 502) throw new ChatError(detail || 'Gemini did not answer.', 502)
     throw new ChatError(detail || `The explainer failed (${r.status}).`, r.status)
   }
-  return (await r.json()) as { reply: string; model: string }
+  const payload = (await r.json()) as { reply: string; model: string; suggestions?: unknown }
+  return {
+    reply: payload.reply,
+    model: payload.model,
+    suggestions: readSuggestions(payload.suggestions),
+  }
 }

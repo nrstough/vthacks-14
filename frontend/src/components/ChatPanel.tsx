@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { askViaApi, chatStatus } from '../lib/chat'
-import type { ChatTurn } from '../lib/chat'
+import type { ChatTurn, Suggestion } from '../lib/chat'
+import type { Resolved } from '../lib/suggestions'
+import { keyOf, labelFor, resolve } from '../lib/suggestions'
 import type { AccountSource, SolveRequest, SolveResponse } from '../types'
 
 // Questions a first-time viewer, or a judge, actually asks. Each one is
@@ -22,13 +24,39 @@ export default function ChatPanel({
   res,
   source,
   accountSource = 'preset',
+  generation = 0,
+  onApply,
 }: {
   req: SolveRequest
   res: SolveResponse
   source: 'local' | 'server'
   accountSource?: AccountSource
+  // Bumped whenever the account underneath changes. Offers earned against the
+  // old one are cleared, and a reply already in flight when it changed is
+  // dropped rather than allowed to repopulate them.
+  generation?: number
+  onApply?: (r: Resolved) => void
 }) {
   const [messages, setMessages] = useState<ChatTurn[]>([])
+  // Beside `messages`, not inside it: ChatTurn is also the wire payload and the
+  // server forbids unknown fields, so a field added here would 422 the next
+  // request. Keyed by message index, which is safe because the array is
+  // append-only within a mount.
+  const [offers, setOffers] = useState<Record<number, Suggestion[]>>({})
+  const [applied, setApplied] = useState<ReadonlySet<string>>(new Set())
+  // Clearing on a generation change happens here, during render, rather than
+  // in an effect: React's own pattern for resetting state when a prop changes,
+  // and it avoids the cascading extra render an effect would cause.
+  const [seenGeneration, setSeenGeneration] = useState(generation)
+  if (seenGeneration !== generation) {
+    setSeenGeneration(generation)
+    setOffers({})
+    setApplied(new Set())
+  }
+  // The live generation, readable from inside an in-flight closure. Comparing
+  // the prop against itself would compare two values from the same render and
+  // never differ, which is the quiet way this guard fails to guard.
+  const genNow = useRef(generation)
   const [draft, setDraft] = useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -70,9 +98,24 @@ export default function ChatPanel({
     try {
       // The solve on screen at the moment of asking is what the answer is
       // about, which is why req and res go with every question.
-      const { reply } = await askViaApi(next, req, res, source, ctl.signal, accountSource)
+      const sentAt = generation
+      const { reply, suggestions } = await askViaApi(
+        next,
+        req,
+        res,
+        source,
+        ctl.signal,
+        accountSource,
+      )
       if (ctl.signal.aborted) return
+      // The account can change while a reply is in the air. Clearing offers on
+      // a generation change only removes the ones already here; a reply that
+      // left before the change would land after it and put them back.
+      if (sentAt !== genNow.current) return
       setMessages([...next, { role: 'assistant', text: reply }])
+      if (suggestions.length) {
+        setOffers((prev) => ({ ...prev, [next.length]: suggestions }))
+      }
     } catch (e) {
       if (ctl.signal.aborted) return
       setError(e instanceof Error ? e.message : 'The explainer failed.')
@@ -83,6 +126,25 @@ export default function ChatPanel({
     } finally {
       if (!ctl.signal.aborted) setPending(false)
     }
+  }
+
+  // Offers describe a plan that no longer exists once the account changes
+  // underneath them, and the ids may not even be in the new candidate set. The
+  // clearing is done above, during render; what is left here is the half that
+  // genuinely belongs in an effect — abandoning a reply that is still in the
+  // air, which would otherwise land after the change and put offers back.
+  useEffect(() => {
+    genNow.current = generation
+    inFlight.current?.abort()
+  }, [generation])
+
+  const nameOf = (id: string) =>
+    req.candidates.find((c) => c.id === id)?.label ?? 'that change'
+
+  function approve(key: string, r: Resolved) {
+    if (applied.has(key)) return
+    setApplied((prev) => new Set(prev).add(key))
+    onApply?.(r)
   }
 
   const disabled = state !== 'ready' || pending
@@ -109,6 +171,25 @@ export default function ChatPanel({
         {messages.map((m, i) => (
           <div key={i} className={`msg ${m.role === 'user' ? 'msg-user' : 'msg-bot'}`}>
             {m.text}
+            {(offers[i] ?? []).map((s, j) => {
+              const r = resolve(s, req.opening_balance_cents)
+              if (!r) return null
+              const key = keyOf(i, j)
+              const done = applied.has(key)
+              const text = labelFor(r, nameOf)
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className="chat-apply"
+                  disabled={done}
+                  aria-label={done ? `Applied: ${text}` : `Apply: ${text}`}
+                  onClick={() => approve(key, r)}
+                >
+                  {done ? `Applied — ${text}` : text}
+                </button>
+              )
+            })}
           </div>
         ))}
         {pending && (
@@ -160,8 +241,8 @@ export default function ChatPanel({
         </button>
       </form>
       <p className="chat-note">
-        Every number comes from the solver. Gemini only puts words to it, and it can’t change the
-        plan or act on your account.
+        Every number comes from the solver. Gemini only puts words to them. It can offer to change
+        what the solver is asked, and nothing moves until you tap it.
       </p>
     </section>
   )
