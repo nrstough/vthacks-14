@@ -11,21 +11,15 @@ import { crashDetail } from '../lib/crash'
 // memory, so re-rendering the same tree usually throws again; a reload is the
 // honest offer.
 
+// There used to be an `inline` prop here, for a boundary wrapping part of the
+// page rather than all of it. Its only caller was the demo wallet's lazy
+// chunk, which needed a failure in a side screen not to replace the planning
+// demo with a crash card. The wallet is gone and nothing else ever used it, so
+// the prop went with it rather than staying as a mechanism with no mechanism
+// behind it. If a partial boundary is ever wanted again, this is the shape it
+// had.
 interface Props {
   children: ReactNode
-  /**
-   * An inline fallback, for a boundary wrapping part of the page rather than
-   * all of it.
-   *
-   * A root-only boundary turns any failure anywhere into a blank page with a
-   * crash card — including a failure in a lazily-loaded corner the user was not
-   * even looking at. Wrapping that corner in its own boundary with a small
-   * fallback keeps the rest of the screen working, which matters most for the
-   * planning demo: a wallet chunk that fails to load must not take it down.
-   *
-   * Omitted, the boundary behaves exactly as before: full-page crash card.
-   */
-  inline?: (detail: string) => ReactNode
 }
 
 interface State {
@@ -47,7 +41,6 @@ export default class ErrorBoundary extends Component<Props, State> {
   render(): ReactNode {
     const { detail } = this.state
     if (detail === null) return this.props.children
-    if (this.props.inline !== undefined) return this.props.inline(detail)
 
     return (
       // `.shell` went away with the dashboard rewrite; `.crash-shell` is the

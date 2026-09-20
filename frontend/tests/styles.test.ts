@@ -189,27 +189,40 @@ test('the stylesheet has no @tailwind directives', () => {
   assert.doesNotMatch(CSS, /@tailwind/)
 })
 
-// The wallet is the one view that never had a card of its own: it used to sit
-// on a white page, so it needed none. On the gradient it was dark text on deep
-// blue — handoff bug 5. The card is the fix, and `background` is the load-
-// bearing half of it: without it the panel is transparent and the navy shows
-// straight through the figures.
-test('the wallet keeps its own card on the gradient', () => {
-  // Comments are stripped first, or the one above the rule is swept into the
-  // selector list and the exact-token match below never fires.
+// RETIRED, and replaced by its inverse.
+//
+// The sixth responsive pin used to assert that `.wallet, .wallet-down,
+// .wallet-loading` shared a `background: var(--bg)` card rule. The wallet was
+// the one view with no card of its own, and on the gradient it was dark text
+// on deep blue — handoff bug 5. The Solana demo wallet has been deleted, so
+// the rule it guarded is gone and the pin would only fail. What is worth
+// guarding now is the opposite: that none of it grew back.
+test('no wallet rule survives in the stylesheet', () => {
   const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '')
-  const card = [...bare.matchAll(/(?:^|\n)([^{}@]+)\{([^{}]*)\}/g)].find(
-    (r) =>
-      r[1]
-        .split(',')
-        .map((x) => x.trim())
-        .includes('.wallet') && /background:\s*var\(--bg\)/.test(r[2]),
+  assert.doesNotMatch(bare, /\.wallet/, 'a .wallet selector is back in the stylesheet')
+})
+
+// The explainer's root is a `.panel`, and `.panel { display: flex }` is an
+// author declaration that beats the user agent's `[hidden] { display: none }`
+// at any specificity. Without this rule the hidden tab renders in full under
+// the plan list — measured at 363px tall, with six focusable descendants still
+// in the tab order. It is the kind of failure that looks like nothing was
+// wired up at all, so it is pinned.
+test('a hidden child of .main is actually hidden', () => {
+  const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '')
+  const rule = [...bare.matchAll(/(?:^|\n)([^{}@]+)\{([^{}]*)\}/g)].find(
+    (r) => /\.main\s*>\s*\[hidden\]/.test(r[1]) && /display:\s*none/.test(r[2]),
   )
-  assert.ok(card, 'no rule selecting a bare .wallet declares background: var(--bg)')
-  const selectors = card[1].split(',').map((x) => x.trim())
-  for (const sel of ['.wallet', '.wallet-down', '.wallet-loading']) {
-    assert.ok(selectors.includes(sel), `${sel} does not share the wallet card rule`)
-  }
+  assert.ok(rule, 'nothing declares display: none for a hidden child of .main')
+})
+
+// Scoped, not global-and-important. If this ever needs `!important` the rule
+// is in the wrong place; the sheet has managed without one so far.
+test('the stylesheet carries no !important', () => {
+  // Comments are stripped first: the rule above explains in prose why it is
+  // not `!important`, and matching the raw file would fail on that sentence.
+  const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '')
+  assert.doesNotMatch(bare, /!\s*important/)
 })
 
 // ---------- the tokens that replaced the literal whites ----------

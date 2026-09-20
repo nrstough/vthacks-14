@@ -70,6 +70,8 @@ export interface RestoreInput {
   focusWasLost: boolean
   /** True when the answer on screen reflects the user's current input. */
   settled: boolean
+  /** True when the plan list is mounted, i.e. the plan tab is showing. */
+  planVisible: boolean
 }
 
 export interface RestoreDecision {
@@ -80,8 +82,18 @@ export interface RestoreDecision {
 }
 
 export function decideRestore(input: RestoreInput): RestoreDecision {
-  const { refId, focusWasLost, settled } = input
+  const { refId, focusWasLost, settled, planVisible } = input
   if (!refId) return { focus: null, clear: false }
+  // A response can land while the user is on the Ask tab, because the solve
+  // effect keeps running there. The plan list is unmounted then, so there is
+  // nothing to focus — and, more importantly, nothing to forget either.
+  //
+  // `clear` is applied by the caller BEFORE it looks for the element, so
+  // returning `clear: true` here would discard the remembered row on the way
+  // past and lose it for good. Keeping it costs nothing: the restore effect is
+  // keyed on the response alone, so it does not re-run when the user switches
+  // back, only when the next answer arrives.
+  if (!planVisible) return { focus: null, clear: false }
   return {
     // Restore only focus that was lost. Focus that survived is where the user
     // put it, and pulling it back would throw away their navigation.

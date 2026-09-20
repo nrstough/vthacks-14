@@ -35,32 +35,69 @@ test('toggling one row while standing on another keeps the one you are on', () =
 })
 
 test('nothing is restored when no row is remembered', () => {
-  assert.deepEqual(decideRestore({ refId: null, focusWasLost: true, settled: true }), {
+  assert.deepEqual(decideRestore({ refId: null, focusWasLost: true, settled: true, planVisible: true }), {
     focus: null,
     clear: false,
   })
 })
 
 test('focus the user moved deliberately is left alone, and tracking stops', () => {
-  assert.deepEqual(decideRestore({ refId: 'c_card_min', focusWasLost: false, settled: true }), {
+  assert.deepEqual(decideRestore({ refId: 'c_card_min', focusWasLost: false, settled: true, planVisible: true }), {
     focus: null,
     clear: true,
   })
 })
 
 test('focus lost to an unmounted row is restored and then forgotten', () => {
-  assert.deepEqual(decideRestore({ refId: 'c_card_min', focusWasLost: true, settled: true }), {
+  assert.deepEqual(decideRestore({ refId: 'c_card_min', focusWasLost: true, settled: true, planVisible: true }), {
     focus: 'c_card_min',
     clear: true,
   })
 })
 
+test('a response landing while the plan list is hidden restores nothing', () => {
+  const d = decideRestore({
+    refId: 'c_card_min',
+    focusWasLost: true,
+    settled: true,
+    planVisible: false,
+  })
+  assert.equal(d.focus, null)
+})
+
+test('and it does not forget the row, which is the whole point of the guard', () => {
+  // The caller applies `clear` BEFORE it goes looking for the element, so
+  // returning clear:true here would discard the row on the way past and lose
+  // it for good — the answer landed on the Ask tab, where the checkbox is not
+  // mounted, so there was never anything to restore it to.
+  //
+  // Delete the planVisible branch in decideRestore and this fails: `clear`
+  // falls back to `settled`, which is true. A test asserting only on `focus`
+  // would pass against that, because `focus` is null either way.
+  const hidden = decideRestore({
+    refId: 'c_card_min',
+    focusWasLost: true,
+    settled: true,
+    planVisible: false,
+  })
+  assert.equal(hidden.clear, false)
+
+  // Same inputs with the list on screen: restored and then forgotten.
+  const shown = decideRestore({
+    refId: 'c_card_min',
+    focusWasLost: true,
+    settled: true,
+    planVisible: true,
+  })
+  assert.deepEqual(shown, { focus: 'c_card_min', clear: true })
+})
+
 test('a tick and a quick undo keep the row across both responses', () => {
   // The audit case: the first response restores focus, and consuming the id
   // there leaves the second response with nothing to put focus back on.
-  const first = decideRestore({ refId: 'c_card_min', focusWasLost: true, settled: false })
+  const first = decideRestore({ refId: 'c_card_min', focusWasLost: true, settled: false, planVisible: true })
   assert.deepEqual(first, { focus: 'c_card_min', clear: false })
-  const second = decideRestore({ refId: 'c_card_min', focusWasLost: true, settled: true })
+  const second = decideRestore({ refId: 'c_card_min', focusWasLost: true, settled: true, planVisible: true })
   assert.deepEqual(second, { focus: 'c_card_min', clear: true })
 })
 
@@ -68,18 +105,18 @@ test('a row still focused is remembered while newer input is pending', () => {
   // Codex audit: an older response can land inside a newer toggle's debounce.
   // The row is still mounted, so nothing is restored — but forgetting it here
   // means the newer response moves that row with nothing left to focus.
-  const older = decideRestore({ refId: 'c_card_min', focusWasLost: false, settled: false })
+  const older = decideRestore({ refId: 'c_card_min', focusWasLost: false, settled: false, planVisible: true })
   assert.deepEqual(older, { focus: null, clear: false })
-  const newer = decideRestore({ refId: 'c_card_min', focusWasLost: true, settled: true })
+  const newer = decideRestore({ refId: 'c_card_min', focusWasLost: true, settled: true, planVisible: true })
   assert.deepEqual(newer, { focus: 'c_card_min', clear: true })
 })
 
 test('overlapping responses never drop the row before the last one lands', () => {
   // Three responses for two toggles: only the final, settled one forgets it.
   const steps = [
-    { focusWasLost: false, settled: false },
-    { focusWasLost: true, settled: false },
-    { focusWasLost: true, settled: true },
+    { focusWasLost: false, settled: false, planVisible: true },
+    { focusWasLost: true, settled: false, planVisible: true },
+    { focusWasLost: true, settled: true, planVisible: true },
   ]
   let ref: string | null = 'c_card_min'
   const restored: (string | null)[] = []
@@ -93,7 +130,7 @@ test('overlapping responses never drop the row before the last one lands', () =>
 })
 
 test('an unrelated re-solve after settling restores nothing', () => {
-  const after = decideRestore({ refId: null, focusWasLost: true, settled: true })
+  const after = decideRestore({ refId: null, focusWasLost: true, settled: true, planVisible: true })
   assert.equal(after.focus, null)
 })
 
@@ -140,8 +177,8 @@ test('the row survives a balance drag landing between two responses', () => {
   // The exact sequence: an older response arrives while a newer request is
   // still pending, with the row mounted. Nothing is restored, and the row must
   // NOT be forgotten, or the newer response has nothing to put focus on.
-  const older = decideRestore({ refId: 'c_gym', focusWasLost: false, settled: false })
+  const older = decideRestore({ refId: 'c_gym', focusWasLost: false, settled: false, planVisible: true })
   assert.deepEqual(older, { focus: null, clear: false })
-  const newer = decideRestore({ refId: 'c_gym', focusWasLost: true, settled: true })
+  const newer = decideRestore({ refId: 'c_gym', focusWasLost: true, settled: true, planVisible: true })
   assert.deepEqual(newer, { focus: 'c_gym', clear: true })
 })

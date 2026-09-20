@@ -1,6 +1,5 @@
-import { Suspense, lazy, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import BalanceChart from './components/BalanceChart'
-import ErrorBoundary from './components/ErrorBoundary.tsx'
 import ChatPanel from './components/ChatPanel'
 import PrescriptionList from './components/PrescriptionList'
 import Stats from './components/Stats'
@@ -16,20 +15,24 @@ import { emptyPlanText, footerLines, narrateChart } from './lib/narrate'
 import type { Overrides } from './lib/overrides'
 import { NONE, count, fromIds, toLocks, toggle } from './lib/overrides'
 import { armOnToggle, decideRestore, domId, sameInputs } from './lib/focus'
+import type { Tab } from './lib/tabs.ts'
+import { DEFAULT_TAB, isPlanVisible } from './lib/tabs.ts'
+import { decideConsidered } from './lib/considered.ts'
 import { useDebounced } from './lib/useDebounced'
 import { solve } from './solver/mockSolver'
 import type { SolveRequest, SolveResponse } from './types'
 
-// Lazily loaded, so the wallet and its fixtures never enter the main chunk.
-// The planning demo is what is being judged; it must not carry the weight of a
-// side screen, and `npm run build` reports the two chunks separately so the
-// main one can be watched.
-const WalletView = lazy(() => import('./wallet/WalletView.tsx'))
-
 const FIXTURE = SCENARIOS[0].request
 
 export default function App() {
-  const [tab, setTab] = useState<'plan' | 'wallet'>('plan')
+  const [tab, setTab] = useState<Tab>(DEFAULT_TAB)
+  const planVisible = isPlanVisible(tab)
+  // Whether the left-out list is expanded. It lives here, not in
+  // PrescriptionList, for two reasons: the planning view unmounts on the Ask
+  // tab, so component state would reset to collapsed and the row the reader
+  // just ruled out would vanish again; and the reset paths that collapse it
+  // are here.
+  const [consideredOpen, setConsideredOpen] = useState(false)
   // The account the request is built from. A preset restores the fixture; the
   // two source buttons replace it wholesale. The lifecycle lives in a reducer
   // because the ways it goes wrong are about ordering, not rendering.
@@ -79,6 +82,28 @@ export default function App() {
   // request, not the slider, so the number under the thumb still tracks it.
   const debounced = useDebounced(request, 150)
 
+  // The solve effect is keyed on the request alone and must stay that way, so
+  // its closure cannot see a tab switch that happened after it ran. This ref
+  // is how `apply` above learns which tab is showing when a response actually
+  // lands.
+  const planVisibleRef = useRef(planVisible)
+  useEffect(() => {
+    planVisibleRef.current = planVisible
+  }, [planVisible])
+
+  // Open the left-out list when a change moves into it, close it when the
+  // reader is back to no overrides. The rule is a transition rather than
+  // `count > 0` so that collapsing the list by hand is not undone by the next
+  // unrelated re-solve.
+  const prevOverrides = useRef(0)
+  useEffect(() => {
+    const next = count(ruledOut)
+    const action = decideConsidered(prevOverrides.current, next)
+    prevOverrides.current = next
+    if (action === 'open') setConsideredOpen(true)
+    else if (action === 'close') setConsideredOpen(false)
+  }, [ruledOut])
+
   useEffect(() => {
     const mine = ++seq.current
     const ctl = new AbortController()
@@ -94,7 +119,17 @@ export default function App() {
       setRes(next)
       setSolvedRuledOut(sentOverrides)
       setSolvedRequest(debounced)
-      setNewIds(next.plan.map((p) => p.candidate_id).filter((id) => !before.includes(id)))
+      // The "new row" highlight is a 900ms animation, so it only means
+      // anything to someone who is looking at the list. The solve effect keeps
+      // running on the Ask tab, so a response landing there would arm the
+      // highlight for rows the reader never saw leave, and they would all
+      // flash as new on the way back. Read through a ref: this closure was
+      // made when the effect last ran and would otherwise hold a stale tab.
+      setNewIds(
+        planVisibleRef.current
+          ? next.plan.map((p) => p.candidate_id).filter((id) => !before.includes(id))
+          : [],
+      )
       setSource(from)
       setNotice(msg)
     }
@@ -138,6 +173,10 @@ export default function App() {
       // Nothing else is in flight: what is on screen answers exactly what the
       // user is asking now, sliders included.
       settled: solvedRequest !== null && sameInputs(solvedRequest, request),
+      // On the Ask tab the plan list is unmounted, so there is no checkbox to
+      // focus. The guard also stops the remembered row being discarded on the
+      // way past, which is what used to happen.
+      planVisible,
     })
     if (decision.clear) focused.current = null
     if (!decision.focus) return
@@ -184,6 +223,10 @@ export default function App() {
     setOpening(cents)
     setBuffer(cushion)
     setRuledOut(NONE)
+    // Explicit, because the transition rule cannot express this one: a reader
+    // who opened the list by hand with no overrides produces 0 -> 0 here,
+    // which is "leave", and the list would stay open into a fresh account.
+    setConsideredOpen(false)
     previousPlan.current = []
     // Invalidate any solve still in flight for the previous account: its answer
     // would otherwise land on these rows and look like an answer about them.
@@ -191,6 +234,13 @@ export default function App() {
     setSolvedRequest(null)
     setSolvedRuledOut(NONE)
     setNewIds([])
+    // Forget the remembered row too. It belongs to a plan the reader is no
+    // longer looking at, and on a change of account its id may not even exist.
+    // Leaving it set is not harmless: when the next answer lands, the restore
+    // effect finds that row in the left-out list, opens the section
+    // imperatively to focus it, and the resulting toggle writes `open` back to
+    // true — quietly undoing the collapse three lines above.
+    focused.current = null
     try {
       setRes(solve({ ...next, opening_balance_cents: cents, buffer_cents: cushion }, []))
     } catch {
@@ -241,28 +291,16 @@ export default function App() {
       <TopNav tab={tab} onTab={setTab} res={res} source={source} notice={notice} />
 
       <main className={`main${settled ? '' : ' is-solving'}`}>
-        {tab === 'wallet' ? (
-          // Its OWN boundary, not the root one. A lazy chunk that fails to load
-          // throws into the nearest boundary, and if that were the root the whole
-          // planning demo would be replaced by a crash card over a side screen
-          // the judge was not even looking at.
-          <ErrorBoundary
-            inline={(detail) => (
-              <section className="wallet-down" role="alert">
-                <h2>The demo wallet did not load</h2>
-                <p>The checking account view is unaffected — switch back to it.</p>
-                <details>
-                  <summary>What went wrong</summary>
-                  <p className="crash-detail">{detail}</p>
-                </details>
-              </section>
-            )}
-          >
-            <Suspense fallback={<p className="wallet-loading">Loading the demo wallet…</p>}>
-              <WalletView />
-            </Suspense>
-          </ErrorBoundary>
-        ) : (
+        {/* The planning view is a conditional render, not a hidden one. Two
+            reasons, both deliberate: the chart's ResponsiveContainer sizes
+            itself from its parent, and a parent inside `display: none` is
+            0x0, so hiding it would leave the chart depending on a resize
+            observer firing correctly on reveal; and a hidden checkbox cannot
+            take focus, which would make the restore effect look like it
+            worked when it had not. Everything it owns that must outlive a tab
+            switch — the overrides, the remembered row, whether the left-out
+            list is open — is state up here, not in the subtree. */}
+        {planVisible && (
           <>
             {/* The one card that lifts off the gradient: the verdict on the
                 left, the figures it is made of on the right. Keyed on the tier
@@ -412,8 +450,7 @@ export default function App() {
               </section>
             </div>
 
-            <div className="duo duo-start">
-              <section className="panel rx-panel">
+            <section className="panel rx-panel">
                 <div className="panel-head">
                   <div>
                     <p className="panel-kicker">The plan</p>
@@ -425,33 +462,51 @@ export default function App() {
                   </div>
                   {locked > 0 && (
                     <div className="panel-actions">
-                      <button type="button" className="reset" onClick={() => setRuledOut(NONE)}>
+                      <button
+                        type="button"
+                        className="reset"
+                        onClick={() => {
+                          setRuledOut(NONE)
+                          setConsideredOpen(false)
+                        }}
+                      >
                         Clear {locked} override{locked === 1 ? '' : 's'}
                       </button>
                     </div>
                   )}
                 </div>
-                <PrescriptionList
-                  req={request}
-                  res={res}
-                  ruledOut={ruledOut}
-                  solvedRuledOut={solvedRuledOut}
-                  newIds={newIds}
-                  onToggle={onToggle}
-                  onFocusRow={onFocusRow}
-                />
-              </section>
-
-              <ChatPanel
-                key={chatKey(account)}
+              <PrescriptionList
                 req={request}
                 res={res}
-                source={source}
-                accountSource={account?.source ?? 'preset'}
+                ruledOut={ruledOut}
+                solvedRuledOut={solvedRuledOut}
+                newIds={newIds}
+                onToggle={onToggle}
+                onFocusRow={onFocusRow}
+                consideredOpen={consideredOpen}
+                onConsideredToggle={setConsideredOpen}
               />
-            </div>
+            </section>
           </>
         )}
+
+        {/* The explainer is the one panel that must never unmount: it holds
+            the conversation, an unsent draft and an in-flight request, and
+            losing a judge's thread because they looked at the plan would be
+            worse than the tab is worth. The wrapper is what carries `hidden`
+            — the panel's own root is a `.panel`, and this stylesheet gives
+            that `display: flex`, which would beat the browser's rule for the
+            attribute and leave the whole thing on screen. */}
+        <div hidden={tab !== 'ask'}>
+          <ChatPanel
+            key={chatKey(account)}
+            req={request}
+            res={res}
+            source={source}
+            accountSource={account?.source ?? 'preset'}
+            visible={tab === 'ask'}
+          />
+        </div>
 
         <footer className="meta">
           {footerLines(res).map((line) => (

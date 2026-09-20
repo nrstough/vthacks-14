@@ -18,10 +18,16 @@ proof, which is the only part nobody else has.
       solver and keeps working. Only mention it if the chip in the nav is spotted.
 - [ ] Refresh the two numbers in the build section. The suite keeps growing and
       quoting a stale figure to someone who then runs it is worse than rounding.
-      As of Sat 14:00 it is 1,333 backend tests plus 216 frontend tests, and the
-      three demo accounts solve in roughly 3-8 ms (100 random accounts average
-      under 3 ms each). Re-measure with `.venv/bin/pytest backend/ -m perf -s`;
-      the figures move a little between machines and runs, so quote the range.
+      As of Sat 22:30 it is **2,165 backend tests plus 204 frontend tests**, and
+      the three demo accounts solve in roughly 3-8 ms (100 random accounts
+      average under 3 ms each). Re-measure with
+      `.venv/bin/pytest backend/ -m perf -s`; the figures move a little between
+      machines and runs, so quote the range.
+      (The frontend count went down, not up: deleting the Solana demo wallet
+      took 110 tests with it. Say "just over two hundred" and do not apologise
+      for it.)
+- [ ] Check you are on the **Plan** tab. A refresh always lands there, which is
+      the safety net if anything gets lost mid-demo.
 
 ---
 
@@ -90,11 +96,23 @@ only moves it to four, which is a weaker moment. Reset with any preset button,
 which clears overrides.
 
 Every row carries a checkbox, in the plan and in the left-out list, over one
-ruled-out set. Plan rows ask "Can't do this" and start unticked; left-out rows
-ask "Can do this" and start ticked, so on a left-out row it is the untick that
-rules the change out. Either way it is the one thing the app asks of you, and
-the solver re-runs without that change. The card row then moves down to the
-left-out list and says you ruled it out.
+ruled-out set. They all read the same way: "Can't do this", empty until you
+say otherwise, and ticking one means you have ruled that change out. It is
+the one thing the app asks of you, and the solver re-runs without it. The
+card row then moves down to the left-out list and says you ruled it out.
+
+If a judge asks why the left-out rows have checkboxes at all when they are
+not in the plan: the list is the solver's answer, the checkbox is your
+constraint. Ticking one there says "don't consider this next time either".
+
+The left-out list starts **collapsed** — it is eight rows and a third of the
+page otherwise — and opens itself the moment you rule something out, so the
+row you just moved is on screen when it lands. Verified in the browser on the
+exact click path a judge uses, mouse only, no keyboard focus: three changes
+becomes seven, the list opens, and "Pay the card minimum" is in it, struck
+through, reading "Can do this". It also reopens if you have collapsed it by
+hand and then rule out a second change. If you ever see a row appear to vanish
+here, the list closed and did not reopen — click the summary and carry on.
 
 One caveat if a judge reads the proof box closely here. It names the gas
 deferral and then says "the rest hold the cushion", but three of the seven are
@@ -147,6 +165,26 @@ If they want one more level:
 Stop there. Do not trail off into a feature list.
 
 ---
+
+## The Ask tab — not a beat, and deliberately so
+
+The whole four minutes above happens on the **Plan** tab without a single
+click on the nav. The second pill, **Ask**, is a Gemini explainer that answers
+questions about the plan currently on screen. It is there for judges who
+probe, not for the script, and nothing in the four minutes depends on it.
+
+**Do not open it unprompted.** As of Sat 22:40 it is unreliable: measured
+round trips of 28 and 34 seconds, one answer that came back as a fragment of
+its own system prompt, and one failure that fell through the whole model chain
+(`gemini-3.8-flash` → `gemini-3.5-flash` → `gemini-2.5-flash`) to a model
+Google has retired for new keys. That is a backend/model-config problem in the
+chat lane, not the tab.
+
+If a judge asks what it is, say it explains the plan in words and that every
+number in it comes from the solver, not the model — which is true and is the
+interesting part. If they want to see it, open it and set expectations on the
+wait. If it returns nonsense, say the explainer is a wrapper we do not lean on
+and go back to the proof box, which is the actual claim.
 
 ## Optional beat, only if the bank integration is live
 

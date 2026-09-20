@@ -22,11 +22,16 @@ export default function ChatPanel({
   res,
   source,
   accountSource = 'preset',
+  visible = true,
 }: {
   req: SolveRequest
   res: SolveResponse
   source: 'local' | 'server'
   accountSource?: AccountSource
+  /** Whether this panel is the showing tab. The panel stays mounted when it
+   *  is not, so the conversation survives; see the scroll effect below for
+   *  why it still has to know. */
+  visible?: boolean
 }) {
   const [messages, setMessages] = useState<ChatTurn[]>([])
   const [draft, setDraft] = useState('')
@@ -50,10 +55,16 @@ export default function ChatPanel({
     return () => ctl.abort()
   }, [])
 
+  // `visible` is a dependency, not decoration. A hidden element has no scroll
+  // box: `scrollHeight` reads 0, so an answer arriving while the reader is on
+  // the plan tab scrolls the log to the top instead of the bottom, and nothing
+  // would put it right when they come back. Re-running on reveal is what makes
+  // "the conversation survives a tab switch" true rather than nearly true.
   useEffect(() => {
+    if (!visible) return
     const el = logRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [messages, pending])
+  }, [messages, pending, visible])
 
   async function send(text: string) {
     const q = text.trim()

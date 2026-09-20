@@ -172,8 +172,9 @@ the box serves no interactive API console (it stays on in local development).
 
 The explainer is rate limited to twenty questions a minute per address, because it is the one
 endpoint that spends the key; the limit holds a count per address, no content and no identity, and
-it dies with the process. The wallet tab keeps its ledger in the browser: that is client state, it
-never reaches the server, and it dies with the tab.
+it dies with the process. The conversation itself is client state: the server is stateless and
+every question carries its own history, so nothing about a chat is stored anywhere, and it dies
+with the tab.
 
 The isolated forecast experiment does persist synthetic data and model checkpoints locally.
 Production would add Plaid for bank access, encryption at rest, and per-user auth — every one of

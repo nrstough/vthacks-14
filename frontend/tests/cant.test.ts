@@ -3,45 +3,54 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
-import { controlFor } from '../src/lib/cant.ts'
+import { CANT_DO_THIS, controlFor } from '../src/lib/cant.ts'
 import { domId } from '../src/lib/focus.ts'
 import { NONE, fromIds, toggle } from '../src/lib/overrides.ts'
 
 const GYM = 'c_gym'
 
-test('a plan row asks whether the user cannot do the change, unticked', () => {
-  const c = controlFor('plan', NONE, GYM, 'Gym')
+test('a row asks whether the user cannot do the change, and starts unticked', () => {
+  const c = controlFor(NONE, GYM, 'Gym')
   assert.equal(c.checked, false)
   assert.equal(c.text, 'Can’t do this')
   assert.equal(c.ariaLabel, 'Can’t do this: Gym')
 })
 
-test('a plan row the user ruled out is ticked', () => {
-  assert.equal(controlFor('plan', fromIds([GYM]), GYM, 'Gym').checked, true)
+test('a row the user ruled out is ticked', () => {
+  assert.equal(controlFor(fromIds([GYM]), GYM, 'Gym').checked, true)
 })
 
-test('a left-out row asks whether the user can do it, and starts ticked', () => {
-  // The counterfactual for removing the inversion: a change the solver left out
-  // is still something the user CAN do, so the box is ticked.
-  const c = controlFor('out', NONE, GYM, 'Gym')
-  assert.equal(c.checked, true)
-  assert.equal(c.text, 'Can do this')
-  assert.equal(c.ariaLabel, 'Can do this: Gym')
+test('the reading does not depend on which section the row is in', () => {
+  // This is the whole point of the change. The left-out list used to ask the
+  // opposite question and start ticked, which put eight checkmarks under a
+  // heading saying those changes had been left out. Same set, same id, same
+  // answer: one call, one result.
+  const available = controlFor(NONE, GYM, 'Gym')
+  const ruledOut = controlFor(fromIds([GYM]), GYM, 'Gym')
+  assert.equal(available.text, ruledOut.text)
+  assert.equal(available.checked, false)
+  assert.equal(ruledOut.checked, true)
 })
 
-test('a left-out row the user ruled out is unticked', () => {
-  assert.equal(controlFor('out', fromIds([GYM]), GYM, 'Gym').checked, false)
+test('an untouched row is never ticked, whatever else is ruled out', () => {
+  // The counterfactual for reintroducing an inversion: if any section started
+  // ticked, this would fail for the row that section renders.
+  const others = fromIds(['c_card_min', 'c_spotify'])
+  assert.equal(controlFor(others, GYM, 'Gym').checked, false)
 })
 
-test('the id is the one focus.ts prefix-tests, in both sections', () => {
-  assert.equal(controlFor('plan', NONE, GYM, 'Gym').id, domId(GYM))
-  assert.equal(controlFor('out', NONE, GYM, 'Gym').id, domId(GYM))
+test('the id is the one focus.ts prefix-tests', () => {
+  assert.equal(controlFor(NONE, GYM, 'Gym').id, domId(GYM))
 })
 
-test('toggling the override flips the tick in both sections', () => {
+test('toggling the override flips the tick', () => {
   const after = toggle(NONE, GYM)
-  assert.notEqual(controlFor('plan', after, GYM, 'Gym').checked, controlFor('plan', NONE, GYM, 'Gym').checked)
-  assert.notEqual(controlFor('out', after, GYM, 'Gym').checked, controlFor('out', NONE, GYM, 'Gym').checked)
+  assert.notEqual(controlFor(after, GYM, 'Gym').checked, controlFor(NONE, GYM, 'Gym').checked)
+})
+
+test('the label is exported once, so the two call sites cannot drift', () => {
+  assert.equal(controlFor(NONE, GYM, 'Gym').text, CANT_DO_THIS)
+  assert.ok(controlFor(NONE, GYM, 'Gym').ariaLabel.startsWith(CANT_DO_THIS))
 })
 
 test('the dom id lives in one place, and the component still wires onFocus', () => {
@@ -83,12 +92,13 @@ test('the dom id lives in one place, and the component still wires onFocus', () 
 })
 
 test('each section hands controlFor its own row, not the other section\'s', () => {
-  // Counting one 'plan' and one 'out' call is not enough: swapping both keeps
-  // the counts and reverses every checkbox. Tie each section to the row data
-  // that only that section has.
+  // The sections no longer differ in how they read the set, so swapping the
+  // calls would no longer flip any checkbox — but it would still put the plan
+  // row's label on a left-out row and break the accessible name. Tie each
+  // call to the row data only that section has.
   const src = fileURLToPath(new URL('../src/components/PrescriptionList.tsx', import.meta.url))
   const code = readFileSync(src, 'utf8')
-  assert.equal(code.split("controlFor('plan', ruledOut, p.candidate_id, p.label)").length - 1, 1)
-  assert.equal(code.split("controlFor('out', ruledOut, c.id, c.label)").length - 1, 1)
+  assert.equal(code.split('controlFor(ruledOut, p.candidate_id, p.label)').length - 1, 1)
+  assert.equal(code.split('controlFor(ruledOut, c.id, c.label)').length - 1, 1)
   assert.equal(code.split('controlFor(').length - 1, 2)
 })

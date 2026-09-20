@@ -53,6 +53,33 @@ test('the built bundle still offers the sandbox account', () => {
   assert.ok(found, 'the sandbox button label is missing from the bundle')
 })
 
+// Solana was dropped from the project and the demo wallet deleted with it.
+// The risk is not that someone rebuilds the tab; it is that a fragment of it
+// survives in the bundle — a fixture, a label, a leftover import — and a judge
+// greps the source for a blockchain track we are not entering.
+test('the built bundle mentions no blockchain', () => {
+  for (const code of bundles()) assert.doesNotMatch(code, /solana/i)
+  for (const code of bundles()) assert.doesNotMatch(code, /devnet/i)
+})
+
+test('the built bundle carries no demo wallet', () => {
+  for (const code of bundles()) assert.doesNotMatch(code, /demo wallet/i)
+  for (const code of bundles()) assert.doesNotMatch(code, /wallet-down/)
+})
+
+// The two pills are the whole navigation. If either label is missing the app
+// still renders, which is exactly why this is worth a grep rather than an eye.
+test('the built bundle carries both tab labels', () => {
+  // As a quoted string literal, not a bare substring: "Plan" on its own also
+  // matches `withPlan`, which the chart uses everywhere. The minifier emits
+  // backticks, so all three quote forms count.
+  for (const name of ['Plan', 'Ask']) {
+    const quoted = [`"${name}"`, `'${name}'`, `\`${name}\``]
+    const found = bundles().some((code) => quoted.some((q) => code.includes(q)))
+    assert.ok(found, `the ${name} pill label is missing from the bundle`)
+  }
+})
+
 function stylesheets(): string[] {
   const files = readdirSync(DIST).filter((f) => f.endsWith('.css'))
   assert.ok(files.length > 0, 'no built CSS in dist/assets — run `npm run build` first')

@@ -7,10 +7,15 @@ import { PENDING, actByNotice, reasonFor } from '../lib/reasons'
 import { emptyPlanText } from '../lib/narrate'
 import { money, shortDate } from '../lib/format'
 
-// One set underneath, two readings on top. In the plan list the question is
-// "can't you do this?"; in the left-out list it is "can you?", and the box is
-// ticked when the answer is yes. The words carry the meaning, never the tick
-// alone: a tick meaning two things silently is the bug the one control replaced.
+// One set underneath, one reading on top. Every row on the page, chosen or
+// left out, asks the same question — "can't you do this?" — starts empty, and
+// means one thing when ticked: the user ruled it out.
+//
+// The left-out list used to ask the opposite question and start ticked, which
+// was logically fine and read terribly: eight blue checkmarks directly under a
+// heading saying those changes had been LEFT OUT. A tick reads as "chosen"
+// before anyone reaches the label.
+//
 // What to render is decided by `controlFor` in `lib/cant.ts`; this component
 // renders whatever it returns.
 function CantDo({
@@ -58,6 +63,8 @@ export default function PrescriptionList({
   newIds,
   onToggle,
   onFocusRow,
+  consideredOpen,
+  onConsideredToggle,
 }: {
   req: SolveRequest
   res: SolveResponse
@@ -66,6 +73,11 @@ export default function PrescriptionList({
   newIds: string[]
   onToggle: (id: string) => void
   onFocusRow: (id: string) => void
+  /** Whether the left-out section is expanded. Owned by App: it has to survive
+   *  the tab switch that unmounts this component, and the reset paths that
+   *  collapse it live there too. */
+  consideredOpen: boolean
+  onConsideredToggle: (open: boolean) => void
 }) {
   const byId = new Map(req.candidates.map((c) => [c.id, c]))
   const used = new Set(res.plan.map((p) => p.candidate_id))
@@ -111,7 +123,7 @@ export default function PrescriptionList({
                 <Pain n={p.pain} />
               </div>
               <CantDo
-                control={controlFor('plan', ruledOut, p.candidate_id, p.label)}
+                control={controlFor(ruledOut, p.candidate_id, p.label)}
                 candidateId={p.candidate_id}
                 onToggle={onToggle}
                 onFocus={onFocusRow}
@@ -121,8 +133,20 @@ export default function PrescriptionList({
         })}
       </div>
 
+      {/* The left-out list is controlled, with the browser's own toggle fed
+          back. React never observes a native details toggle, so a reader
+          collapsing this by hand would desync it from App's state and the
+          next row to move in would land in a shut list. The toggle event
+          fires for programmatic `open` changes too, which is how the
+          focus-restore effect's `section.open = true` stays in step instead
+          of fighting this. Assign what the DOM reports; never flip, because
+          a remount with an already-open list fires a redundant toggle. */}
       {rest.length > 0 && (
-        <details className="considered" open>
+        <details
+          className="considered"
+          open={consideredOpen}
+          onToggle={(e) => onConsideredToggle(e.currentTarget.open)}
+        >
           <summary>
             {rest.length} other {rest.length === 1 ? 'change was' : 'changes were'} considered and
             left out
@@ -152,7 +176,7 @@ export default function PrescriptionList({
                     <Pain n={c.pain} />
                   </div>
                   <CantDo
-                    control={controlFor('out', ruledOut, c.id, c.label)}
+                    control={controlFor(ruledOut, c.id, c.label)}
                     candidateId={c.id}
                     onToggle={onToggle}
                     onFocus={onFocusRow}

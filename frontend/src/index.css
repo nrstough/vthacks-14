@@ -182,8 +182,8 @@ h1, h2, h3 {
   letter-spacing: -0.01em;
 }
 
-/* The figures themselves. `.stat-value`, `.wallet-balance`, `.wallet-amt` and
-   `.cash-callout .amount` reach the mono face through their own rules. */
+/* The figures themselves. `.stat-value` and `.cash-callout .amount` reach the
+   mono face through their own rules. */
 .rx-amount,
 .rx-date,
 .ctl-head b {
@@ -577,7 +577,10 @@ body {
 
 /* ---------- dashboard: prescription panel ---------- */
 
-.rx-panel { flex: 1; }
+/* `.rx-panel { flex: 1 }` was here. It was inert as a grid item, and once the
+   panel became a direct child of the flex column it would have been live but
+   silently overridden by `.main > * { flex: none }` on source order — which is
+   the exact shape of the bug that rule exists to prevent. */
 
 .rx-panel .rx { border-radius: 0; }
 
@@ -604,8 +607,18 @@ body {
 
 /* ---------- dashboard: chat panel ---------- */
 
+/* 220px was right when the explainer was a short column beside the plan list.
+   On its own tab it is the only thing on screen, so the cap goes back up to
+   the base 360px and the card is given a reading width rather than being
+   stretched across the full 1360px page, where a line of chat would run too
+   far to track. */
+.chat-panel {
+  max-width: 760px;
+}
+
 .chat-panel .chat-log {
-  max-height: 220px;
+  max-height: 360px;
+  min-height: 240px;
 }
 
 .chat-panel .chat-form {
@@ -1107,170 +1120,24 @@ details.considered[open] summary { margin-bottom: var(--s1); }
   overflow-wrap: anywhere;
 }
 
-/* ---------- the demo wallet ---------- */
-
-.wallet-head {
-  align-items: baseline;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  justify-content: space-between;
-}
-
-/* Always visible, never subtle: a test token must not read as real money. */
-.wallet-chip {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--ink-dim);
-  font-size: 0.8125rem;
-  padding: 0.2rem 0.7rem;
-}
-
-.wallet-balance {
-  font-size: 1.5rem;
-}
-
-.wallet-note {
-  color: var(--ink-dim);
-  font-size: 0.875rem;
-  margin: 0.75rem 0 1.25rem;
-  max-width: 60ch;
-}
-
-.wallet-grid {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
-}
-
-.wallet-panel {
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 1rem;
-}
-
-.wallet-panel h2 {
-  font-size: 0.8125rem;
-  letter-spacing: 0.04em;
-  margin: 0 0 0.75rem;
-  text-transform: uppercase;
-}
-
-.wallet-rows {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.wallet-rows li {
-  border-bottom: 1px solid var(--line);
-  display: grid;
-  gap: 0.5rem;
-  grid-template-columns: 6.5rem 1fr auto;
-  padding: 0.5rem 0;
-}
-
-.wallet-rows li:last-child {
-  border-bottom: 0;
-}
-
-.wallet-date {
-  color: var(--ink-dim);
-  font-size: 0.8125rem;
-}
-
-.wallet-rows li.in .wallet-amt {
-  color: var(--good);
-}
-
-.wallet-reserve {
-  color: var(--ink-dim);
-  font-size: 0.8125rem;
-  margin: 0.75rem 0 0;
-}
-
-.wallet-input {
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  color: var(--ink);
-  font: inherit;
-  font-size: 1.25rem;
-  padding: 0.4rem 0.6rem;
-  width: 100%;
-}
-
-.wallet-verdict {
-  border-left: 3px solid var(--line);
-  font-size: 0.9375rem;
-  margin: 1rem 0;
-  padding-left: 0.75rem;
-}
-
-/* The two verdicts must not look alike: only one of them can enable Sign. */
-.wallet-verdict.affordable { border-left-color: var(--good); }
-.wallet-verdict.conditional,
-.wallet-verdict.never_clears { border-left-color: var(--warn); }
-
-.wallet-sign {
-  background: var(--ink);
-  border: 0;
-  border-radius: 6px;
-  color: var(--bg);
-  cursor: pointer;
-  font: inherit;
-  padding: 0.5rem 1rem;
-}
-
-.wallet-sign:disabled {
-  background: var(--line);
-  color: var(--ink-dim);
-  cursor: not-allowed;
-}
-
-.wallet-why {
-  color: var(--ink-dim);
-  font-size: 0.8125rem;
-  margin: 0.5rem 0 0;
-}
-
-.wallet-loading {
-  color: var(--ink-dim);
-  padding: 2rem 0;
-}
-
-.wallet-down {
-  border: 1px solid var(--warn);
-  border-radius: 10px;
-  padding: 1rem;
-}
-
-.wallet-down h2 {
-  margin-top: 0;
-}
-
 /* ---------- markup the rewrite introduced ---------- */
 
 /* The controls sit in the narrow column of a .duo, so the two sliders stack
    rather than being squeezed side by side. */
 .controls-panel .controls { grid-template-columns: 1fr; }
 
-/* `.duo` stretches both columns to the taller one. That is right for the chart
-   row, where both panels have something to fill the height with, and wrong for
-   the plan row: the prescription list runs to eleven changes and would drag a
-   short chat panel out into 400px of empty white. Here each panel keeps its own
-   height instead. */
-.duo-start { align-items: start; }
+/* `.duo-start` and its sticky chat rule lived here. They existed only to stop
+   a short chat panel being stretched by an eleven-row plan list in the same
+   grid row. The explainer has its own tab now and the plan list is full width,
+   so the row they governed is gone. */
 
-/* And once it is only as tall as it needs to be, it can follow the list down.
-   Only in two columns — in one column a sticky panel would pin itself over the
-   list the reader is trying to scroll. */
-@media (min-width: 1281px) {
-  .duo-start > .chat-panel {
-    position: sticky;
-    top: var(--s2);
-  }
-}
+/* The hidden tab. `hidden` alone is not enough: the explainer's root is a
+   `.panel`, and `.panel { display: flex }` below is an author declaration that
+   beats the browser's own rule for the attribute, so the panel would stay on
+   screen — measured at 363px tall with six focusable descendants still in the
+   tab order. Scoped to `.main`'s own children rather than made `!important`,
+   which keeps this stylesheet's count of those at zero. */
+.main > [hidden] { display: none; }
 
 /* The one-column page behind the crash card, replacing the old `.shell`. */
 .crash-shell {
@@ -1343,8 +1210,7 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 .switcher button,
 .reset,
 .chat-form button,
-.crash button,
-.wallet-sign {
+.crash button {
   transition:
     background var(--dur-1) var(--ease),
     color var(--dur-1) var(--ease),
@@ -1403,6 +1269,12 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 .main > *:nth-child(2) { animation-delay: 60ms; }
 .main > *:nth-child(3) { animation-delay: 120ms; }
 .main > *:nth-child(4) { animation-delay: 180ms; }
+/* On the plan tab the children are hero, chart row, plan panel, the hidden
+   explainer wrapper and the footer — a `display: none` child still counts
+   here, so the footer is the fifth. It needs its own delay by position and not
+   by class, because on the ask tab the children are the wrapper and the
+   footer, and a `.meta` rule would fire at 240ms there for no reason. */
+.main > *:nth-child(5) { animation-delay: 240ms; }
 
 /* The figures land in their own left-to-right sweep inside the hero. */
 .stats .stat { animation: rise var(--dur-3) var(--ease) both; }
@@ -1431,72 +1303,6 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 .main.is-solving .hero {
   opacity: 0.85;
   transition: opacity var(--dur-2) var(--ease);
-}
-
-/* ---------- the wallet tab, on the new shell ---------- */
-
-/* The wallet is the one view that never had a card of its own: it used to sit
-   on a white page, so it needed none. On the gradient it was dark text on deep
-   blue. It gets the hero's card, because it IS this tab's hero. */
-.wallet,
-.wallet-down,
-.wallet-loading {
-  background: var(--bg);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-glass);
-  padding: var(--s4);
-}
-
-.wallet-loading {
-  margin: 0;
-  color: var(--ink-3);
-}
-
-.wallet-head { margin-bottom: var(--s2); }
-
-.wallet-chip {
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--accent-ink);
-  background: var(--accent-wash);
-  border-color: transparent;
-  padding: 6px 14px;
-}
-
-.wallet-balance {
-  font-family: var(--mono);
-  letter-spacing: -0.02em;
-}
-
-/* The inner boxes are recessed, like the figures in the plan tab's hero. */
-.wallet-panel {
-  background: var(--canvas);
-  border-radius: var(--radius-sm);
-  padding: var(--s3);
-}
-
-.wallet-panel h2 {
-  font-family: var(--mono);
-  letter-spacing: 0.08em;
-}
-
-.wallet-date,
-.wallet-amt,
-.wallet-reserve,
-.wallet-input,
-.wallet-verdict { font-family: var(--mono); }
-
-.wallet-input {
-  border-radius: var(--radius-xs);
-  border: 1px solid var(--line-strong);
-  background: var(--bg);
-}
-
-.wallet-sign {
-  border-radius: var(--radius-pill);
-  padding: 10px 20px;
 }
 
 /* ---------- responsive ---------- */

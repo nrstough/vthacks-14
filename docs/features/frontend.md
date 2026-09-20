@@ -6,17 +6,35 @@ this doc covers what the screen says and how the user talks back to it.
 
 ## What it is
 
-One screen, three bands, over a frozen `POST /api/solve` contract. React + Vite + TypeScript +
-Recharts. The page does no financial arithmetic: every balance, tier, verdict, certificate and
-reason on screen is either returned by the solver or derived from dates and ids alone.
+Two tabs over a frozen `POST /api/solve` contract. React + Vite + TypeScript + Recharts. The
+page does no financial arithmetic: every balance, tier, verdict, certificate and reason on
+screen is either returned by the solver or derived from dates and ids alone.
+
+**Plan** is the default tab and carries the whole product, in three bands:
 
 1. **Verdict band**: tier pill, verdict sentence, qualifier, proof box (the certificate
    sentence), and at tier 3 the outside-cash callout. Announced to assistive tech as a polite
    live region, so a re-solve is read out once.
-2. **Balance band**: a written equivalent of the chart above the chart itself, then the chart.
-   The chart container is an image described by the text; the SVG is hidden from assistive tech.
+2. **Balance band**: a written equivalent of the chart above the chart itself, then the chart,
+   with the what-if sliders beside it. The chart container is an image described by the text;
+   the SVG is hidden from assistive tech.
 3. **Plan band**: the chosen changes in the order they take effect, then the left-out changes
-   with a reason each.
+   with a reason each. Full width, with the left-out list collapsed until it has something to
+   show — see The override model.
+
+**Ask** is the explainer, on its own tab. It replaces the main area rather than sitting beside
+the plan, because it is a thing judges probe rather than a thing that is presented: the
+four-minute script never leaves the Plan tab.
+
+The whole of Plan is a conditional render, so switching to Ask unmounts it. That is deliberate.
+The chart's `ResponsiveContainer` sizes itself from its parent, and a parent inside
+`display: none` is 0×0; a hidden checkbox cannot take focus, which would make the focus-restore
+effect look like it had worked when it had not. Everything that must outlive a tab switch — the
+overrides, the remembered row, whether the left-out list is open — is state in `App`.
+
+The explainer is the exception: it stays mounted and is hidden with the `hidden` attribute,
+because it owns the conversation, an unsent draft and an in-flight request. `hidden` is not
+sufficient on its own — see the styling notes.
 
 ## Sources of truth on screen
 
@@ -61,18 +79,28 @@ Two buttons beside the presets load a whole account, not just a pair of balances
 ## The override model
 
 The user tells the app one thing about a change: whether they can do it. There is **one
-ruled-out set** underneath, and every row, chosen or not, carries one checkbox over it. The
-two sections read that one set in opposite directions, and say so in words:
+ruled-out set** underneath, and every row, chosen or not, carries one checkbox over it — with
+**one reading, everywhere on the page**:
 
 | Section | The checkbox reads | Ticked means | On load |
 |---|---|---|---|
 | Plan rows | "Can't do this" | ruled out — the id goes into `locks.out` | unticked |
-| Left-out rows | "Can do this" | **not** ruled out — the solver may still use it | ticked |
+| Left-out rows | "Can't do this" | ruled out — the id goes into `locks.out` | unticked |
 
-So a left-out row starts ticked, and unticking it is how the user rules it out. Nothing is
-inverted silently: **the words carry the meaning, never the tick alone.** A tick that meant
-"chosen" in one list and "rejected" in the other is the bug the single control replaced, and
-a single label over two opposite states would bring it back.
+A tick means exactly one thing anywhere: **the user ruled this out.** Which section a row sits
+in is the solver's answer, said in the heading and the reason line; the checkbox only ever
+carries the user's own constraint.
+
+The left-out list briefly asked the opposite question — "Can do this", starting ticked, on the
+grounds that a change the solver did not need is still one you could do. That was logically
+sound and read badly: eight blue checkmarks sitting directly under a heading that said those
+changes had been LEFT OUT. A tick reads as "chosen" before anyone reaches the label, so the
+words were carrying a distinction the ticks were busy contradicting. The distinction was
+removed rather than explained better.
+
+The older bug this all descends from is still worth avoiding: a single visual state that meant
+"chosen" in one list and "rejected" in the other. One label over one meaning is what prevents
+it; two labels over two resting states was an over-correction.
 
 `src/lib/overrides.ts` owns the set and its translation to `locks`. `src/lib/cant.ts` owns the
 reading: `controlFor(section, ruledOut, id, label)` returns `{ id, checked, text, ariaLabel }`
@@ -83,6 +111,35 @@ focus restoration prefix-tests them; the id did not change when the label did.
 `locks.in` is always empty; pinning is not on the screen. Which section a row sits in is the
 outcome. The checkbox is the input. They share no control. Presets clear all overrides; so
 does the "Clear n overrides" button.
+
+### When the left-out list is open
+
+It renders **collapsed** — about 845px of the page at the `$200.00` preset, and a third of its
+height. The summary line still says how many changes were considered and left out, which is
+the claim worth making.
+
+`src/lib/considered.ts` decides when it opens: **any increase** in the override count opens it,
+a drop to zero closes it, and anything else leaves it alone. The last part is what lets a
+reader collapse it by hand without the next re-solve reopening it.
+
+Opening on any increase rather than only on the first override is load-bearing, not tidiness.
+A reader who rules out A, collapses the list, then rules out B produces 1 → 2; if that left the
+list shut, B would move into a section nobody can see. The demo script says out loud that the
+card row "moves down to the left-out list", and on Safari — where a mouse click does not focus
+the checkbox, so `armOnToggle` returns null and the focus-restore effect's imperative open
+never fires — this rule is the only thing making that sentence true.
+
+Reset is not fully expressible as a transition: a reader who opens the list by hand with no
+overrides and then presses a preset produces 0 → 0. `App` therefore also closes it explicitly
+in `adopt()` and in the "Clear n overrides" handler.
+
+The `<details>` is **controlled**, with `onToggle` feeding the browser's own state back. React
+never observes a native toggle, so an uncontrolled element would desync the first time the
+reader collapsed it by hand; and because the whole plan view unmounts on the Ask tab, the open
+state has to live in `App` or it would reset every time they came back. The toggle event fires
+for programmatic `open` changes too, which is how the focus-restore effect's
+`section.open = true` stays in step rather than fighting it. The handler assigns what the DOM
+reports and never flips, because a remount with the list already open fires a redundant toggle.
 
 ## Reasons on left-out rows
 
@@ -187,8 +244,19 @@ the third case says, and no more.
 
 The chart is `role="img"` labelled and described by the narration paragraph above it; its whole
 subtree is `aria-hidden`, and Recharts' `accessibilityLayer` is switched off with it, because
-that layer puts a `tabIndex=0` surface inside the hidden subtree. Verified: 11 checkboxes in the
-tab order, zero tabbable elements inside `.chart-wrap`.
+that layer puts a `tabIndex=0` surface inside the hidden subtree.
+
+Verified in the browser on the Plan tab: **three** checkboxes in the tab order plus the
+left-out list's `<summary>`, zero tabbable elements inside `.chart-wrap`, and **zero** inside
+the hidden explainer. It was eleven checkboxes before the left-out list began collapsed; the
+other eight join the tab order when it opens. Rows inside a closed `<details>` still report
+client rectangles in Chrome but are not focusable, so a tabbability check has to try focusing
+one rather than measure it.
+
+The zero inside the explainer is worth stating because it was not free: the panel's root is a
+`.panel`, and `.panel { display: flex }` beats the browser's own `[hidden]` rule, so the
+attribute alone left the whole thing on screen with six focusable descendants. `.main >
+[hidden] { display: none }` is what makes it true, and `styles.test.ts` pins it.
 
 Each row's checkbox carries an accessible name including the change it belongs to, since eleven
 rows otherwise read identically. Changing one moves its row between sections, which unmounts the
@@ -212,6 +280,13 @@ input. `src/lib/focus.ts` holds the rules, apart from React so they can be teste
 - Open the "other changes" section before focusing into it; nothing inside a closed `details`
   can take focus.
 - Suppress tracking during the restore itself, or the focus event writes the id straight back.
+- **Do nothing when the plan list is not on screen, and keep the remembered row.** The solve
+  effect keeps running on the Ask tab, so a response can land while the plan list is unmounted.
+  Before the tabs, the caller applied `clear` before it went looking for the element, so a row
+  remembered at that moment was discarded on the way past and lost for good. `planVisible`
+  returns `{ focus: null, clear: false }` instead. The counterfactual in `focus.test.ts`
+  asserts on `clear`, not only on `focus`: `focus` is null either way, so a test checking only
+  that would pass against the old behaviour.
 
 Verified by hand in the browser, six sequences: toggled row moves; user moves to a surviving
 row; activation with no prior focus; a later unrelated re-solve; the left-out section collapsed;
@@ -271,14 +346,20 @@ carries provenance instead.
 unchanged. It is the one thing on the page that is never restyled away. It is a nav chip, not a
 footer one — `docs/demo-script.md` says the same.
 
-No dark mode. A reduced-motion block covers `.hero`, `.panel` and `.rx-row`; the **six**
+No dark mode. A reduced-motion block covers `.hero`, `.panel` and `.rx-row`; the **five**
 responsive rules the earlier lane fixed are pinned by regex in `frontend/tests/styles.test.ts`
 so a retune cannot quietly undo them: `.controls` declared once at the top level,
-`.main > * { flex: none }`, `minmax(0, 1fr)` tracks, the 640px release of the row cells,
-reduced motion covering the transitions and not only the animations, and
-`.wallet, .wallet-down, .wallet-loading { background: var(--bg) }` — the wallet is the one view
-with no card of its own, and without that background the navy shows straight through its
-figures.
+`.main > * { flex: none }`, `minmax(0, 1fr)` tracks, the 640px release of the row cells, and
+reduced motion covering the transitions and not only the animations.
+
+There was a sixth, `.wallet, .wallet-down, .wallet-loading { background: var(--bg) }` — the
+wallet was the one view with no card of its own, and without that background the navy showed
+straight through its figures. The Solana demo wallet was deleted, so the pin was **retired and
+replaced by its inverse**: no `.wallet` selector may reappear anywhere in the stylesheet.
+
+Three pins were added with the tabs: that inverse, `.main > [hidden] { display: none }`, and
+that the stylesheet carries no `!important` at all — the hiding rule was scoped rather than
+made important, and the count is zero, so it is cheap to keep it there.
 
 ## Canaries
 
@@ -321,6 +402,12 @@ Then the backend gate, because the parity tests run this frontend's oracle:
 ## Known gaps
 
 - No DOM test runner (none installable from the hotel); component rendering is verified by hand.
-- Bundle is 621 kB / 184 kB gzip, almost all Recharts. Only worth acting on if the deployed demo
-  feels slow.
+- Bundle is 637 kB / 189 kB gzip in one chunk, almost all Recharts. It was two chunks while the
+  wallet was lazily loaded. Only worth acting on if the deployed demo feels slow.
 - No dark mode.
+- Switching tabs does not preserve scroll position. The document shrinks while Ask is showing,
+  so the browser clamps the offset and returning to Plan does not land where you left.
+- The mount-only entrance animations replay on each return to Plan, the chart included. The one
+  that would have misled — `.rx-row.is-new` re-flashing rows as new — is suppressed inside
+  `apply()`, not merely cleared on the way out, because the solve effect keeps running on the
+  Ask tab and would otherwise repopulate it.
