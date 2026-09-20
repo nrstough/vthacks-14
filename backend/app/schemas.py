@@ -582,7 +582,7 @@ class ImportProvenance(Strict):
     imputed_zero_days: Annotated[StrictInt, Field(ge=0)]
     rows_used: Annotated[StrictInt, Field(ge=0)]
     weeks_used_for_assumed: Annotated[StrictInt, Field(ge=0)] | None
-    assumed_method: Literal["same_weekday_8_week_median"] | None
+    assumed_method: Literal["same_weekday_8_week_p60"] | None
     assumed_ids: list[Id]
     next_payday: StrictStr | None
     pay_cadence: Cadence | None

@@ -77,7 +77,7 @@ function account(over: Partial<ImportAccountResponse> = {}): ImportAccountRespon
       imputed_zero_days: 12,
       rows_used: 300,
       weeks_used_for_assumed: 8,
-      assumed_method: 'same_weekday_8_week_median',
+      assumed_method: 'same_weekday_8_week_p60',
       assumed_ids: ['f_20260922'],
       next_payday: '2026-09-22',
       pay_cadence: 'weekly',
@@ -212,7 +212,7 @@ test('quiet days are described as absent from the file, not as observed', () => 
 
 test('the panel says the method, the window and the payday', () => {
   const model = panelModel(account())
-  assert.match(model.assumedLine ?? '', /median of the same weekday/)
+  assert.match(model.assumedLine ?? '', /above the middle of the same weekday/)
   assert.match(model.assumedLine ?? '', /An assumption, not a charge/)
   assert.match(model.historyLine, /300 transactions/)
   assert.match(model.historyLine, /12 days with none in the file/)

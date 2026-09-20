@@ -204,7 +204,7 @@ function importAccount(assumed = ['f_1']): LoadedAccount {
       imputed_zero_days: 0,
       rows_used: 10,
       weeks_used_for_assumed: 8,
-      assumed_method: 'same_weekday_8_week_median',
+      assumed_method: 'same_weekday_8_week_p60',
       assumed_ids: assumed,
       next_payday: '2026-09-22',
       pay_cadence: 'weekly',

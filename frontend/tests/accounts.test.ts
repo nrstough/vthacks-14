@@ -339,7 +339,7 @@ function importedAccount(over: Partial<ImportAccountResponse> = {}): ImportAccou
       imputed_zero_days: 421,
       rows_used: 1060,
       weeks_used_for_assumed: 8,
-      assumed_method: 'same_weekday_8_week_median',
+      assumed_method: 'same_weekday_8_week_p60',
       assumed_ids: ['f_20260922'],
       next_payday: '2026-09-22',
       pay_cadence: 'weekly',

@@ -173,7 +173,7 @@ export function panelModel(
           ? 'Everyday spending was estimated but left out: the window was already full of recurring charges.'
           : assumedDaily.length === 0
             ? 'No everyday spending found outside the recurring charges in your last eight weeks, so the plan covers those only.'
-            : `Everyday spending: about ${money(perDay)} a day across the window, the median of the same weekday over your last ${p.weeks_used_for_assumed} weeks. An assumption, not a charge.`,
+            : `Everyday spending: about ${money(perDay)} a day across the window, a little above the middle of the same weekday over your last ${p.weeks_used_for_assumed} weeks. An assumption, not a charge.`,
     // "no transactions in the export", not "nothing spent": the export is
     // assumed complete for its range, and that assumption is the reason a
     // quiet day counts as a zero. Stating it as observed fact would hide it.

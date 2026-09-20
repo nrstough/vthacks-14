@@ -408,7 +408,7 @@ The browser parses the CSV; this endpoint takes rows, not a file.
     "history_start": "2024-08-19", "history_end": "2026-09-18",
     "history_days": 761, "imputed_zero_days": 421, "rows_used": 1060,
     "weeks_used_for_assumed": 8,
-    "assumed_method": "same_weekday_8_week_median",  // null if under 56 days
+    "assumed_method": "same_weekday_8_week_p60",  // null if under 56 days
     "assumed_ids": ["f_20260922"],
     "next_payday": "2026-09-22", "pay_cadence": "weekly",
     "income_not_counted_today": ["s_001"],   // due today, not yet posted

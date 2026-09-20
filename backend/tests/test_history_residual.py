@@ -66,7 +66,7 @@ def test_every_day_of_the_history_is_present_and_quiet_days_are_counted():
     assert all(v == 0 for d, v in series.items() if d not in (start, END))
 
 
-def test_the_assumed_amount_is_the_same_weekday_median_over_eight_weeks():
+def test_the_assumed_amount_is_the_same_weekday_sixtieth_percentile():
     start = END - datetime.timedelta(days=55)
     data = []
     for i in range(56):
@@ -74,9 +74,23 @@ def test_the_assumed_amount_is_the_same_weekday_median_over_eight_weeks():
         data.append(H.row(day, f"KROGER #{i}", -(6000 if day.weekday() == 5 else 2000)))
     series, _ = daily_outflow(rows(data), set(), start, END)
     assumed = assumed_rows(series, END, AS_OF, AS_OF + datetime.timedelta(days=13))
+    # Every one of a weekday's eight values is identical here, so any
+    # percentile of them is that value.
     amounts = {d.weekday(): -a for _id, d, a in assumed}
     assert amounts[5] == 6000
     assert all(v == 2000 for w, v in amounts.items() if w != 5)
+
+
+def test_the_estimate_sits_above_the_middle_but_below_the_top():
+    # The median under-predicts spending, which for this product is the
+    # direction that reassures wrongly; the mean chases one big purchase.
+    from app.history.money import percentile_cents
+
+    values = [1000, 1100, 1200, 1300, 1400, 1500, 1600, 9000]
+    assert percentile_cents(values, 0.6) > percentile_cents(values, 0.5)
+    assert percentile_cents(values, 0.6) < max(values)
+    # And it is untouched by the outlier: only the top value is extreme.
+    assert percentile_cents(values, 0.6) == percentile_cents(values[:-1] + [1700], 0.6)
 
 
 def test_one_large_purchase_does_not_become_everyday_spending():

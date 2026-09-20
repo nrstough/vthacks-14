@@ -287,7 +287,7 @@ def import_account(req: ImportRequest, today: datetime.date) -> dict:
             "imputed_zero_days": imputed,
             "rows_used": len(rows),
             "weeks_used_for_assumed": WEEKS if enough_history else None,
-            "assumed_method": "same_weekday_8_week_median" if enough_history else None,
+            "assumed_method": "same_weekday_8_week_p60" if enough_history else None,
             "assumed_ids": assumed_ids,
             "next_payday": next_payday.isoformat() if next_payday else None,
             "pay_cadence": pay_cadence,

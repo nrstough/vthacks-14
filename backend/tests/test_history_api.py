@@ -64,7 +64,7 @@ def test_an_import_returns_a_schedule_the_solver_accepts(client):
 def test_the_provenance_says_where_every_number_came_from(client):
     out = imported(client)
     p = out["provenance"]
-    assert p["assumed_method"] == "same_weekday_8_week_median"
+    assert p["assumed_method"] == "same_weekday_8_week_p60"
     assert p["weeks_used_for_assumed"] == 8
     assert p["history_days"] > 56
     assert p["rows_used"] > 0
@@ -466,7 +466,7 @@ def test_a_history_of_only_bills_is_not_called_too_short(client):
     out = imported(client, rows=rows, as_of="2026-09-21")
     p = out["provenance"]
     assert p["history_days"] > 56
-    assert p["assumed_method"] == "same_weekday_8_week_median", "the method applied; it found nothing"
+    assert p["assumed_method"] == "same_weekday_8_week_p60", "the method applied; it found nothing"
     assert p["assumed_ids"] == []
     assert p["imputed_zero_days"] < p["history_days"], "days with a bill are not days with nothing"
 
