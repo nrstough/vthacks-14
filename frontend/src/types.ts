@@ -212,7 +212,7 @@ export interface ImportProvenance {
   imputed_zero_days: number
   rows_used: number
   weeks_used_for_assumed: number | null
-  assumed_method: 'same_weekday_8_week_median' | null
+  assumed_method: 'same_weekday_8_week_p60' | null
   assumed_ids: string[]
   next_payday: string | null
   pay_cadence: Cadence | null

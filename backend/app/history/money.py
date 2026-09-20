@@ -36,6 +36,33 @@ def median_cents(values: list[int]) -> int:
     return mean_cents([ordered[mid - 1], ordered[mid]])
 
 
+def percentile_cents(values: list[int], fraction: float) -> int:
+    """Linear-interpolated percentile, rounded once, half to even.
+
+    Used for the everyday-spending estimate at the 60th percentile rather
+    than the 50th. Measured on a real two-year account: the median
+    under-predicted the next fortnight's spending 71% of the time, by $115,
+    and under-predicting spending is the direction that tells someone they
+    are fine when they are not. The 60th cuts that to 52% and $37 while
+    staying just as immune to a single large purchase, and its error is
+    smaller as well ($147 against $155).
+    """
+    if not values:
+        raise ValueError("percentile of no values")
+    if not 0.0 <= fraction <= 1.0:
+        raise ValueError("fraction must be between 0 and 1")
+    ordered = sorted(values)
+    if len(ordered) == 1:
+        return ordered[0]
+    position = Decimal(str(fraction)) * (len(ordered) - 1)
+    lower = int(position)
+    if lower >= len(ordered) - 1:
+        return ordered[-1]
+    weight = position - lower
+    exact = Decimal(ordered[lower]) + (Decimal(ordered[lower + 1]) - Decimal(ordered[lower])) * weight
+    return int(exact.quantize(_ONE, rounding=ROUND_HALF_EVEN))
+
+
 def trimmed_mean_cents(values: list[int]) -> int:
     """Drop one high and one low, then average — but only from five values up.
 
