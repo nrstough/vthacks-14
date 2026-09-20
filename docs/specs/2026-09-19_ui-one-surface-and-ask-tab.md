@@ -472,7 +472,7 @@ audit = **209**.
 | 5 | List starts collapsed, opens on override, closes on reset | **Pass.** All three transitions automated. Browser: collapsed on load; ticking the card row by mouse with no keyboard focus (the Safari path) opened it with the row visible; hand-collapse then a second override reopened it; both `Clear n overrides` and a preset re-collapsed it, including from a hand-opened list at zero overrides. |
 | 6 | Focus restored only when plan visible, row survives | **Pass**, automated, both counterfactuals including `clear === false`. |
 | 7 | Plan tab materially shorter | **Pass.** 2,563 → **1,770px** at 1440 (−31%). Tier 3 2,840 → 2,634. Ask 1,044. |
-| 8 | Chip on both tabs, no banned word | **Pass.** Strings automated; the chip is in `<header>` outside the tab switch, now pinned at source. Browser: identical text on both tabs. Backend-down case **not re-run** — the chip's offline text is unchanged code and was verified before this change. |
+| 8 | Chip on both tabs, no banned word | **Pass.** Strings automated; the chip is in `<header>` outside the tab switch, now pinned at source. Browser: identical text on both tabs with the backend up **and with it stopped** — see browser check 7. |
 | 9 | Frontend green at the new floor; backend unmoved | **Pass**, see Commands. |
 | 10 | `minmax(0, 1fr)` still ≥ 6 | **Pass.** Exactly six, zero headroom, none inside a deleted block. |
 
@@ -483,11 +483,11 @@ audit = **209**.
 3. **Status-call delta 0** — see criterion 4.
 4. **Tick opens the list** — 3 changes → 7, list opened, "Pay the card minimum" in it, struck through, ticked.
 5. **Hand-collapse then second override reopens** — passed; row visible.
-6. **Both reset paths collapse** — passed, including the 0 → 0 case.
-7. **Chip on both tabs** — identical. Backend-down half not re-run; see criterion 8.
+6. **Both reset paths collapse** — passed. Re-run per preset after the Codex audit asked for each rather than one: for `$200.00`, `$180.00` and `$60.00` in turn, open the list by ruling a change out, press that preset, list collapsed. Three for three. Plus `Clear n overrides`, and the 0 → 0 case from a hand-opened list.
+7. **Chip on both tabs** — identical text, both tabs, backend up. **Backend-down half re-run after the Codex audit** (it was the reason it graded Test coverage a Fail): with uvicorn stopped and the page reloaded, the chip reads `Running on the built-in solver` on the Plan tab and, character for character, on the Ask tab, with the hover title `The solver failed (502).` The explainer independently shows `Explainer unreachable`, so the two disclosures agree rather than contradict — which is the case that matters, because Ask is where a judge may be standing when the wifi dies. The plan itself still solved on the fallback: verdict rendered, three rows.
 8. **Scroll jump at the tick beat** — 1048 → 1630 before; after the change the page no longer scrolls at all at the default preset (0 → 0), because the collapsed list shortens the document enough that the focused row is already in view. Improved, not worsened.
 9. **Rendered pills** — see criterion 3.
-10. **Scroll position across a tab switch** — not preserved. Recorded as a known gap.
+10. **Scroll position across a tab switch** — **not preserved, now measured** rather than asserted. Scroll the Plan tab to y=726 (its own clamp at 1,770px of document), switch to Ask: the document drops to 1,044px and the offset is clamped to **0**. Switching back to Plan leaves it at **0** — you return to the top, not to where you left. Known gap, listed in `docs/features/frontend.md`.
 11. **Screenshots** — `docs/shots/2026-09-19_ui-one-surface-and-ask-tab/`, six files. Desktop downscaled to 1200 tall; mobile kept at native 390 wide, because downscaling a 390×3149 page by its longest edge crushes it to 148px and proves nothing.
 
 ### Tab order, measured
@@ -512,7 +512,34 @@ Chrome but are not focusable, so tabbability has to be tested by attempting focu
    Deliberate; reasoning in `docs/features/frontend.md`.
 4. **One bundle pin was vacuous.** "Ask" is also the explainer's submit-button text, so the pin
    passed with the Ask pill deleted. Replaced by source pins.
-5. **Backend-down chip check not re-run.** Unchanged code, verified before this change.
+5. ~~Backend-down chip check not re-run.~~ **Closed.** The Codex audit graded Test coverage a
+   Fail for exactly this, and was right to: "unchanged code" is an argument, not a
+   verification, and the tab split is new ground for that chip. Re-run with uvicorn stopped;
+   see browser check 7. Checks 6 and 10 were tightened in the same pass — 6 now covers each
+   preset rather than one, and 10 carries measurements rather than a verdict.
+
+## Codex audit (gpt-6-astra, read-only sandbox)
+
+Round 1: **Fail**, on Test coverage — incomplete browser checks. Scorecard otherwise Plan
+adherence Acceptable, Scope discipline Excellent, Review compliance Excellent, Freeze integrity
+Acceptable, Regression Acceptable, Documentation Acceptable.
+
+Three actionable findings, all fixed above:
+
+1. **Test coverage (the Fail).** The backend-down disclosure check was recorded as not re-run;
+   browser check 10 said "not preserved" with no measurements; check 6 specifies each preset
+   and the evidence named one. All three closed.
+2. **Documentation.** The demo-script pre-flight still quoted 205 frontend tests against a
+   final 209. Fixed.
+3. **Plan adherence, downgraded to Acceptable.** D18's process traceability — added mid-
+   execution, outside the file list, with no acceptance criterion and no plan review. The
+   auditor accepted the rationale, implementation and tests; the gap is the record, which is
+   what deviation 1 already says.
+
+On the regression column: the sandbox reported 2,161 passed with four setup errors, all from
+fixtures needing writable temporary directories, plus no fresh `vite build`. Unrestricted runs
+in this worktree give **209 frontend** and **2,165 backend passed, 10 deselected, zero parity
+skips**, with lint and build clean. The four errors are the sandbox, not the change.
 
 ## Claude critique (adversarial, Opus)
 

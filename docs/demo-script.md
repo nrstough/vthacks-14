@@ -18,7 +18,7 @@ proof, which is the only part nobody else has.
       solver and keeps working. Only mention it if the chip in the nav is spotted.
 - [ ] Refresh the two numbers in the build section. The suite keeps growing and
       quoting a stale figure to someone who then runs it is worse than rounding.
-      As of Sat 22:30 it is **2,165 backend tests plus 205 frontend tests**, and
+      As of Sat 22:30 it is **2,165 backend tests plus 209 frontend tests**, and
       the three demo accounts solve in roughly 3-8 ms (100 random accounts
       average under 3 ms each). Re-measure with
       `.venv/bin/pytest backend/ -m perf -s`; the figures move a little between
