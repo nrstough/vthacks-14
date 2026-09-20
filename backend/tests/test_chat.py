@@ -562,9 +562,9 @@ def test_the_conversation_history_is_masked_too(monkeypatch):
     def fake(config, instruction, turns, sleep=None):
         seen["instruction"] = instruction
         seen["turns"] = turns
-        return turns[-1][1], "stub-model"
+        return turns[-1][1], "stub-model", "STOP"
 
-    monkeypatch.setattr(chat_mod, "generate_with_fallback", fake)
+    monkeypatch.setattr(chat_mod, "generate_with_fallback_detailed", fake)
     raw = copy.deepcopy(SCENARIOS["clears"])
     raw["scheduled"][0]["description"] = _TRAP
     solved = solve(SolveRequest.model_validate(raw))
@@ -593,9 +593,9 @@ def test_the_fixed_brief_is_never_rewritten_by_a_descriptor(monkeypatch):
 
     def fake(config, instruction, turns, sleep=None):
         seen["instruction"] = instruction
-        return "ok", "stub-model"
+        return "ok", "stub-model", "STOP"
 
-    monkeypatch.setattr(chat_mod, "generate_with_fallback", fake)
+    monkeypatch.setattr(chat_mod, "generate_with_fallback_detailed", fake)
     raw = copy.deepcopy(SCENARIOS["clears"])
     raw["scheduled"][0]["description"] = "a"
     solved = solve(SolveRequest.model_validate(raw))

@@ -470,3 +470,71 @@ def test_ascii_whitespace_around_an_amount_is_still_tolerated(client, solved, sa
     assert post(client, solved).json()["suggestions"] == [
         {"kind": "cushion", "candidate_id": None, "amount_cents": 5000}
     ]
+
+
+# --------------------------------------------------------------------------
+# the second Codex round: a capped answer offers nothing
+# --------------------------------------------------------------------------
+
+
+def test_a_capped_reply_yields_no_offer_at_all(client, solved, says):
+    says(f"Skipping that clears it.\nSUGGEST RULE OUT: {an_id(solved)}", finish="MAX_TOKENS")
+    r = post(client, solved)
+    assert r.status_code == 200
+    assert r.json()["suggestions"] == []
+
+
+def test_a_truncation_cannot_select_a_different_valid_candidate(client, solved, says):
+    """The case that put the finish-reason gate back.
+
+    A marker line has no sentence end, so `trim_to_sentence` normally deletes
+    the whole block on a capped reply. One shape survives: a truncation landing
+    exactly on a dot inside an id ends the string with `.`, which IS a sentence
+    end. `ID_RE` permits a trailing dot, and candidates arrive from the request
+    rather than from our generator — so a reply that meant `c_gym.cancel`, cut
+    to `c_gym.`, can name a DIFFERENT and entirely valid candidate while the
+    prose describes the first.
+
+    An earlier round of this change dropped the gate on the reasoning that no
+    candidate id ends in a dot. That is true of the generator and not of the
+    contract, which is the difference between a proof and a habit.
+    """
+    raw, res = solved
+    victim = dict(raw["candidates"][0])
+    decoy = dict(raw["candidates"][0])
+    victim["id"] = "c_trap.cancel"
+    decoy["id"] = "c_trap."
+    decoy["label"] = "Something else entirely"
+    poisoned = {**raw, "candidates": [victim, decoy] + [dict(c) for c in raw["candidates"][1:]]}
+
+    says("I would cancel the gym.\nSUGGEST RULE OUT: c_trap.", finish="MAX_TOKENS")
+    r = client.post(
+        "/api/chat?source=server",
+        json={
+            "messages": [{"role": "user", "text": "what should I drop?"}],
+            "request": poisoned,
+            "response": res,
+        },
+    )
+    assert r.status_code == 200
+    assert r.json()["suggestions"] == [], "a capped reply must not select anything"
+
+
+def test_the_same_truncation_uncapped_is_read_normally(client, solved, says):
+    """The gate must key on the finish reason, not on the shape of the id."""
+    raw, res = solved
+    decoy = dict(raw["candidates"][0])
+    decoy["id"] = "c_trap."
+    poisoned = {**raw, "candidates": [decoy] + [dict(c) for c in raw["candidates"][1:]]}
+    says("Consider this.\nSUGGEST RULE OUT: c_trap.")
+    r = client.post(
+        "/api/chat?source=server",
+        json={
+            "messages": [{"role": "user", "text": "what should I drop?"}],
+            "request": poisoned,
+            "response": res,
+        },
+    )
+    assert r.json()["suggestions"] == [
+        {"kind": "rule_out", "candidate_id": "c_trap.", "amount_cents": None}
+    ]

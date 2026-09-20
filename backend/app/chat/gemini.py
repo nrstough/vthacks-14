@@ -137,6 +137,22 @@ def generate(
     model: str | None = None,
 ) -> str:
     """One completion. `turns` is (role, text) with roles 'user' | 'assistant'."""
+    return generate_detailed(config, system_instruction, turns, temperature, model)[0]
+
+
+def generate_detailed(
+    config: GeminiConfig,
+    system_instruction: str,
+    turns: list[tuple[str, str]],
+    temperature: float = 0.4,
+    model: str | None = None,
+) -> tuple[str, str | None]:
+    """As `generate`, and also the finish reason.
+
+    Additive rather than a change to `generate`, which six tests call
+    positionally. A caller that needs to know whether the answer was cut off
+    asks for it; everyone else keeps the shape they had.
+    """
     if not config.api_key:
         raise GeminiError("GEMINI_API_KEY is not set")
     model = model or config.model
@@ -158,7 +174,8 @@ def generate(
         "x-goog-api-key": config.api_key,
     }
     payload = _post_json(ENDPOINT.format(model=model), headers, body, config.timeout_s)
-    return extract_text(payload)
+    finish = ((payload.get("candidates") or [{}])[0] or {}).get("finishReason")
+    return extract_text(payload), finish
 
 
 def generate_with_fallback(
@@ -167,7 +184,20 @@ def generate_with_fallback(
     turns: list[tuple[str, str]],
     sleep=time.sleep,
 ) -> tuple[str, str]:
-    """Try the primary model, then each fallback. Returns (text, model that answered).
+    """Try the primary model, then each fallback. Returns (text, model that answered)."""
+    text, model, _ = generate_with_fallback_detailed(
+        config, system_instruction, turns, sleep
+    )
+    return text, model
+
+
+def generate_with_fallback_detailed(
+    config: GeminiConfig,
+    system_instruction: str,
+    turns: list[tuple[str, str]],
+    sleep=time.sleep,
+) -> tuple[str, str, str | None]:
+    """As `generate_with_fallback`, and also the finish reason.
 
     "High demand" on one model during a demo should cost a second, not the
     answer. A transient status gets one retry on the same model after a short
@@ -178,7 +208,10 @@ def generate_with_fallback(
     for model in config.models():
         for attempt in range(2):
             try:
-                return generate(config, system_instruction, turns, model=model), model
+                text, finish = generate_detailed(
+                    config, system_instruction, turns, model=model
+                )
+                return text, model, finish
             except GeminiError as e:
                 last = e
                 if e.status in FATAL:

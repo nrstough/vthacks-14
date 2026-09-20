@@ -15,7 +15,13 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 
-from app.chat.gemini import GeminiConfig, GeminiError, generate_with_fallback
+from app.chat.gemini import (
+    FINISH_MAX_TOKENS,
+    GeminiConfig,
+    GeminiError,
+    generate_with_fallback,
+    generate_with_fallback_detailed,
+)
 from app.chat.prompt import system_instruction
 from app.chat.schemas import ChatRequest, ChatResponse, ChatStatus
 from app.chat.suggestions import extract, neutralise_markers, validate
@@ -172,7 +178,9 @@ def chat(req: ChatRequest, config: GeminiConfig | None = None, source: str = "se
     # road.
     turns = [(m.role, mask_descriptors(m.text, refs)) for m in req.messages]
     try:
-        reply, model = generate_with_fallback(config, instruction, turns)
+        reply, model, finish = generate_with_fallback_detailed(
+            config, instruction, turns
+        )
     except GeminiError as e:
         raise ChatUpstreamError(str(e)) from e
 
@@ -184,6 +192,15 @@ def chat(req: ChatRequest, config: GeminiConfig | None = None, source: str = "se
         # An answer that was only offers is not an answer. The emptiness check
         # upstream in extract_text runs before this strip, so it passed.
         raise ChatUpstreamError(EMPTY_AFTER_OFFERS)
-    offers = validate(raws, req.request.candidates)
+    # A capped answer offers nothing. The marker block is usually deleted
+    # outright by the upstream trim -- a marker line has no sentence end -- but
+    # one shape survives: a truncation that lands exactly on a dot inside an id
+    # ends the string with `.`, which IS a sentence end. `ID_RE` permits a
+    # trailing dot and candidates arrive from the request rather than from our
+    # generator, so `SUGGEST RULE OUT: c_gym.cancel` cut to `c_gym.` can match a
+    # DIFFERENT, entirely valid candidate while the prose describes the first.
+    # An earlier version of this change reasoned that no candidate id ends in a
+    # dot; that is true of the generator and not of the contract.
+    offers = [] if finish == FINISH_MAX_TOKENS else validate(raws, req.request.candidates)
     display = neutralise_markers(unmask_descriptors(scrub(body), refs))
     return ChatResponse(reply=display, model=model, suggestions=offers)

@@ -346,10 +346,18 @@ the other lifecycle guards, since none of them can be exercised without a DOM.
 One Codex finding was documentation only: this spec described `CLAUDE.md`'s
 Checks section wrongly, corrected above.
 
+**Codex, second pass:** Fail again, on the argument rather than the code. The
+justification for dropping the finish-reason gate rested on generator behaviour
+where it needed contract behaviour, and a truncated id can select a different
+valid candidate. The gate is restored and the reasoning corrected under
+Deviations. Three rounds of review had read that argument and accepted it; the
+one that checked it against `ID_RE` rather than against the generator found it
+in a minute.
+
 ## Results
 
-**Backend:** 2374 passed, 10 deselected (`.venv/bin/pytest backend/ -q`, 24s).
-Baseline on the merged tree before this change was 2312, so 62 new tests, all
+**Backend:** 2377 passed, 10 deselected (`.venv/bin/pytest backend/ -q`, 23s).
+Baseline on the merged tree before this change was 2312, so 65 new tests, all
 in `backend/tests/test_chat_suggestions.py`.
 
 **Frontend:** build clean, lint clean with no warnings, 369 passed 0 failed
@@ -413,38 +421,31 @@ prop was wired to. Fixed in `0108130` with a counter bumped only in `adopt()`.
 
 ### Deviations from the plan
 
-- **Step 1 reduced to one line, and the `finishReason` gate was dropped
-  entirely.** This supersedes "D2, corrected" in the Amendment above, which
-  specified `generate_detailed` / `generate_with_fallback_detailed` and a
-  discard of all offers on `MAX_TOKENS`. None of that shipped: `chat()` calls
-  the unchanged `generate_with_fallback`, and `detailed` appears nowhere in
-  `backend/`.
+- **Step 1 reduced to one line, then partly restored.** The lane agreement with
+  `ans-identity` cut the `gemini.py` footprint to the single `thought`-part
+  filter, and the `finishReason` gate specified by "D2, corrected" was dropped
+  on the reasoning that it defended nothing reachable: the only truncation
+  surviving `trim_to_sentence` ends in a dot, and no candidate id ends in a dot.
 
-  The reason is the lane agreement with `ans-identity`, which also edits
-  `gemini.py`; the footprint there was cut to the single `thought`-part filter.
-  The reason it was acceptable to drop is the critique's finding that the gate
-  defended against nothing reachable: `_AMOUNT_RE` rejects `$1,200.`, the only
-  truncation that survives `trim_to_sentence`, and any truncated id fails the
-  candidate-membership check. **The amount pattern and the id check are
-  therefore the whole defence on that path, and there is no second layer.**
+  **That reasoning was wrong, and the second Codex audit broke it.** It was true
+  of `candidates/generator.py` and false of the contract: `ID_RE`
+  (`app/schemas.py:34`) permits a trailing dot, and candidates arrive in the
+  request rather than from our generator. Given candidates `c_trap.cancel` and
+  `c_trap.`, a capped reply meaning the first, cut to `SUGGEST RULE OUT:
+  c_trap.`, survives the trim and names the second — a different, entirely
+  valid change, while the prose describes the first. Reproduced before fixing.
 
-  An earlier version of this section claimed the variants shipped and the gate
-  survived as defence-in-depth. Both were false. The positional callers spared
-  by `generate_with_fallback` keeping its signature are `test_chat.py:364`
-  (`gemini.generate`), `:421`, `:430` and `:438` — four, verified by grep at
-  `785a7fe`, not the four line numbers the first correction gave, which were a
-  guess dressed as a citation. `:448` and `:456` also call it positionally but
-  sit inside `pytest.raises`, so a return-shape change never reaches them. The
-  two monkeypatch sites are `:567` and `:598`.
+  The gate is now implemented as the Amendment originally specified, and
+  additively: `generate_detailed` and `generate_with_fallback_detailed` return
+  the finish reason, the plain names wrap them, and `chat()` discards every
+  offer when the reason is `MAX_TOKENS`. Six positional callers keep their
+  shape; the two monkeypatch sites (`test_chat.py:567`, `:598`) are repointed
+  at the detailed name and their fakes return a third element.
 
-  **Why dropping the gate is safe, and not merely convenient.** The argument
-  rests on no truncated id ever passing the candidate check, and that is
-  provable rather than hopeful: `_SENTENCE_END` (`gemini.py:210`) requires
-  `[.!?]` before whitespace or end of string; `ID_RE` (`app/schemas.py:34`)
-  forbids `!` and `?`; and `_candidate_id` (`candidates/generator.py:45,49`)
-  always appends a non-empty action or digest, so no candidate id ends in a
-  dot. A truncation surviving `trim_to_sentence` mid-id therefore ends in `.`
-  and can never equal a candidate.
+  The lesson is worth keeping: the difference between the generator's habits
+  and the contract's guarantees is the difference between a proof and an
+  assumption, and this spec asserted the former while holding the latter.
+
 - **`REF_RE` exported** from `app.chat`, not in the plan. The ANS lane depends
   on the masking pattern to strip references out of merchant text before a
   counterparty model sees them; it asked for a public alias rather than import
