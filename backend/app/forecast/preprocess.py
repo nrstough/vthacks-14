@@ -89,10 +89,18 @@ def transform(
     if mean.shape != (AUXILIARY,) or std.shape != (AUXILIARY,) or (std <= 0).any():
         raise ValueError("invalid feature standardiser")
     sequence, auxiliary, scale = scale_and_raw(history, origins, fallbacks)
+    # The anchored checkpoints add the person's NORMALISED weekday baseline to
+    # their output. It is already here: the first 14 raw auxiliary columns are
+    # exactly `weekday_future / scale`. Returning that slice rather than
+    # recomputing it is what stops a second definition drifting from this one.
+    #
+    # Note it is the same-weekday eight-week MEAN, not the 60th percentile the
+    # product displays. The models were trained against the mean.
+    baseline = auxiliary[:, :HORIZON].copy()
     auxiliary = (auxiliary - mean) / std
     if not np.isfinite(sequence).all() or not np.isfinite(auxiliary).all():
         raise ValueError("non-finite transformed input")
-    return sequence, auxiliary, scale
+    return sequence, auxiliary, scale, baseline
 
 
 def normalisation(metadata: dict) -> tuple[np.ndarray, np.ndarray, dict[str, float]]:

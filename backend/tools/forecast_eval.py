@@ -35,9 +35,9 @@ from app.history.detect import Row, detect_streams  # noqa: E402
 from app.history.payee import payee_key  # noqa: E402
 from app.history.residual import daily_outflow  # noqa: E402
 
-CHECKPOINTS = Path(
-    "/Users/nathanstough/Documents/Codex/worktrees/vthacks-forecast/forecasting/artifacts/forecast-v3/runs"
-)
+ARTIFACTS = Path("/Users/nathanstough/Documents/Codex/worktrees/vthacks-forecast/forecasting/artifacts")
+CHECKPOINTS = ARTIFACTS / "forecast-v3/runs"
+FOLLOWUP = ARTIFACTS / "forecast-small-followup/runs"
 CONTEXT, HORIZON = 56, 14
 
 
@@ -129,22 +129,29 @@ def main() -> int:
     baseline = np.stack([weekday_baseline(h, d.weekday(), 0.6) for (d, h, _t) in windows])
     old_baseline = np.stack([weekday_baseline(h, d.weekday(), 0.5) for (d, h, _t) in windows])
 
-    names = [
-        ("direct_small_seed_11", "small s11"),
-        ("direct_small_seed_23", "small s23"),
-        ("direct_small_seed_47", "small s47"),
-        ("direct_tiny_seed_11", "tiny  s11"),
-        ("direct_medium_seed_11", "medium s11"),
-        ("direct_large_seed_11", "large s11"),
-    ]
-    loaded = {}
-    for folder, label in names:
-        p = CHECKPOINTS / folder / "forecast.npz"
-        if p.exists():
-            loaded[label] = runtime.load_checkpoint(p)
+    loaded: dict[str, object] = {}
+    for size in ("tiny", "small", "medium", "large"):
+        for seed in (11, 23, 47):
+            p = CHECKPOINTS / f"direct_{size}_seed_{seed}" / "forecast.npz"
+            if p.exists():
+                loaded[f"direct {size:6s} s{seed}"] = runtime.load_checkpoint(p)
+    for size in ("small", "medium", "large"):
+        for seed in (11, 23, 47):
+            p = FOLLOWUP / f"anchor_prefix_mae_{size}_seed_{seed}" / "forecast.npz"
+            if p.exists():
+                loaded[f"anchor {size:6s} s{seed}"] = runtime.load_checkpoint(p)
 
-    small = [loaded[k] for k in ("small s11", "small s23", "small s47") if k in loaded]
-    reference_metadata = small[0].metadata
+    # Groups scored as equal-weight PREDICTION ensembles. Never "pick the best
+    # seed": three seeds are three runs of one recipe differing only in their
+    # random start, and choosing among them on the data being scored is
+    # selection on the test set.
+    groups: dict[str, list] = {}
+    for label, checkpoint in loaded.items():
+        family, size, _seed = label.split()
+        groups.setdefault(f"{family} {size} x3", []).append(checkpoint)
+    groups = {k: v for k, v in groups.items() if len(v) == 3}
+
+    reference_metadata = next(iter(loaded.values())).metadata
     mean, std, fallbacks = preprocess.normalisation(reference_metadata)
 
     def score(predictions: np.ndarray) -> dict:
@@ -169,40 +176,45 @@ def main() -> int:
         f"14-day MAE ${was['total_mae']:.2f}, bias ${was['bias']:+.2f}, under-predicts {under_was:.0f}% of windows"
     )
 
-    print("\nprofile reference       model            daily MAE   14d MAE     bias    vs baseline")
-    print("-" * 88)
+    print("\nprofile reference       model                 daily MAE   14d MAE     bias    vs baseline")
+    print("-" * 94)
     results = {}
     for key in sorted(fallbacks):
         source, currency, channel = json.loads(key)
         reference = np.full(len(windows), fallbacks[key])
-        sequence, auxiliary, scale = preprocess.transform(history, origins, reference, mean, std)
+        sequence, auxiliary, scale, anchor = preprocess.transform(history, origins, reference, mean, std)
         label_profile = f"{source}/{currency}"
         for label, checkpoint in loaded.items():
-            predictions = runtime.forward(checkpoint, sequence, auxiliary) * scale[:, None]
+            predictions = (
+                runtime.forward(checkpoint, sequence, auxiliary, anchor if checkpoint.anchored else None)
+                * scale[:, None]
+            )
             s = score(predictions)
             results[(key, label)] = s
             delta = (base["total_mae"] - s["total_mae"]) / base["total_mae"] * 100
             print(
-                f"{label_profile:22s}  {label:14s}  ${s['daily_mae']:7.2f}  ${s['total_mae']:8.2f}  "
+                f"{label_profile:22s}  {label:18s}  ${s['daily_mae']:7.2f}  ${s['total_mae']:8.2f}  "
                 f"${s['bias']:+8.2f}   {delta:+6.2f}%"
             )
-        if small:
-            predictions = runtime.ensemble(small, sequence, auxiliary) * scale[:, None]
+        for label, members in groups.items():
+            predictions = runtime.ensemble(members, sequence, auxiliary, anchor) * scale[:, None]
             s = score(predictions)
-            results[(key, "ENSEMBLE small x3")] = s
+            results[(key, label)] = s
             delta = (base["total_mae"] - s["total_mae"]) / base["total_mae"] * 100
             print(
-                f"{label_profile:22s}  {'ENSEMBLE x3':14s}  ${s['daily_mae']:7.2f}  ${s['total_mae']:8.2f}  "
+                f"{label_profile:22s}  {label:18s}  ${s['daily_mae']:7.2f}  ${s['total_mae']:8.2f}  "
                 f"${s['bias']:+8.2f}   {delta:+6.2f}%"
             )
         print()
 
-    ens = [v["total_mae"] for (k, label), v in results.items() if label == "ENSEMBLE small x3"]
-    if ens:
+    print("ensemble spread across the five profile references (the size of the guess):")
+    for label in sorted(groups):
+        values = [v["total_mae"] for (k, name), v in results.items() if name == label]
+        best = (base["total_mae"] - min(values)) / base["total_mae"] * 100
         print(
-            f"ensemble 14-day MAE across the five profile references: "
-            f"${min(ens):.2f} to ${max(ens):.2f} "
-            f"(spread {(max(ens) - min(ens)) / statistics.mean(ens) * 100:.0f}% of the mean)"
+            f"  {label:18s} ${min(values):7.2f} to ${max(values):7.2f}  "
+            f"spread {(max(values) - min(values)) / statistics.mean(values) * 100:4.0f}%  "
+            f"best vs baseline {best:+6.2f}%"
         )
     print(
         "\nOne account. Overlapping windows, so the effective sample is far smaller than the"

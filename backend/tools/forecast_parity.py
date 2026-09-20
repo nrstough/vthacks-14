@@ -98,13 +98,15 @@ def preprocessing_parity() -> int:
             "channel": np.array(channel),
         }
         reference = transform_input_arrays(batch, fallbacks, mean, std)
-        sequence, auxiliary, scale = preprocess.transform(
+        sequence, auxiliary, scale, anchor = preprocess.transform(
             history, origins, np.array([fallbacks[k] for k in chosen]), mean, std
         )
+        expected_anchor = (reference["auxiliary"].astype(np.float64) * std + mean)[:, :14]
         for name, mine, theirs in (
             ("sequence", sequence, reference["sequence"].astype(np.float64)),
             ("auxiliary", auxiliary, reference["auxiliary"].astype(np.float64)),
             ("scale", scale, reference["scale"].astype(np.float64)),
+            ("baseline", anchor, expected_anchor),
         ):
             close = np.allclose(mine, theirs, **TOLERANCE)
             if not close:
@@ -112,6 +114,71 @@ def preprocessing_parity() -> int:
             print(
                 f"  {'ok  ' if close else 'FAIL'} transform {label:9s} {name:9s} "
                 f"max|diff| = {float(np.abs(mine - theirs).max()):.3e}"
+            )
+    return failures
+
+
+FOLLOWUP = RESEARCH / "forecasting/artifacts/forecast-small-followup/runs"
+
+
+def anchored_parity() -> int:
+    """The anchored recipes have a DIFFERENT forward pass, same tensors.
+
+    Loading them with the direct path runs cleanly and returns the wrong
+    numbers, which is the entire reason this file exists.
+    """
+    import torch
+
+    from forecasting.small_followup.models import load_model as load_followup
+
+    rng = np.random.default_rng(47)
+    failures = 0
+    for size in ("small", "medium", "large"):
+        for seed in (11, 23, 47):
+            path = FOLLOWUP / f"anchor_prefix_mae_{size}_seed_{seed}" / "forecast.npz"
+            if not path.exists():
+                continue
+            mine_checkpoint = runtime.load_checkpoint(path)
+            model, _meta = load_followup(path, device="cpu")
+            for label, baseline in (
+                ("zero base", np.zeros((6, 14))),
+                ("small base", np.abs(rng.normal(size=(6, 14))) * 0.4),
+                # Large enough that `baseline + raw` cannot go negative, and
+                # small enough elsewhere that the clamp does bite.
+                ("large base", np.abs(rng.normal(size=(6, 14))) * 40),
+                ("negative-ish", rng.normal(size=(6, 14)) * 3),
+            ):
+                sequence = rng.normal(size=(6, runtime.CONTEXT, 3))
+                auxiliary = rng.normal(size=(6, runtime.AUXILIARY))
+                with torch.inference_mode():
+                    theirs = model(
+                        torch.from_numpy(sequence.astype(np.float32)),
+                        torch.from_numpy(auxiliary.astype(np.float32)),
+                        torch.from_numpy(baseline.astype(np.float32)),
+                    ).numpy().astype(np.float64)
+                mine = runtime.forward(mine_checkpoint, sequence, auxiliary, baseline)
+                close = np.allclose(mine, theirs, **TOLERANCE)
+                if not close:
+                    failures += 1
+                print(
+                    f"  {'ok  ' if close else 'FAIL'} anchor {size}/seed {seed:2d} {label:12s} "
+                    f"max|diff| = {float(np.abs(mine - theirs).max()):.3e}"
+                )
+    if failures == 0:
+        # And prove the direct path would have been WRONG, so the branch is
+        # load-bearing rather than decorative.
+        path = FOLLOWUP / "anchor_prefix_mae_small_seed_11" / "forecast.npz"
+        if path.exists():
+            checkpoint = runtime.load_checkpoint(path)
+            sequence = rng.normal(size=(4, runtime.CONTEXT, 3))
+            auxiliary = rng.normal(size=(4, runtime.AUXILIARY))
+            base = np.abs(rng.normal(size=(4, 14)))
+            anchored = runtime.forward(checkpoint, sequence, auxiliary, base)
+            object.__setattr__(checkpoint, "metadata", {**checkpoint.metadata, "recipe": "direct_mse"})
+            direct = runtime.forward(checkpoint, sequence, auxiliary)
+            print(
+                f"  ok   the two paths really differ: max|anchored - direct| = "
+                f"{float(np.abs(anchored - direct).max()):.3e}"
             )
     return failures
 
@@ -149,6 +216,7 @@ def main() -> int:
     print(f"  {'ok  ' if close else 'FAIL'} ensemble of three   max|diff| = {float(np.abs(mine - reference).max()):.3e}")
 
     failures += preprocessing_parity()
+    failures += anchored_parity()
 
     print("\nPARITY PASSED" if failures == 0 else f"\nPARITY FAILED: {failures} case(s)")
     return 0 if failures == 0 else 1
