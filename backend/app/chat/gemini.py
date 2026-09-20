@@ -197,7 +197,13 @@ def extract_text(payload: dict) -> str:
         reason = (payload.get("promptFeedback") or {}).get("blockReason")
         raise GeminiError(f"Gemini returned no answer{f' ({reason})' if reason else ''}")
     parts = (candidates[0].get("content") or {}).get("parts") or []
-    text = "".join(p.get("text", "") for p in parts if isinstance(p, dict)).strip()
+    # A reasoning part is not an answer. Thought parts are not returned unless
+    # includeThoughts is set, and it is not — but the fallback chain spans three
+    # models with differing behaviour, and reasoning is exactly where a line
+    # shaped like a suggestion marker gets written speculatively.
+    text = "".join(
+        p.get("text", "") for p in parts if isinstance(p, dict) and not p.get("thought")
+    ).strip()
     if not text:
         raise GeminiError("Gemini returned an empty answer")
     if candidates[0].get("finishReason") == FINISH_MAX_TOKENS:

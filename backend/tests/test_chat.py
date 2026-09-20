@@ -112,7 +112,11 @@ def test_status_names_the_model(client, fake):
 def test_reply_comes_back_with_the_model(client, solved, fake):
     r = client.post("/api/chat", json=body(solved))
     assert r.status_code == 200
-    assert r.json() == {"reply": fake.reply, "model": gemini.DEFAULT_MODEL}
+    assert r.json() == {
+        "reply": fake.reply,
+        "model": gemini.DEFAULT_MODEL,
+        "suggestions": [],
+    }
     assert len(fake.calls) == 1
 
 
