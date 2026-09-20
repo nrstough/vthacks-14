@@ -12,7 +12,8 @@ API** track, which asks only that the app be built with the Gemini API.
 already be in the context the server renders from the solve. Gemini is never
 asked to add, estimate, or forecast. If a question needs a number the solver
 has not produced, the model is instructed to say so and point at the controls
-that would produce it (the sliders, "Can't do this").
+that would produce it (the sliders, and the row checkboxes — "Can't do this" on a plan row,
+"Can do this" on a left-out one).
 
 This is why the endpoint takes the whole solve, request and response, with
 every question. The server is stateless, so the client is the only place the
@@ -44,7 +45,7 @@ conversation and the plan live.
 | 502 | Gemini was called and failed (quota, timeout, safety block, unreachable). `detail` carries the reason. |
 | 503 | No key on the server. The panel shows "Explainer off". The solver is unaffected. |
 
-`source` is what the client's footer chip says: `local` when the numbers came
+`source` is what the client's nav chip says: `local` when the numbers came
 from the built-in fallback solver. The instruction tells the model, so it can
 say where the numbers came from if asked.
 

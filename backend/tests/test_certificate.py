@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from app.schemas import SolveRequest
 from app.solver.solve import solve
+from app.solver.wording import CUSHION_ONLY_REASON, CUSHION_ONLY_REASON_GAP
 from tests.fixtures import planted
 from tests.fixtures.scenarios import SCENARIOS
 
@@ -43,7 +44,23 @@ def test_a_change_that_only_guards_the_cushion_is_not_claimed_as_load_bearing():
     assert res.certificate.irredundant is False
     assert all(i.marginal_cents == 0 and i.marginal_days == 0 for i in res.certificate.per_item)
     assert all(p.strictly_needed is False for p in res.plan)
-    assert all("not strictly needed" in p.reason for p in res.plan)
+    assert all(p.reason == CUSHION_ONLY_REASON for p in res.plan)
+
+
+def test_at_tier_three_a_cushion_only_row_talks_about_the_gap():
+    """The other half of the wording split, end to end.
+
+    "Here for the cushion, not to clear zero" is true of a plan that clears
+    zero. At tier 3 nothing clears zero, so the row says the only thing its zero
+    marginals prove: taking it out would not widen the gap. The fixture has to
+    pin the change in — see `planted.TIER3_CUSHION_ONLY` for why no freely
+    chosen tier 3 plan can contain a zero-marginal row.
+    """
+    res = run(planted.TIER3_CUSHION_ONLY)
+    assert res.tier == 3
+    assert res.plan, "the pinned change must reach the plan"
+    assert any(p.reason == CUSHION_ONLY_REASON_GAP for p in res.plan)
+    assert all(p.reason != CUSHION_ONLY_REASON for p in res.plan)
 
 
 def test_at_tier_three_the_proof_is_marginal_not_absolute():

@@ -184,6 +184,26 @@ def test_a_ruled_out_change_is_marked_as_the_users_call(client, solved, fake):
     assert "RULED OUT by the user" in text
 
 
+def test_a_cushion_only_change_is_paraphrased_without_not_needed():
+    """The paraphrase handed to the model must not restate the old reading.
+
+    The reason line no longer says a cushion-only change is "not needed to clear
+    zero" — at tier 3 nothing clears zero — so the context must not hand the
+    model that reading either. What zero marginals actually prove is that
+    removing the change would not change the worst day.
+    """
+    from tests.fixtures.scenarios import request as make
+
+    raw = make(25_000, 2_500)
+    res = solve(SolveRequest.model_validate(raw))
+    assert any(not p.strictly_needed for p in res.plan), (
+        "the fixture must put a change in the plan that only holds the cushion"
+    )
+    text = render_context(SolveRequest.model_validate(raw), res)
+    assert "not load-bearing: removing it would not change the worst day" in text
+    assert "not needed to clear zero" not in text
+
+
 def test_source_local_is_disclosed_to_the_model(client, solved, fake):
     client.post("/api/chat?source=local", json=body(solved))
     text = fake.calls[0]["body"]["systemInstruction"]["parts"][0]["text"]

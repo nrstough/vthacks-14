@@ -1,41 +1,42 @@
 import type { Candidate, SolveRequest, SolveResponse } from '../types'
 import type { Overrides } from '../lib/overrides'
 import { isRuledOut, pendingIds } from '../lib/overrides'
+import type { Control } from '../lib/cant.ts'
+import { controlFor } from '../lib/cant.ts'
 import { PENDING, actByNotice, reasonFor } from '../lib/reasons'
 import { emptyPlanText } from '../lib/narrate'
 import { money, shortDate } from '../lib/format'
 
-// One control, the same on every row in both sections: the user tells us
-// whether they can do a change, and nothing else. Which section a row is in is
-// the solver's answer; this checkbox is the user's input. They used to be the
-// same three-way control, which meant one visual state read as "chosen" on a
-// plan row and "rejected" on a left-out row.
+// One set underneath, two readings on top. In the plan list the question is
+// "can't you do this?"; in the left-out list it is "can you?", and the box is
+// ticked when the answer is yes. The words carry the meaning, never the tick
+// alone: a tick meaning two things silently is the bug the one control replaced.
+// What to render is decided by `controlFor` in `lib/cant.ts`; this component
+// renders whatever it returns.
 function CantDo({
-  id,
-  label,
-  checked,
+  control,
+  candidateId,
   onToggle,
   onFocus,
 }: {
-  id: string
-  label: string
-  checked: boolean
+  control: Control
+  candidateId: string
   onToggle: (id: string) => void
   onFocus: (id: string) => void
 }) {
   return (
-    <label className="cant" htmlFor={`cant-${id}`}>
+    <label className="cant" htmlFor={control.id}>
       <input
-        id={`cant-${id}`}
+        id={control.id}
         type="checkbox"
-        checked={checked}
-        onChange={() => onToggle(id)}
-        onFocus={() => onFocus(id)}
+        checked={control.checked}
+        onChange={() => onToggle(candidateId)}
+        onFocus={() => onFocus(candidateId)}
         // Eleven identical labels are indistinguishable to a screen reader, so
         // the accessible name carries the change it belongs to.
-        aria-label={`Can't do this: ${label}`}
+        aria-label={control.ariaLabel}
       />
-      Can&rsquo;t do this
+      {control.text}
     </label>
   )
 }
@@ -110,9 +111,8 @@ export default function PrescriptionList({
                 <Pain n={p.pain} />
               </div>
               <CantDo
-                id={p.candidate_id}
-                label={p.label}
-                checked={isRuledOut(ruledOut, p.candidate_id)}
+                control={controlFor('plan', ruledOut, p.candidate_id, p.label)}
+                candidateId={p.candidate_id}
                 onToggle={onToggle}
                 onFocus={onFocusRow}
               />
@@ -152,9 +152,8 @@ export default function PrescriptionList({
                     <Pain n={c.pain} />
                   </div>
                   <CantDo
-                    id={c.id}
-                    label={c.label}
-                    checked={out}
+                    control={controlFor('out', ruledOut, c.id, c.label)}
+                    candidateId={c.id}
                     onToggle={onToggle}
                     onFocus={onFocusRow}
                   />

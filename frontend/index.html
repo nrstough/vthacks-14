@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- The two faces above the fold: the wordmark and verdict serif, and the
+         mono the stat tiles are set in. Inter is discovered from the stylesheet
+         as usual. One variable file per family, so these cover every weight the
+         page asks for, not just one. crossorigin is required even same-origin,
+         or the preload is fetched twice. -->
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/LibreBaskerville-Variable.woff2" />
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/JetBrainsMono-Variable.woff2" />
     <title>Safe to Spend</title>
   </head>
   <body>

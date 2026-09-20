@@ -184,6 +184,14 @@ const COUNT_WORDS = [
 ]
 const countWord = (n: number): string => COUNT_WORDS[n] ?? String(n)
 
+// The plan row for a change with zero marginals: taking it out changes neither
+// the deepest day nor the number of days below zero. What that is worth to say
+// depends on whether the plan clears at all. "Not to clear zero" misreads at
+// tier 3, where nothing clears zero, so the gap variant claims only what zero
+// marginals prove.
+export const CUSHION_ONLY_REASON = 'Here for the cushion, not to clear zero.'
+export const CUSHION_ONLY_REASON_GAP = 'Removing it would not widen the gap.'
+
 export function solve(req: SolveRequest, previousPlanArg: string[] = []): SolveResponse {
   // The request field wins when present; the argument stays for local callers.
   const previousPlan = req.previous_plan ?? previousPlanArg
@@ -342,7 +350,10 @@ export function solve(req: SolveRequest, previousPlanArg: string[] = []): SolveR
           cert.worst_date,
         )}.`
       } else {
-        reason = 'Holds the cushion; not strictly needed to clear zero.'
+        // The Python twin tests this case first and the branch order is
+        // mirrored here deliberately: the conditions are complementary, so the
+        // two implementations pick the same string and test_parity stays green.
+        reason = planClearsZero ? CUSHION_ONLY_REASON : CUSHION_ONLY_REASON_GAP
       }
       return {
         candidate_id: c.id,

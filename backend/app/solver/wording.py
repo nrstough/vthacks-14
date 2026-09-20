@@ -119,9 +119,21 @@ def certificate_sentence(
     return "Every change here is keeping you above the cushion, not above zero."
 
 
+# The plan row for a change with zero marginals: taking it out changes neither
+# the deepest day nor the number of days below zero. What that is worth to say
+# depends on whether the plan clears at all. "Not to clear zero" misreads at
+# tier 3, where nothing clears zero, so the gap variant claims only what zero
+# marginals prove. Byte-identical to the oracle's two exports.
+CUSHION_ONLY_REASON = "Here for the cushion, not to clear zero."
+CUSHION_ONLY_REASON_GAP = "Removing it would not widen the gap."
+
+
 def plan_reason(item: CertificateItem, plan_clears_zero: bool) -> str:
     if not load_bearing(item) or item.worst_date is None:
-        return "Holds the cushion; not strictly needed to clear zero."
+        # Tested first here and last in the oracle's chain; the branch order is
+        # mirrored deliberately, because the conditions are complementary and
+        # test_parity compares this field for field.
+        return CUSHION_ONLY_REASON if plan_clears_zero else CUSHION_ONLY_REASON_GAP
     if not plan_clears_zero:
         return (
             f"Without it the gap grows to {money(item.worst_shortfall_cents)} on "
