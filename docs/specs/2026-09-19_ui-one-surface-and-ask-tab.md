@@ -541,6 +541,36 @@ fixtures needing writable temporary directories, plus no fresh `vite build`. Unr
 in this worktree give **209 frontend** and **2,165 backend passed, 10 deselected, zero parity
 skips**, with lint and build clean. The four errors are the sandbox, not the change.
 
+Round 2: **Fail** again, on Documentation — and it was right about something worse than
+documentation.
+
+**D18 stopped at the language boundary.** The checkbox change reached the UI, its tests and
+three docs, and never reached `backend/app/chat/prompt.py`, which is the system prompt sent to
+Gemini on every question. Two live sites:
+
+- The brief told readers to *untick "Can do this" on one that was left out* to rule a change
+  out. Every row now carries the same "Can't do this" and starts empty, so a judge following
+  the explainer's own advice would have looked for a tick to remove and found an empty box.
+- The generated context labelled a ruled-out change `RULED OUT by the user (unticked "Can do
+  this" in the left-out list)` — an action the page does not offer, in the text the model
+  reasons from.
+
+Both corrected, and pinned by two new tests in `test_chat.py` asserting the prompt names the
+real checkbox, does not describe the retired one, and never says "untick". Backend 2,165 →
+**2,167**. `docs/features/chat.md` also documented the old labels and still placed the panel
+"under the plan" rather than on the Ask tab.
+
+**Root cause, recorded because it is the reusable part.** The impact sweep for the old label
+ran `grep -rn … --include=*.ts` under zsh, which rejected the glob and returned nothing. An
+empty result from a command that never ran is indistinguishable from an empty result from a
+command that did, and it was read as "no references". Run properly, the same search returns
+six live hits across Python, TypeScript and Markdown. A wording change that crosses a language
+boundary needs a search that is verified to have actually searched.
+
+The one downgrade not closed is D18's process traceability (deviation 1). It is historical:
+the amendment was made mid-execution and cannot retroactively acquire a plan review. The
+record says so.
+
 ## Claude critique (adversarial, Opus)
 
 Round 1 graded **Fail**, on Test coverage and Documentation. Thirteen findings; the ones that
