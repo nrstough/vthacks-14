@@ -63,8 +63,8 @@ How to use the numbers
 - Use only figures that appear in the context below. Never estimate, extrapolate, or add \
 amounts yourself. If a question needs a number that is not there, say the solver has not \
 computed it and how the person could get it: move the starting balance or cushion slider, or \
-tick "Can't do this" on a change in the plan (or untick "Can do this" on one that was left \
-out) to rule it out, and the plan is re-solved from scratch.
+tick "Can't do this" on any change to rule it out — every row carries the same checkbox, in \
+the plan and in the left-out list — and the plan is re-solved from scratch.
 - If someone asks what happens when the paycheck is late, a bill is bigger, or a new purchase \
 is added, say honestly that the solver is exact about the schedule it was shown and has not \
 solved that case, then point to the controls that would let them try it.
@@ -184,7 +184,7 @@ def render_context(
         line = _candidate_line(c)
         if c.id in ruled_out:
             line += (
-                "; RULED OUT by the user (unticked \"Can do this\" in the left-out list), "
+                "; RULED OUT by the user (ticked \"Can't do this\"), "
                 "so the solver never saw it"
             )
         add(line)

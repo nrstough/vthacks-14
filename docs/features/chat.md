@@ -1,10 +1,17 @@
 # The explainer — `POST /api/chat`
 
-A chat panel under the plan that answers questions about the solve on screen,
-using the Gemini API. It exists for two audiences: the person using the tool,
-who wants to know *why* a change is in the plan, and a judge, who wants to
-know how the thing is built. It is the entry for MLH's **Best Use of Gemini
-API** track, which asks only that the app be built with the Gemini API.
+A chat panel on its own tab — **Ask**, the second of the two nav pills — that
+answers questions about the solve on screen, using the Gemini API. It exists
+for two audiences: the person using the tool, who wants to know *why* a change
+is in the plan, and a judge, who wants to know how the thing is built. It is
+the entry for MLH's **Best Use of Gemini API** track, which asks only that the
+app be built with the Gemini API.
+
+It used to sit under the plan, sharing the bottom row. It moved to a tab
+because it appears nowhere in the four-minute demo script and was taking half
+a row from the thing being judged. The panel stays mounted while the Plan tab
+is showing, hidden with the `hidden` attribute, so a conversation survives the
+switch — see `docs/features/frontend.md`.
 
 ## The one rule
 
@@ -12,8 +19,13 @@ API** track, which asks only that the app be built with the Gemini API.
 already be in the context the server renders from the solve. Gemini is never
 asked to add, estimate, or forecast. If a question needs a number the solver
 has not produced, the model is instructed to say so and point at the controls
-that would produce it (the sliders, and the row checkboxes — "Can't do this" on a plan row,
-"Can do this" on a left-out one).
+that would produce it (the sliders, and the row checkboxes — "Can't do this", the same on
+every row, in the plan and in the left-out list alike; ticking one rules that change out).
+
+Both of those instructions are in the live system prompt, so a change to the checkbox's
+wording is a change to what the explainer tells people to do. When the label moved from two
+readings to one, `prompt.py` still told readers to untick a control that no longer existed;
+`test_chat.py` now pins the prompt and the ruled-out context against it.
 
 This is why the endpoint takes the whole solve, request and response, with
 every question. The server is stateless, so the client is the only place the

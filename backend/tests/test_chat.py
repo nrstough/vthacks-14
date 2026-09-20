@@ -161,6 +161,46 @@ def test_the_instruction_names_outside_cash_at_tier_3(solved):
     assert need["by_date"] in text
 
 
+def test_the_instruction_describes_the_checkbox_the_ui_actually_has(solved):
+    """The prompt tells people which control to use. It has to be the real one.
+
+    The frontend used to give the left-out list its own inverted checkbox —
+    "Can do this", ticked by default — and the prompt told readers to UNTICK
+    it to rule a change out. When the UI collapsed to a single "Can't do this"
+    on every row, the prompt was not updated with it, so the explainer went on
+    describing a control that no longer existed: a judge following its advice
+    would have gone looking for a tick to remove and found an empty box.
+
+    Nothing caught it, because the prompt is a Python string and the checkbox
+    is a TypeScript one. This is the pin between them.
+    """
+    raw, res = solved["clears"]
+    text = system_instruction(SolveRequest.model_validate(raw), _resp(res))
+    assert "Can't do this" in text, "the prompt no longer names the real checkbox"
+    assert "Can do this" not in text.replace("Can't do this", ""), (
+        "the prompt still describes the retired two-label checkbox"
+    )
+    assert "untick" not in text.lower(), (
+        "no control on the page is unticked to rule a change out any more"
+    )
+
+
+def test_a_ruled_out_change_is_described_by_the_action_that_ruled_it_out(solved):
+    """The same drift, in the generated context rather than the brief."""
+    raw, res = solved["clears"]
+    req = SolveRequest.model_validate(raw)
+    assert req.candidates, "the fixture has no candidates to rule out"
+    used = {p["candidate_id"] for p in res["plan"]}
+    spare = next((c for c in req.candidates if c.id not in used), None)
+    assert spare is not None, "the fixture leaves no candidate out of the plan"
+
+    locked = req.model_copy(update={"locks": req.locks.model_copy(update={"out": [spare.id]})})
+    text = render_context(locked, _resp(res))
+    assert "RULED OUT by the user" in text
+    assert "Can't do this" in text
+    assert "unticked" not in text.lower()
+
+
 def test_the_instruction_never_uses_the_forbidden_words(solved):
     for name, (raw, res) in solved.items():
         text = system_instruction(SolveRequest.model_validate(raw), _resp(res)).lower()
