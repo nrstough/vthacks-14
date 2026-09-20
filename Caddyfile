@@ -1,9 +1,10 @@
 # HTTPS in front of the one uvicorn process. Caddy gets a certificate on its
 # own the first time it starts with a real domain, so nothing here holds a key.
 #
-# deploy.sh ALWAYS substitutes __DOMAIN__: the real domain when DOMAIN is set,
-# and `:80` when it is not. The substitution is not optional, and this comment
-# used to say it was.
+# deploy.sh substitutes __DOMAIN__ on the laptop and ships the rendered file, so
+# what lands in /etc/caddy is always complete. There is no automatic fallback:
+# deploy.sh refuses to run with DOMAIN unset rather than quietly rewriting a live
+# site to `:80`, which is what it used to do and what took HTTPS down.
 #
 # Left literal, Caddy reads `__DOMAIN__` as a hostname matcher and serves only
 # requests carrying `Host: __DOMAIN__`, so the box's own IP gets nothing — the
@@ -13,7 +14,8 @@
 # nothing at all.
 #
 # :80 is fine for a smoke test and not fine for a judge — a domain costs fifteen
-# minutes and is its own MLH entry.
+# minutes and is its own MLH entry. `./deploy.sh --no-domain` is how you choose
+# :80 deliberately; nothing chooses it for you.
 
 __DOMAIN__ {
 	encode gzip

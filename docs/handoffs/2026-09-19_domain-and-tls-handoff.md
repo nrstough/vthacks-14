@@ -1,5 +1,26 @@
 # Handoff — the domain, TLS, and the key on the box (2026-09-19, Sat evening)
 
+> **Superseded, 2026-09-19 evening — do not follow the domain steps below.**
+>
+> This handoff plans a domain that was never registered. Every `safetospend.us`
+> in it is a **dead name**: `.us` does not permit WHOIS privacy, so the choice
+> changed to **`safetospend.study`**, which is registered and live. An `A` record
+> for `safetospend.us` does not resolve (NXDOMAIN), so following steps 2–4 as
+> written fails the ACME challenge and looks like a certificate bug.
+>
+> The domain and TLS work described here is **done**. What actually happened, and
+> the live configuration, is in
+> [`2026-09-19_domain-live-handoff.md`](2026-09-19_domain-live-handoff.md).
+>
+> Also stale below: the "`__DOMAIN__` trap" note says a deploy with `DOMAIN`
+> unset leaves the literal string in place. It later fell back to `:80` instead,
+> silently taking the live site off HTTPS; `deploy.sh` now refuses to run without
+> `DOMAIN`. See `.deploy.env.example`.
+>
+> The rest — the worktree recipe, the key-on-the-box steps, the CSP and rsync
+> notes, the public-repo deadline — is unaffected. Test counts are from Sat
+> evening and have moved since.
+
 **Purpose of this chat:** get `safetospend.us` registered, pointed at the live Vultr box,
 and serving the app over HTTPS with a Caddy certificate — then install `GEMINI_API_KEY` on
 the box so `/api/chat` stops answering 503 there. Nathan does the purchase and the key paste;

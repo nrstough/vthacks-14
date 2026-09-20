@@ -3,7 +3,8 @@
 # One command, laptop to box. Build here, ship the artifacts, restart there.
 #
 #   ./deploy.sh root@203.0.113.10
-#   ./deploy.sh                      # reads TARGET from .deploy.env
+#   ./deploy.sh                      # reads TARGET and DOMAIN from .deploy.env
+#   ./deploy.sh --no-domain          # deliberate plain HTTP on the box's IP
 #
 # The frontend is built on THIS machine on purpose: the box has no node, and
 # putting a toolchain on it to build a 600 kB bundle during a hackathon is time
@@ -22,6 +23,23 @@ if [[ -f .deploy.env ]]; then
   source .deploy.env
 fi
 
+# `--no-domain` is the only way to ask for plain HTTP, and it has to be asked for
+# out loud. See the guard below for what it costs.
+NO_DOMAIN=""
+positional=()
+for arg in "$@"; do
+  case "$arg" in
+    --no-domain) NO_DOMAIN=1 ;;
+    -*)
+      echo "unknown option: $arg" >&2
+      echo "usage: ./deploy.sh [user@host] [--no-domain]" >&2
+      exit 2
+      ;;
+    *) positional=("${positional[@]+"${positional[@]}"}" "$arg") ;;
+  esac
+done
+set -- "${positional[@]+"${positional[@]}"}"
+
 TARGET="${1:-${TARGET:-}}"
 if [[ -z "$TARGET" ]]; then
   echo "usage: ./deploy.sh user@host   (or set TARGET in .deploy.env)" >&2
@@ -30,6 +48,55 @@ fi
 
 APP_DIR="${APP_DIR:-/opt/overdraft-guard}"
 DOMAIN="${DOMAIN:-}"
+if [[ -n "$NO_DOMAIN" ]]; then
+  DOMAIN=":80"
+fi
+
+# The site-down guard, and the reason it is this early: it costs nothing and it
+# runs before the build, the rsync and the first ssh.
+#
+# Every run rsyncs the repo's Caddyfile over /etc/caddy/Caddyfile, and that
+# file's site address is whatever DOMAIN says. Empty DOMAIN used to mean a silent
+# fallback to `:80` — so a deploy from a checkout with no .deploy.env rewrote the
+# live site to plain HTTP, printed "deployed", and exited 0. The smoke checks
+# below derive their origin from DOMAIN too, so they passed against the box's IP
+# and never noticed that HTTPS was gone.
+#
+# .deploy.env is gitignored. It exists in the checkout it was typed into and in
+# no other, and there are a dozen-odd worktrees here, so "a checkout without it"
+# is the common case rather than the exotic one.
+if [[ -z "$DOMAIN" ]]; then
+  echo "DOMAIN is not set — refusing, because this deploy would take the site off HTTPS." >&2
+  echo >&2
+  echo "every run rewrites /etc/caddy/Caddyfile from the repo's Caddyfile, and the" >&2
+  echo "site address in it comes from DOMAIN. with DOMAIN empty there is no domain" >&2
+  echo "and no certificate, and nothing else in this script would have failed." >&2
+  echo >&2
+  echo ".deploy.env is gitignored, so it does not travel between checkouts and a" >&2
+  echo "fresh worktree has none. write one here:" >&2
+  echo >&2
+  echo "  printf 'TARGET=root@<box-ip>\\nDOMAIN=safetospend.study\\n' \\" >&2
+  echo "      > '$PWD/.deploy.env'" >&2
+  echo >&2
+  echo "see .deploy.env.example for both variables. if you genuinely want plain" >&2
+  echo "HTTP on the box's IP — a bare-IP smoke test, never a judge — ask for it:" >&2
+  echo >&2
+  echo "  ./deploy.sh --no-domain" >&2
+  exit 1
+fi
+
+# DOMAIN is written into a config file through a sed whose delimiter is `|`.
+case "$DOMAIN" in
+  *[[:space:]]*|*"|"*|*__DOMAIN__*)
+    echo "DOMAIN is not a usable Caddy site address: '$DOMAIN'" >&2
+    exit 1
+    ;;
+esac
+
+if [[ "$DOMAIN" == ":80" ]]; then
+  echo "WARNING: --no-domain. the box will answer on http:// only, with no" >&2
+  echo "         certificate. if it is currently on https, it stops being." >&2
+fi
 
 say() { printf '\n=== %s\n' "$1"; }
 
@@ -104,10 +171,27 @@ rsync -az --delete backend/app/          "$TARGET:$APP_DIR/app/"
 rsync -az --delete frontend/dist/        "$TARGET:$APP_DIR/frontend/dist/"
 rsync -az backend/requirements.txt       "$TARGET:$APP_DIR/requirements.txt"
 rsync -az deploy/overdraft-guard.service "$TARGET:/etc/systemd/system/overdraft-guard.service"
-rsync -az Caddyfile                      "$TARGET:/etc/caddy/Caddyfile"
+
+# Substituted HERE rather than on the box, so the box never holds a
+# half-configured Caddyfile. If any later step fails — pip, systemd, the network
+# — what is already sitting in /etc/caddy is a complete config rather than a
+# template, and the next `systemctl reload caddy` from any source does something
+# sane. Left literal, Caddy reads `__DOMAIN__` as a hostname matcher and serves
+# nothing; that window used to stay open for the whole remote block below.
+rendered_caddyfile="$(mktemp "${TMPDIR:-/tmp}/Caddyfile.XXXXXX")"
+trap 'rm -f "$rendered_caddyfile"' EXIT
+sed "s|__DOMAIN__|$DOMAIN|g" Caddyfile > "$rendered_caddyfile"
+if grep -q '__DOMAIN__' "$rendered_caddyfile"; then
+  echo "__DOMAIN__ survived substitution — refusing to ship it" >&2
+  exit 1
+fi
+# mktemp makes it 0600; the package ships /etc/caddy/Caddyfile world-readable and
+# caddy does not run as root. Match what was there rather than locking it out.
+chmod 644 "$rendered_caddyfile"
+rsync -az "$rendered_caddyfile"          "$TARGET:/etc/caddy/Caddyfile"
 
 say "installing dependencies and restarting"
-ssh "$TARGET" APP_DIR="$APP_DIR" DOMAIN="$DOMAIN" 'bash -euo pipefail -s' <<'REMOTE'
+ssh "$TARGET" APP_DIR="$APP_DIR" 'bash -euo pipefail -s' <<'REMOTE'
   cd "$APP_DIR"
 
   if [[ ! -d .venv ]]; then
@@ -118,18 +202,10 @@ ssh "$TARGET" APP_DIR="$APP_DIR" DOMAIN="$DOMAIN" 'bash -euo pipefail -s' <<'REM
   # Python. If this errors, read the version it names before changing anything.
   ./.venv/bin/pip install --quiet -r requirements.txt
 
-  # The Caddyfile ships with __DOMAIN__ as its site address. Left alone, Caddy
-  # reads that as a HOSTNAME MATCHER and serves only requests carrying
-  # `Host: __DOMAIN__` — so the box's own IP gets nothing at all. The comment at
-  # the top of the Caddyfile used to claim the opposite; it was wrong, and this
-  # is the substitution that has to happen either way.
-  if [[ -n "${DOMAIN:-}" ]]; then
-    sed -i "s|__DOMAIN__|$DOMAIN|g" /etc/caddy/Caddyfile
-  else
-    # No domain yet: listen on :80 so a bare-IP smoke test genuinely works.
-    # No HTTPS, which is fine for a smoke test and not fine for a judge.
-    sed -i "s|__DOMAIN__|:80|g" /etc/caddy/Caddyfile
-  fi
+  # No __DOMAIN__ substitution here on purpose: the Caddyfile that landed above
+  # arrived already rendered, and deploy.sh refuses to run at all without a
+  # DOMAIN. Do not reintroduce a fallback that rewrites this file to `:80` — that
+  # is a site-down bug, not a default.
 
   # Tell the service where the bundle is rather than letting it infer. The
   # inference keys off the parent directory being named "backend", which holds in
