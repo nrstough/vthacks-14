@@ -475,7 +475,9 @@ the Codex finding it resolves.
   as well as high-entropy strings, and assert neither the raw string nor the
   brand appears anywhere in the response JSON.
 - X8 (finding 8, Step 1/5/8). `assumed_method` is
-  `Literal["same_weekday_8_week_median"]`; the provenance line says
+  `Literal["same_weekday_8_week_median"]` (changed to `_p60` the next day by
+  `docs/reports/2026-09-20_forecast-evaluation.md`, which measured the median
+  under-predicting spending in 71% of windows); the provenance line says
   "same-weekday median"; frontend types, docs and assertions use the same
   string.
 - X9 (finding 9, Step 2). Rows carry their original index through sorting,

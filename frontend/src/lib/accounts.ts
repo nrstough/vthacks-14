@@ -115,7 +115,7 @@ export function provenanceLine(account: LoadedAccount | null, base: SolveRequest
     const assumed =
       p.assumed_method === null
         ? 'bills only, not enough history to assume spending'
-        : `everyday spending assumed from ${p.weeks_used_for_assumed} weeks, same-weekday median`
+        : `everyday spending assumed from ${p.weeks_used_for_assumed} weeks, same-weekday 60th percentile`
     return `Your own export: ${streams}, ${assumed}, ${window}.`
   }
   if (!isNessie(account)) return `Modelled account, seed ${account.seed}, ${window}.`

@@ -359,7 +359,7 @@ test('an imported account describes itself without a seed', () => {
   const line = provenanceLine(importedAccount(), SCENARIOS[0].request)
   assert.match(line, /Your own export/)
   assert.match(line, /1060 transactions/)
-  assert.match(line, /same-weekday median/)
+  assert.match(line, /same-weekday 60th percentile/)
   assert.equal(line.includes('undefined'), false)
   assert.equal(line.includes('seed'), false)
 })

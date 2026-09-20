@@ -86,9 +86,11 @@ adapters), `frontend/src/components/ProvenancePanel.tsx`.
   the stream.
 - Detection is heuristic. The untick list exists because it will be wrong
   sometimes; a wrong stream is one click away from removal.
-- The same-weekday median is the forecast the research lane's three-model
-  ensemble beat by 0.4% with an interval spanning zero. It is not a stand-in
-  for a model; on the evidence available it is the forecast.
+- The same-weekday 60th percentile is the forecast. The research lane's
+  three-model ensemble was run against it on a real account and lost under
+  every profile, by 5.6% at best: `docs/reports/2026-09-20_forecast-evaluation.md`.
+  It is not a stand-in for a model; on the evidence available it IS the
+  forecast, and the same evaluation is what moved it off the median.
 - One consented real account has been run locally. That is a check, not a
   validation.
 - No request-body size cap is enforced server-side. The 20,000-row limit is a
