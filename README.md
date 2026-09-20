@@ -8,15 +8,18 @@ Exact solver (OR-Tools CP-SAT), stateless server, no accounts, no database.
 
 - `backend/app/` — FastAPI app (`/health`, `POST /api/solve`, `POST /api/candidates`,
   `POST /api/chat`, `GET /api/chat/status`, `POST /api/accounts/sample`,
-  `POST /api/accounts/nessie`), the
-  solver package (`backend/app/solver/`) and the candidate generator
-  (`backend/app/candidates/`), Python 3.14
+  `POST /api/accounts/nessie`, `POST /api/accounts/import`), the
+  solver package (`backend/app/solver/`), the candidate generator
+  (`backend/app/candidates/`) and the bank-export importer
+  (`backend/app/history/`), Python 3.14
 - `backend/tests/` — pytest suite; `tests/oracle/` runs the TypeScript stand-in solver
   through Node for parity checks
 - `frontend/` — Vite + React + TypeScript + Recharts; `src/solver/mockSolver.ts` is the
   brute-force stand-in kept as an independent oracle
 - `docs/api-contract.md` — the frozen request and response shapes both sides build against
 - `docs/features/chat.md` — the Gemini explainer, `POST /api/chat`; needs `GEMINI_API_KEY` in `.env` locally (see `.env.example`), or `/etc/overdraft-guard.env` on the box
+- `docs/features/history-import.md` — plan from the person's own bank export: recurring
+  income and bills found by cadence, everyday spending assumed from their last eight weeks
 - `docs/features/nessie.md` — Capital One's sandbox as a data source, `POST /api/accounts/nessie`;
   needs `NESSIE_API_KEY`. Set `NESSIE_ACCOUNT_ID` to read an already-seeded account instead of
   creating one on every call

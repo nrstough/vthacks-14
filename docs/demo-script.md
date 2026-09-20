@@ -15,7 +15,7 @@ proof, which is the only part nobody else has.
 - [ ] A second tab on the repo, in case someone asks to see the solver
 - [ ] Sliders at their defaults, no overrides left over from the last run
 - [ ] If the wifi is dead, say nothing about it. The page falls back to a local
-      solver and keeps working. Only mention it if the footer chip is spotted.
+      solver and keeps working. Only mention it if the chip in the nav is spotted.
 - [ ] Refresh the two numbers in the build section. The suite keeps growing and
       quoting a stale figure to someone who then runs it is worse than rounding.
       As of Sat 14:00 it is 1,333 backend tests plus 216 frontend tests, and the
@@ -89,10 +89,12 @@ solver). Three to seven. Do not use the gym row for this: ruling the gym out
 only moves it to four, which is a weaker moment. Reset with any preset button,
 which clears overrides.
 
-Every row carries the same checkbox, in the plan and in the left-out list, and
-none of them start ticked. If a judge asks what it does: it is the only thing
-the app asks of you, and the solver re-runs without that change. The card row
-then moves down to the left-out list and says you ruled it out.
+Every row carries a checkbox, in the plan and in the left-out list, over one
+ruled-out set. Plan rows ask "Can't do this" and start unticked; left-out rows
+ask "Can do this" and start ticked, so on a left-out row it is the untick that
+rules the change out. Either way it is the one thing the app asks of you, and
+the solver re-runs without that change. The card row then moves down to the
+left-out list and says you ruled it out.
 
 One caveat if a judge reads the proof box closely here. It names the gas
 deferral and then says "the rest hold the cushion", but three of the seven are

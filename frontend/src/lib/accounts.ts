@@ -12,6 +12,7 @@ import type {
   Candidate,
   CandidatesRequest,
   CandidatesResponse,
+  ImportAccountResponse,
   LoadedAccount,
   NessieAccountResponse,
   SolveRequest,
@@ -106,6 +107,17 @@ export const REASON_ORDER: NotRoundTrippedReason[] = [
 export function provenanceLine(account: LoadedAccount | null, base: SolveRequest): string {
   const window = `${shortDate(base.as_of)} to ${shortDate(base.horizon_end)}`
   if (account === null) return `Sample checking account, ${window}.`
+  // Before the modelled branch below, which reads `account.seed`: an import
+  // has no seed and would render "seed undefined".
+  if (account.source === 'import') {
+    const p = account.provenance
+    const streams = `${p.rows_used} transactions, ${account.streams.length} recurring`
+    const assumed =
+      p.assumed_method === null
+        ? 'bills only, not enough history to assume spending'
+        : `everyday spending assumed from ${p.weeks_used_for_assumed} weeks, same-weekday 60th percentile`
+    return `Your own export: ${streams}, ${assumed}, ${window}.`
+  }
   if (!isNessie(account)) return `Modelled account, seed ${account.seed}, ${window}.`
 
   const where = 'Capital One sandbox'
@@ -129,8 +141,12 @@ export function provenanceLine(account: LoadedAccount | null, base: SolveRequest
 // previous account can never appear under the current one. Two modelled
 // accounts differ by seed, so switching between two of the same source
 // remounts too.
-export function chatKey(account: LoadedAccount | null): string {
+export function chatKey(account: LoadedAccount | null, importSeq = 0): string {
   if (account === null) return 'preset'
+  // Imports carry a counter rather than an identity from the data: two
+  // exports can share a window and a stream count, and a constant key would
+  // keep the previous account's conversation under the new one.
+  if (account.source === 'import') return `i${importSeq}`
   return account.source === 'nessie' ? account.nessie.account_id : `m${account.seed}`
 }
 
@@ -210,6 +226,28 @@ export async function candidatesViaApi(
     fail(out, { server: 'Finding changes failed', client: 'Finding changes was rejected' })
   }
   return out as CandidatesResponse
+}
+
+export async function loadImport(
+  body: unknown,
+  signal: AbortSignal,
+): Promise<ImportAccountResponse> {
+  const out = await post(
+    '/api/accounts/import',
+    body,
+    signal,
+    'Import needs the server. Presets still work offline.',
+  )
+  if (out?.__error) {
+    fail(out, {
+      '422': 'That export could not be planned',
+      server: 'The import failed',
+      client: 'That export was rejected',
+    })
+  }
+  const account = out as ImportAccountResponse
+  if (account?.source !== 'import') throw new Error('The server did not return an imported account.')
+  return account
 }
 
 export async function loadAccount(

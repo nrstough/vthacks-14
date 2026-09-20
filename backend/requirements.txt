@@ -18,6 +18,11 @@
 # the deliberate choice. If it errors, read the version it names before
 # changing anything.
 fastapi==0.141.1
+# Imported directly by app/forecast/, which runs the frozen forecast
+# checkpoints without PyTorch. ortools already pulls numpy in, but the rule
+# here is that a direct import is declared: an undeclared one works on this
+# laptop and is simply absent on the box.
+numpy==2.5.3
 ortools==9.15.6755
 pydantic==2.13.5
 uvicorn==0.53.0

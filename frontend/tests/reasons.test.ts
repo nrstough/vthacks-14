@@ -3,7 +3,11 @@ import assert from 'node:assert/strict'
 import { PENDING, actByNotice, daysBetween, reasonFor } from '../src/lib/reasons.ts'
 import type { ReasonKind } from '../src/lib/reasons.ts'
 import { SCENARIOS } from '../src/fixtures/scenarios.ts'
-import { solve } from '../src/solver/mockSolver.ts'
+import {
+  CUSHION_ONLY_REASON,
+  CUSHION_ONLY_REASON_GAP,
+  solve,
+} from '../src/solver/mockSolver.ts'
 import type { Candidate, SolveRequest, SolveResponse } from '../src/types.ts'
 
 const FORBIDDEN = [/guarantee/i, /infeasib/i]
@@ -155,10 +159,15 @@ test('tier 1 proven says the plan clears without it', () => {
   const r = reasonFor(candidate(), req(), res(1), false)
   assert.equal(r.kind, 'not_needed')
   assert.match(r.text, /already clears zero without it/)
+  // The cushion belongs to the in-plan line. If this one drifted onto it too,
+  // the two lists would read alike again, which is the bug being fixed.
+  assert.doesNotMatch(r.text, /cushion/i)
 })
 
 test('tier 2 proven says the same', () => {
-  assert.equal(reasonFor(candidate(), req(), res(2), false).kind, 'not_needed')
+  const r = reasonFor(candidate(), req(), res(2), false)
+  assert.equal(r.kind, 'not_needed')
+  assert.doesNotMatch(r.text, /cushion/i)
 })
 
 test('tier 3 proven claims only what the first objective term establishes', () => {
@@ -277,6 +286,23 @@ function shortDateOf(iso: string): string {
   const [, m, d] = iso.split('-').map(Number)
   return `${months[m - 1]} ${d}`
 }
+
+test('the in-plan cushion-only lines never read like the left-out line', () => {
+  // Both lists used to open on "not needed", one about a change the solver
+  // chose and one about a change it did not. The in-plan sentences say what
+  // zero marginals actually prove, and say it differently.
+  const leftOut = reasonFor(candidate(), req(), res(1), false).text
+  for (const text of [CUSHION_ONLY_REASON, CUSHION_ONLY_REASON_GAP]) {
+    assert.ok(text.length > 0)
+    assert.doesNotMatch(text, /not needed/i)
+    assert.notEqual(text, leftOut)
+    assert.ok(!text.includes(leftOut))
+    assert.ok(!leftOut.includes(text))
+    for (const bad of FORBIDDEN) assert.doesNotMatch(text, bad)
+    assert.doesNotMatch(text, /smallest|fewest/i)
+  }
+  assert.notEqual(CUSHION_ONLY_REASON, CUSHION_ONLY_REASON_GAP)
+})
 
 test('a pending row says it is re-solving and claims nothing', () => {
   assert.equal(PENDING.kind, 'pending')

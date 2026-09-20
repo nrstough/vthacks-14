@@ -50,7 +50,9 @@ export default class ErrorBoundary extends Component<Props, State> {
     if (this.props.inline !== undefined) return this.props.inline(detail)
 
     return (
-      <main className="shell">
+      // `.shell` went away with the dashboard rewrite; `.crash-shell` is the
+      // one-column page this card needs and nothing else uses.
+      <main className="crash-shell">
         <section className="crash" role="alert">
           <h1>This page stopped working</h1>
           <p>

@@ -1,39 +1,152 @@
-/* One accent, one font, an 8px scale. Red appears only below zero. */
+/* Stripe-inspired design tokens. One indigo, deep-navy ink, tabular money. */
+
+/* ---------- the typographic engine ---------- */
+
+/* Three families, self-hosted as latin-subset woff2 under public/fonts. One
+   file each: Google serves a single variable file per family and hands the
+   same URL back for every weight you ask for, so the eight-file version of
+   this was three payloads written down eight times. Nothing is fetched at
+   runtime — venue wifi cannot be trusted to hand us a typeface mid-demo — and
+   every face is `swap`, so a file that fails to arrive costs the fallback and
+   never the text.
+
+   The ranges below are the ranges the files actually carry, measured off the
+   rendered glyphs rather than taken from Google's CSS, which advertises only
+   the weights that were asked for. Sweeping the axis and watching the ink:
+   Libre Baskerville moves between 400 and 700 and is flat outside it, Inter
+   moves across the whole 100-900, JetBrains Mono moves between 400 and 800.
+   Declaring a range wider than the file has would let the browser pick a
+   weight the font cannot draw and quietly clamp it. */
+
+/* Libre Baskerville: the wordmark, the verdict and every panel heading. A
+   financial serif, which is the register this product is asking for. */
+@font-face {
+  font-family: 'Libre Baskerville';
+  src: url('/fonts/LibreBaskerville-Variable.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Inter: body copy and every sentence a person reads. */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* JetBrains Mono: eyebrows, labels, chips and every figure. Tabular by
+   construction, so a digit never changes width as a slider moves. */
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-Variable.woff2') format('woff2');
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 
 :root {
+  /* Values come from tailwind.config.ts, which is the design system Hrushi
+     shipped: a cool near-white page, a warm brand ramp for anything going
+     wrong, an 18/24/32px radius scale, and a glass shadow so cards float off
+     the page rather than sitting in it. The variable NAMES are unchanged from
+     the previous generation on purpose, so every component rule in this file
+     retunes itself rather than being rewritten. */
+
   --bg: #ffffff;
-  --panel: #fafbfd;
-  --panel-2: #f3f5f9;
-  --line: #e4e7ef;
-  --line-strong: #cdd3e0;
+  --panel: #f4f7fb;
+  --panel-2: #e6edf6;
+  --canvas: #faf6f0;
+  --line: #e4eaf3;
+  --line-strong: #cbd6e6;
 
-  --ink: #12141a;
-  --ink-2: #545a6b;
-  --ink-3: #8a90a0;
+  --ink: #111827;
+  --ink-2: #374151;
+  /* Was #6b7280, which measured 4.49:1 as a .stat-sub on the warm --canvas —
+     a rounding error short of AA on the one line that explains a figure.
+     Darkened until it clears 4.5:1 on white, --canvas, --panel and --panel-2. */
+  --ink-3: #646b78;
+  --ink-dim: #9ca3af;
 
-  --accent: #2c5ae8;
-  --accent-ink: #1c3fa8;
-  --accent-wash: #eef2fe;
+  /* The blue is the product's own: the config carries the cool background and
+     the warm ramp, and leaves the primary to the app. */
+  --accent: #2563eb;
+  --accent-ink: #1d4ed8;
+  --accent-press: #0b2545;
+  --accent-wash: #e8effd;
+  --accent-soft: #bfd4fb;
 
-  --neg: #d0342c;
-  --neg-wash: #fdf0ef;
-  --warn: #9a6400;
-  --warn-wash: #fdf6e8;
+  /* The navy the gradient starts in, and the ink that sits on it. Every white
+     on the gradient is one of these four, so the whole shell moves together
+     and no rule carries its own literal rgba any more. */
+  --navy: #071a33;
+  --navy-2: #0b2545;
+  --on-navy: #ffffff;
+  --on-navy-soft: rgba(255, 255, 255, 0.78);
+  --on-navy-wash: rgba(255, 255, 255, 0.14);
+  --on-navy-line: rgba(255, 255, 255, 0.26);
+  /* The shadow under the lit nav pill. Navy, not neutral black: the pill sits
+     on the gradient, and black over the blue reads as dirt on the screen. */
+  --on-navy-shadow: rgba(7, 26, 51, 0.25);
+  /* Neutral ink shadows for things that float on white. */
+  --ink-shadow: rgba(18, 20, 26, 0.1);
+  --ink-shadow-soft: rgba(18, 20, 26, 0.08);
+
+  /* brand.burnt / brand.peach. Red on this page is always the warm one. */
+  --neg: #c63205;
+  --neg-wash: #fcefe6;
+  /* brand.amber, darkened to hold contrast as text. */
+  --warn: #a34405;
+  --warn-wash: #fdf1e7;
+
+  --good: #15803d;
+  --good-wash: #e9f6ed;
 
   --s1: 8px;
   --s2: 16px;
   --s3: 24px;
   --s4: 32px;
   --s5: 48px;
+  --s6: 64px;
 
-  --radius: 10px;
-  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  /* 4xl / 3xl / 2xl from the config, plus one step below it for chips. */
+  --radius-lg: 32px;
+  --radius: 24px;
+  --radius-sm: 18px;
+  --radius-xs: 12px;
+  --radius-pill: 9999px;
+
+  --topbar-h: 76px;
+  --page-max: 1360px;
+
+  /* The one gradient the nav and the hero sit on. Capital One's navy at the
+     top, easing into the product blue and then out to nothing, so the page
+     resolves into --panel rather than stopping at an edge. `.app` consumes
+     this; nothing else should re-declare it. */
+  --grad: linear-gradient(
+    180deg,
+    var(--navy) 0%,
+    var(--navy-2) 40%,
+    var(--accent) 78%,
+    rgba(37, 99, 235, 0) 100%
+  );
+
+  /* Body copy and every sentence a person reads. */
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  /* Headings and the wordmark. Georgia is the fallback because it is the
+     nearest thing to a Baskerville that every machine already has. */
+  --display: 'Libre Baskerville', Georgia, 'Times New Roman', serif;
+  /* Eyebrows, labels, chips and every figure. */
+  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
   font-family: var(--sans);
   font-size: 16px;
   line-height: 1.5;
   color: var(--ink);
-  background: var(--bg);
+  background: var(--panel);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -41,63 +154,492 @@
 
 * { box-sizing: border-box; }
 
-body {
-  margin: 0;
-  background: var(--bg);
+/* One display face, one text face. The serif is structural: it marks the
+   things a judge's eye should land on first — the wordmark, every panel
+   heading and the verdict. Everything a person has to READ, and every figure
+   they have to trust, stays in the text or the mono face. The Libre
+   Baskerville file is one continuous 400–700 axis: the wordmark and the
+   verdict sit at 700, and the panel headings step down to 600 below, where
+   700 at 20px reads heavy. The tighter tracking the old grotesque needed is
+   eased off, a serif does not want it. */
+.panel-head h2,
+.verdict h1,
+h1, h2, h3 {
+  font-family: var(--display);
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  font-synthesis-weight: none;
 }
 
+/* Money is data, not decoration. Tabular figures, so columns line up and a
+   digit never changes width as a slider moves. `.num` stays in the TEXT face
+   on purpose: it is carried by the qualifier, the proof paragraph and the
+   reason lines, which are prose with figures in them, not figures. */
 .num {
+  font-family: var(--sans);
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
+  letter-spacing: -0.01em;
 }
 
-/* ---------- shell ---------- */
-
-.shell {
-  max-width: 1040px;
-  margin: 0 auto;
-  padding: var(--s4) var(--s3) var(--s5);
+/* The figures themselves. `.stat-value`, `.wallet-balance`, `.wallet-amt` and
+   `.cash-callout .amount` reach the mono face through their own rules. */
+.rx-amount,
+.rx-date,
+.ctl-head b {
+  font-family: var(--mono);
 }
 
-.topbar {
+/* ---------- shell: gradient nav over a floating page ---------- */
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--panel);
+}
+
+.app {
+  min-height: 100vh;
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
+  flex-direction: column;
+  /* The gradient belongs to the page, not to the bar: the nav sits on it, and
+     the hero card lifts off the last of it. Below that it resolves into the
+     cool background the cards float on. */
+  background: var(--grad) no-repeat top center / 100% 460px, var(--panel);
+}
+
+/* ---------- nav ---------- */
+
+.navbar {
+  height: var(--topbar-h);
+  flex: none;
+  display: flex;
+  align-items: center;
   gap: var(--s3);
-  padding-bottom: var(--s2);
-  border-bottom: 1px solid var(--line);
-  margin-bottom: var(--s4);
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: 0 var(--s4);
+  color: var(--on-navy);
+}
+
+.navbar .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--display);
+  font-size: 17px;
+  /* 700, the top of the file's 400–700 axis: the wordmark carries the same
+     weight as the verdict. */
+  font-weight: 700;
+  font-synthesis-weight: none;
+  letter-spacing: -0.01em;
+  color: var(--on-navy);
+  white-space: nowrap;
+}
+
+.navbar .brand .mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--on-navy-wash);
+  border: 1px solid var(--on-navy-line);
+  font-size: 13px;
+  font-weight: 700;
+  flex: none;
+}
+
+/* The pill rail. One track, one lit pill — the shape the design system uses
+   for "which of these am I looking at". */
+.pillnav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--on-navy-wash);
+  border: 1px solid var(--on-navy-line);
+}
+
+.pillnav button {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--on-navy-soft);
+  padding: 7px 18px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pillnav button:hover { color: var(--on-navy); }
+
+.pillnav button.on {
+  background: var(--on-navy);
+  color: var(--accent-press);
+  font-weight: 600;
+  box-shadow: 0 1px 2px var(--on-navy-shadow);
+}
+
+.pillnav button .dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warn);
+  margin-left: 7px;
+  vertical-align: middle;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin-left: auto;
+}
+
+.nav-chip {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--on-navy);
+  background: var(--on-navy-wash);
+  border: 1px solid var(--on-navy-line);
+  border-radius: var(--radius-pill);
+  padding: 5px 12px;
+  white-space: nowrap;
+}
+
+.nav-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--on-navy) 92%, transparent);
+  color: var(--accent-press);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* ---------- main ---------- */
+
+.main {
+  flex: 1;
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--s2) var(--s4) var(--s5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+/* ---------- hero ---------- */
+
+/* The one card that lifts off the gradient. It carries the verdict on the left
+   and the figures on the right, which is the same split the rest of the
+   product already makes: what happened, then what it measures. */
+.hero {
+  background: var(--bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-glass);
+  padding: var(--s4) var(--s4) var(--s4);
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: var(--s4);
+  align-items: start;
+}
+
+.hero-copy { min-width: 0; }
+
+/* The hero's status line: where this account's figures came from. A green dot
+   because it is a statement of health, not of tier — the tier has its own pill
+   below, drawn by the verdict. It sits ABOVE the verdict and outside its
+   aria-live region, so a re-solve never re-announces the provenance. */
+.eyebrow-note {
+  display: flex;
+  /* Top-aligned, not centred: when the sandbox provenance wraps to two lines
+     the dot should sit on the first one, not float between them. */
+  align-items: flex-start;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-3);
+  margin-bottom: var(--s2);
+  letter-spacing: 0.01em;
+}
+
+.eyebrow-note::before {
+  content: '';
+  flex: none;
+  margin-top: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--good);
+}
+
+/* ---------- stat boxes ---------- */
+
+/* Three to a row in the hero, in the recessed warm canvas the config carries,
+   so figures read as instrument panel rather than as more card. */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s2);
+}
+
+.stat {
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 14px 10px 13px;
+  min-width: 0;
+  text-align: center;
+}
+
+.stat .stat-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  display: block;
+  margin-bottom: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A monospace figure has a fixed advance width, so the longest value a tile
+   can hold is knowable: eight or nine characters for money. It is sized off
+   the viewport rather than fixed, because three tiles share one hero column
+   and -$120.05 at 26px does not fit that column below about 1200px. */
+.stat .stat-value {
+  font-family: var(--mono);
+  font-size: clamp(17px, 1.5vw, 25px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--ink);
+  display: block;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.stat .stat-value.pos { color: var(--good); }
+.stat .stat-value.neg { color: var(--neg); }
+
+.stat .stat-sub {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: var(--ink-3);
+  display: block;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+.stat .stat-sub.pos { color: var(--good); }
+.stat .stat-sub.neg { color: var(--neg); }
+
+/* ---------- dashboard: two-column row ---------- */
+
+.duo {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: var(--s3);
+  align-items: stretch;
+}
+
+/* ---------- dashboard: panel cards ---------- */
+
+.panel {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--s4);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* An uppercase mono eyebrow above the real heading, which is the pattern the
+   design system uses everywhere: the small line says what kind of thing this
+   is, the big line says what it says. */
+.panel-kicker {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 6px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s2);
+  margin-bottom: var(--s3);
   flex-wrap: wrap;
 }
 
-.wordmark {
-  font-size: 15px;
+.panel-head h2 {
+  font-size: 20px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
+  color: var(--ink);
   margin: 0;
 }
 
-.wordmark span { color: var(--ink-3); font-weight: 400; }
+/* The counter-weight on the right of a panel head: a figure, a state, a goal. */
+.panel-tag {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 6px 13px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-wash);
+  color: var(--accent-ink);
+  white-space: nowrap;
+}
 
-.tagline {
-  margin: 2px 0 0;
-  font-size: 13px;
+.panel-tag.good { background: var(--good-wash); color: var(--good); }
+.panel-tag.warn { background: var(--warn-wash); color: var(--warn); }
+.panel-tag.neg { background: var(--neg-wash); color: var(--neg); }
+
+/* The one line of prose a panel head is allowed, sitting under its heading.
+   The head already carries the gap below itself, so this only needs the space
+   between it and the heading — a bottom margin here would double that gap. */
+.panel-lede {
+  font-size: 14px;
+  color: var(--ink-2);
+  margin: 6px 0 0;
+  max-width: 72ch;
+}
+
+.panel-head .panel-actions { display: flex; align-items: center; gap: var(--s1); }
+
+/* ---------- dashboard: chart panel ---------- */
+
+.chart-panel { flex: 1; }
+
+.chart-panel .chart-wrap {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  flex: 1;
+}
+
+/* ---------- dashboard: controls panel ---------- */
+
+.controls-panel {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--s3);
+}
+
+.controls .ctl {
+  padding: var(--s2);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.controls .ctl-head b { font-size: 15px; }
+
+.controls .ctl input[type='range'] { width: 100%; }
+
+.controls .ctl-note { margin-top: 4px; }
+
+.controls .ctl-presets { margin-top: 6px; }
+
+.controls .ctl-presets button {
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+/* ---------- dashboard: prescription panel ---------- */
+
+.rx-panel { flex: 1; }
+
+.rx-panel .rx { border-radius: 0; }
+
+.rx-panel .rx-row {
+  grid-template-columns: 56px 1fr auto auto;
+  padding: var(--s2);
+}
+
+.rx-panel .rx-date {
+  font-size: 11px;
+  padding: 3px 0;
+}
+
+.rx-panel .rx-label { font-size: 14px; }
+.rx-panel .rx-detail { font-size: 12px; }
+.rx-panel .rx-reason, .rx-panel .rx-why { font-size: 12px; }
+
+.rx-panel .rx-amount { font-size: 14px; }
+.rx-panel .rx-pain { font-size: 10px; }
+
+.rx-panel .cant { font-size: 12px; }
+
+.rx-panel details.considered { margin-top: var(--s3); }
+
+/* ---------- dashboard: chat panel ---------- */
+
+.chat-panel .chat-log {
+  max-height: 220px;
+}
+
+.chat-panel .chat-form {
+  margin-top: var(--s2);
+}
+
+.chat-panel .chat-note { font-size: 11px; }
+
+/* ---------- dashboard: footer ---------- */
+
+.meta {
+  margin-top: 0;
+  padding-top: var(--s2);
+  border-top: 1px solid var(--line);
+  font-size: 12px;
   color: var(--ink-3);
+  display: flex;
+  gap: var(--s3);
+  flex-wrap: wrap;
 }
 
 /* ---------- scenario switcher ---------- */
 
 /* ---------- what-if controls ---------- */
 
+/* Declared once. An earlier generation of this file declared `.controls` twice at
+   equal specificity, so the later copy won and drew a panel well inside the
+   white .controls-panel card. The card chrome is the panel's job, not the
+   grid's. */
 .controls {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--s3);
-  padding: var(--s2) var(--s3);
-  margin-bottom: var(--s4);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  margin: 0;
 }
 
 .ctl { display: block; }
@@ -168,24 +710,27 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-weight: 600;
-  box-shadow: 0 1px 2px rgba(18, 20, 26, 0.08);
+  box-shadow: 0 1px 2px var(--ink-shadow-soft);
 }
 
 /* ---------- band 1: verdict ---------- */
 
-.verdict { margin-bottom: var(--s5); }
+.verdict { margin-bottom: 0; }
 
+/* Same shape as .eyebrow: this IS the hero's eyebrow, it just happens to be
+   rendered by the verdict component. */
 .pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 4px 10px;
-  border-radius: 999px;
-  margin-bottom: var(--s2);
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  margin-bottom: var(--s3);
 }
 
 .pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
@@ -195,36 +740,38 @@ body {
 .pill.t3 { background: var(--neg-wash); color: var(--neg); }
 
 .verdict h1 {
-  font-size: 38px;
-  line-height: 1.18;
-  letter-spacing: -0.022em;
-  font-weight: 600;
+  font-size: 40px;
+  line-height: 1.14;
+  letter-spacing: -0.025em;
+  font-weight: 700;
   margin: 0 0 var(--s2);
-  max-width: 24ch;
+  max-width: 22ch;
 }
 
 .qualifier {
   font-size: 15px;
   color: var(--ink-2);
   margin: 0;
-  max-width: 68ch;
+  max-width: 60ch;
 }
 
 .certificate {
   margin-top: var(--s3);
-  padding: var(--s2) var(--s2) var(--s2) calc(var(--s2) - 3px);
+  padding: var(--s3);
+  border: 0;
   border-left: 3px solid var(--accent);
   background: var(--panel);
-  border-radius: 0 var(--radius) var(--radius) 0;
+  border-radius: var(--radius-xs) var(--radius-sm) var(--radius-sm) var(--radius-xs);
   font-size: 14px;
   color: var(--ink-2);
-  max-width: 68ch;
+  max-width: 60ch;
 }
 
 .certificate strong { color: var(--ink); font-weight: 600; }
 
 .unproven {
   display: block;
+  font-family: var(--mono);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -235,37 +782,23 @@ body {
 
 .cash-callout {
   margin-top: var(--s3);
-  padding: var(--s2);
-  border: 1px solid var(--neg);
+  padding: var(--s3);
+  border: 1px solid color-mix(in srgb, var(--neg) 35%, transparent);
   background: var(--neg-wash);
-  border-radius: var(--radius);
-  max-width: 68ch;
+  border-radius: var(--radius-sm);
+  max-width: 60ch;
 }
 
-.cash-callout .amount { font-size: 26px; font-weight: 600; color: var(--neg); letter-spacing: -0.02em; }
+.cash-callout .amount {
+  font-family: var(--mono);
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--neg);
+  letter-spacing: -0.02em;
+}
 .cash-callout p { margin: 4px 0 0; font-size: 14px; color: var(--ink-2); }
 
 /* ---------- band 2: chart ---------- */
-
-.band { margin-bottom: var(--s5); }
-
-.band-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--s2);
-  margin-bottom: var(--s2);
-  flex-wrap: wrap;
-}
-
-.band-head h2 {
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ink-3);
-  margin: 0;
-}
 
 .legend { display: flex; gap: var(--s2); font-size: 12px; color: var(--ink-2); flex-wrap: wrap; }
 .legend i { display: inline-block; width: 16px; height: 0; border-top-width: 2px; margin-right: 6px; vertical-align: middle; }
@@ -286,7 +819,7 @@ body {
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   padding: 10px 12px;
-  box-shadow: 0 4px 14px rgba(18, 20, 26, 0.1);
+  box-shadow: 0 4px 14px var(--ink-shadow);
   font-size: 13px;
   min-width: 190px;
 }
@@ -422,43 +955,16 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 }
 .reset:hover { color: var(--ink); border-color: var(--ink-3); }
 
-.meta-local {
-  color: var(--warn);
-  background: var(--warn-wash);
-  border-radius: 999px;
-  padding: 1px 10px;
-  font-weight: 600;
-}
-
-.meta {
-  margin-top: var(--s4);
-  padding-top: var(--s2);
-  border-top: 1px solid var(--line);
-  font-size: 12px;
-  color: var(--ink-3);
-  display: flex;
-  gap: var(--s3);
-  flex-wrap: wrap;
-}
 
 @media (max-width: 720px) {
   .verdict h1 { font-size: 28px; }
   .rx-row { grid-template-columns: 56px 1fr; }
+  .rx-panel .rx-row { grid-template-columns: 56px 1fr; }
   .rx-amount, .rx-pain { text-align: left; grid-column: 2; }
   .cant { grid-column: 2; justify-self: start; }
 }
 
 /* ---------- band 4: the explainer ---------- */
-
-.chat-off {
-  font-size: 12px;
-  color: var(--warn);
-  background: var(--warn-wash);
-  border-radius: 999px;
-  padding: 1px 10px;
-  font-weight: 600;
-}
-.chat-model { font-size: 12px; color: var(--ink-3); }
 
 .chat-log {
   border: 1px solid var(--line);
@@ -485,7 +991,7 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 .msg-user {
   align-self: flex-end;
   background: var(--accent);
-  color: #fff;
+  color: var(--bg);
   border-bottom-right-radius: 4px;
 }
 .msg-bot {
@@ -534,15 +1040,18 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 }
 .chat-form input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
 .chat-form input:disabled { background: var(--panel-2); color: var(--ink-3); }
+/* The one gradient button on the page: navy into the product blue, the same
+   two ends the shell's gradient runs between. Pill, because every other
+   affirmative control here is a pill. */
 .chat-form button {
   font: inherit;
   font-size: 14px;
   font-weight: 600;
   padding: 9px 18px;
-  border-radius: var(--radius);
-  border: 1px solid var(--accent-ink);
-  background: var(--accent);
-  color: #fff;
+  border-radius: var(--radius-pill);
+  border: 0;
+  background: linear-gradient(90deg, var(--accent-press), var(--accent-ink));
+  color: var(--on-navy);
   cursor: pointer;
 }
 .chat-form button:disabled { opacity: 0.45; cursor: default; }
@@ -576,7 +1085,7 @@ details.considered[open] summary { margin-bottom: var(--s1); }
   font: inherit;
   font-size: 14px;
   font-weight: 500;
-  color: #fff;
+  color: var(--bg);
   background: var(--accent);
   border: 0;
   border-radius: var(--radius);
@@ -598,35 +1107,7 @@ details.considered[open] summary { margin-bottom: var(--s1); }
   overflow-wrap: anywhere;
 }
 
-/* ---------- tabs and the demo wallet ---------- */
-
-.tabs {
-  display: flex;
-  gap: 0.25rem;
-  margin-top: 0.75rem;
-}
-
-.tabs button {
-  background: none;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--ink-dim);
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.8125rem;
-  padding: 0.3rem 0.85rem;
-}
-
-.tabs button.on {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--bg);
-}
-
-.tabs button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
+/* ---------- the demo wallet ---------- */
 
 .wallet-head {
   align-items: baseline;
@@ -768,6 +1249,341 @@ details.considered[open] summary { margin-bottom: var(--s1); }
   margin-top: 0;
 }
 
+/* ---------- markup the rewrite introduced ---------- */
+
+/* The controls sit in the narrow column of a .duo, so the two sliders stack
+   rather than being squeezed side by side. */
+.controls-panel .controls { grid-template-columns: 1fr; }
+
+/* `.duo` stretches both columns to the taller one. That is right for the chart
+   row, where both panels have something to fill the height with, and wrong for
+   the plan row: the prescription list runs to eleven changes and would drag a
+   short chat panel out into 400px of empty white. Here each panel keeps its own
+   height instead. */
+.duo-start { align-items: start; }
+
+/* And once it is only as tall as it needs to be, it can follow the list down.
+   Only in two columns — in one column a sticky panel would pin itself over the
+   list the reader is trying to scroll. */
+@media (min-width: 1281px) {
+  .duo-start > .chat-panel {
+    position: sticky;
+    top: var(--s2);
+  }
+}
+
+/* The one-column page behind the crash card, replacing the old `.shell`. */
+.crash-shell {
+  display: block;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: var(--s4) var(--s3) var(--s5);
+}
+
+/* The chart's ResponsiveContainer resolves its height against this box. In a
+   flex column a child will not shrink below its content without this, which is
+   what turns a chart resize into a growth loop. */
+.chart-panel .chart-wrap { min-height: 0; }
+
+/* The scenario control, in the what-if panel head. */
+.controls-panel .switcher { margin-bottom: var(--s3); }
+
+/* ---------- gaps the imported sheet left open ---------- */
+
+/* The sheet removes borders from most controls but defined :focus-visible on
+   only four of them. One ring, everywhere, so keyboard use is never invisible. */
+.pillnav button:focus-visible,
+.switcher button:focus-visible,
+.ctl-presets button:focus-visible,
+.chips button:focus-visible,
+.reset:focus-visible,
+.crash button:focus-visible,
+.ctl input[type='range']:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-pill);
+}
+
+/* On the gradient an indigo ring disappears. There it is white. */
+.pillnav button:focus-visible {
+  outline-color: var(--on-navy);
+}
+
+/* Except on the lit pill, which IS white: there the ring has to go the other
+   way or it vanishes into the pill it is supposed to be marking. */
+.pillnav button.on:focus-visible {
+  outline-color: var(--navy-2);
+}
+
+/* ---------- motion ---------- */
+
+/* One easing curve and three durations. The curve decelerates hard at the end,
+   so a card settles rather than stopping dead. Everything below animates a
+   compositor-only property — transform, opacity, colour — so a re-solve never
+   competes with the solver for the main thread. */
+:root {
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 340ms;
+
+  /* The boxShadow scale from tailwind.config.ts, tinted: a shadow cast by a
+     card floating on a navy gradient is navy, not grey, and neutral black over
+     the blue reads as dirt on the screen. */
+  --shadow-card: 0 2px 12px -2px rgba(7, 26, 51, 0.06), 0 1px 3px rgba(7, 26, 51, 0.03);
+  --shadow-card-hover: 0 8px 24px -4px rgba(0, 0, 0, 0.07), 0 2px 6px rgba(0, 0, 0, 0.03);
+  --shadow-glass: 0 24px 48px -18px rgba(7, 26, 51, 0.35);
+  --shadow-popover: 0 12px 32px -8px rgba(0, 0, 0, 0.24);
+}
+
+/* Every control answers a pointer at the same speed. */
+.pillnav button,
+.chips button,
+.ctl-presets button,
+.switcher button,
+.reset,
+.chat-form button,
+.crash button,
+.wallet-sign {
+  transition:
+    background var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease),
+    border-color var(--dur-1) var(--ease),
+    box-shadow var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
+}
+
+.chips button:hover:not(:disabled),
+.ctl-presets button:hover,
+.reset:hover { transform: translateY(-1px); }
+
+.pillnav button:active,
+.switcher button:active,
+.chips button:active:not(:disabled),
+.ctl-presets button:active { transform: scale(0.97); }
+
+/* Cards lift towards the pointer. The border lightens as the shadow deepens,
+   so the edge does not double up as the card rises. */
+.panel {
+  box-shadow: var(--shadow-card);
+  transition:
+    box-shadow var(--dur-2) var(--ease),
+    border-color var(--dur-2) var(--ease),
+    transform var(--dur-2) var(--ease);
+}
+
+.panel:hover {
+  box-shadow: var(--shadow-card-hover);
+  border-color: var(--line-strong);
+  transform: translateY(-2px);
+}
+
+.hero { transition: box-shadow var(--dur-2) var(--ease); }
+
+.tip { box-shadow: var(--shadow-popover); }
+
+/* The page arrives in one pass: each section rises a few pixels into place,
+   staggered, so the eye is walked down it instead of being handed all of it at
+   once. It runs on mount only — a re-solve replaces text inside these
+   sections, not the sections themselves. */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+.main > * {
+  /* `.main` is a flex column, so its children would otherwise shrink below
+     their own content; the hero has no min-height and was being crushed and
+     then clipped. Nothing in this column shrinks. */
+  flex: none;
+  animation: rise var(--dur-3) var(--ease) both;
+}
+
+.main > *:nth-child(1) { animation-delay: 0ms; }
+.main > *:nth-child(2) { animation-delay: 60ms; }
+.main > *:nth-child(3) { animation-delay: 120ms; }
+.main > *:nth-child(4) { animation-delay: 180ms; }
+
+/* The figures land in their own left-to-right sweep inside the hero. */
+.stats .stat { animation: rise var(--dur-3) var(--ease) both; }
+.stats .stat:nth-child(1) { animation-delay: 90ms; }
+.stats .stat:nth-child(2) { animation-delay: 140ms; }
+.stats .stat:nth-child(3) { animation-delay: 190ms; }
+
+/* A figure that has just been re-solved ticks over rather than swapping. The
+   element is keyed on its own text in the JSX, so React remounts it and the
+   animation replays only when the number actually changed. */
+@keyframes tick {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: none; }
+}
+
+.stat .stat-value { animation: tick var(--dur-2) var(--ease) both; }
+
+/* The verdict is the one thing on screen that can reverse meaning between two
+   solves, so it fades rather than snapping. Keyed on the tier in the JSX. */
+.hero .verdict { animation: rise var(--dur-3) var(--ease) both; }
+
+/* Panels dim slightly while a solve is in flight. It reads as the page
+   thinking, and it is the only cue that the number under a moving slider is
+   not the answer yet. */
+.main.is-solving .panel,
+.main.is-solving .hero {
+  opacity: 0.85;
+  transition: opacity var(--dur-2) var(--ease);
+}
+
+/* ---------- the wallet tab, on the new shell ---------- */
+
+/* The wallet is the one view that never had a card of its own: it used to sit
+   on a white page, so it needed none. On the gradient it was dark text on deep
+   blue. It gets the hero's card, because it IS this tab's hero. */
+.wallet,
+.wallet-down,
+.wallet-loading {
+  background: var(--bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-glass);
+  padding: var(--s4);
+}
+
+.wallet-loading {
+  margin: 0;
+  color: var(--ink-3);
+}
+
+.wallet-head { margin-bottom: var(--s2); }
+
+.wallet-chip {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+  background: var(--accent-wash);
+  border-color: transparent;
+  padding: 6px 14px;
+}
+
+.wallet-balance {
+  font-family: var(--mono);
+  letter-spacing: -0.02em;
+}
+
+/* The inner boxes are recessed, like the figures in the plan tab's hero. */
+.wallet-panel {
+  background: var(--canvas);
+  border-radius: var(--radius-sm);
+  padding: var(--s3);
+}
+
+.wallet-panel h2 {
+  font-family: var(--mono);
+  letter-spacing: 0.08em;
+}
+
+.wallet-date,
+.wallet-amt,
+.wallet-reserve,
+.wallet-input,
+.wallet-verdict { font-family: var(--mono); }
+
+.wallet-input {
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
+}
+
+.wallet-sign {
+  border-radius: var(--radius-pill);
+  padding: 10px 20px;
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 1280px) {
+  .duo { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* The hero's two columns stop earning their keep once the verdict headline is
+   down to a few words a line. Below this the figures move under the copy and
+   spread across the full width, which reads better than three narrow tiles. */
+@media (max-width: 1100px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s3);
+  }
+  .verdict h1 { font-size: 34px; max-width: none; }
+  .stat .stat-value { font-size: clamp(19px, 3.4vw, 26px); }
+}
+
+@media (max-width: 900px) {
+  .navbar {
+    height: auto;
+    flex-wrap: wrap;
+    gap: var(--s2);
+    row-gap: 10px;
+    padding: var(--s2) var(--s3);
+  }
+  /* The nav-right group is its own nowrap row, so wrapping the bar alone still
+     pushed the account off the right edge. */
+  .nav-right {
+    margin-left: 0;
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+  .pillnav button { padding: 7px 14px; font-size: 13px; }
+  .main { padding: var(--s2) var(--s3) var(--s4); gap: var(--s2); }
+  .hero { padding: var(--s3); border-radius: var(--radius); }
+  .verdict h1 { font-size: 28px; }
+  .panel { padding: var(--s3); }
+  .panel-head h2 { font-size: 17px; }
+}
+
+@media (max-width: 640px) {
+  /* `.stats` goes to one column here, so the hero is roughly twice as tall and
+     the gradient would end partway up it. */
+  .app { background-size: 100% 620px; }
+  .stats { grid-template-columns: minmax(0, 1fr); }
+  .stat { text-align: left; }
+  .stat .stat-value { font-size: 24px; }
+  .controls { grid-template-columns: 1fr; }
+  .verdict h1 { font-size: 24px; }
+  .rx-row { grid-template-columns: 1fr; }
+  .rx-panel .rx-row { grid-template-columns: 1fr; }
+  /* The 720px rules pin these to column 2. At one column that placement
+     conjures an implicit second column and the row silently goes back to two,
+     so the placement has to be released here, not just the alignment. */
+  .rx-amount, .rx-pain, .cant { grid-column: 1; }
+  .rx-amount, .rx-pain { text-align: left; }
+  .cant { justify-self: start; }
+  .panel { padding: var(--s2); }
+  .hero { padding: var(--s2); }
+  .main { padding: var(--s2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rx-row.is-new { animation: none; }
+  .msg-pending span { animation: none; }
+  .main > *,
+  .stats .stat,
+  .stat .stat-value,
+  .hero .verdict { animation: none; }
+  .panel:hover { transform: none; }
+  .chips button:hover:not(:disabled),
+  .ctl-presets button:hover,
+  .reset:hover,
+  .pillnav button:active,
+  .chips button:active:not(:disabled),
+  .ctl-presets button:active,
+  .switcher button:active { transform: none; }
+  /* Including the one the imported sheet already had, which the old
+     reduced-motion block never covered. */
+  .rx-row,
+  .panel,
+  .hero { transition: none; }
+}
+
 /* The two account-source buttons sit under the presets and share their look.
    A load is the one control here that takes a visible moment, so it needs a
    disabled state the presets never did. */
@@ -782,4 +1598,83 @@ details.considered[open] summary { margin-bottom: var(--s1); }
 .ctl-presets button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* ---- imported accounts: the file control and the provenance panel ---- */
+
+.ctl-file input[type='file'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The label is the button. A bare file input cannot be styled to match the
+   other two source buttons, and a mismatched control reads as a bug. */
+.ctl-file {
+  display: inline-flex;
+}
+
+.ctl-file span {
+  display: inline-block;
+  cursor: pointer;
+}
+
+.ctl-import {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.ctl-import input {
+  width: 7rem;
+}
+
+.qualifier-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.provenance .prov-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1.25rem;
+  margin-top: 0.75rem;
+}
+
+.provenance h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.prov-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.prov-rows label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.prov-payday {
+  margin: 0.6rem 0 0;
+  font-weight: 600;
+}
+
+.prov-assumed {
+  margin: 1rem 0 0.25rem;
 }

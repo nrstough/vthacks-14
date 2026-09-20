@@ -3,12 +3,31 @@ import BalanceChart from './components/BalanceChart'
 import ErrorBoundary from './components/ErrorBoundary.tsx'
 import ChatPanel from './components/ChatPanel'
 import PrescriptionList from './components/PrescriptionList'
+import Stats from './components/Stats'
+import TopNav from './components/TopNav'
 import VerdictBand from './components/VerdictBand'
 import { SCENARIOS } from './fixtures/scenarios'
 import { solveViaApi } from './lib/api'
-import { chatKey, loadAccount, provenanceLine, sliderBounds } from './lib/accounts.ts'
+import { chatKey, loadAccount, loadImport, provenanceLine, sliderBounds } from './lib/accounts.ts'
 import type { LoadKind } from './lib/accountState.ts'
-import { accountReducer, fail, initial, preset as presetAction, start, succeed } from './lib/accountState.ts'
+import {
+  accountReducer,
+  fail,
+  initial,
+  preset as presetAction,
+  start,
+  streams as streamsAction,
+  succeed,
+} from './lib/accountState.ts'
+import ProvenancePanel from './components/ProvenancePanel.tsx'
+import { parseAmountCents, parseBankCsv } from './lib/importCsv.ts'
+import {
+  buildImportRequest,
+  isImport,
+  qualifierNote,
+  scheduleAfterUntick,
+  toBase as importToBase,
+} from './lib/history.ts'
 import { money, shortDate } from './lib/format'
 import { emptyPlanText, footerLines, narrateChart } from './lib/narrate'
 import type { Overrides } from './lib/overrides'
@@ -26,13 +45,43 @@ const WalletView = lazy(() => import('./wallet/WalletView.tsx'))
 
 const FIXTURE = SCENARIOS[0].request
 
+// What each parser rejection means, in words. The codes never carry the
+// cell, so neither does this.
+const REJECT_TEXT: Record<string, string> = {
+  no_date: 'no date',
+  bad_date: 'the date could not be read',
+  no_amount: 'no amount',
+  bad_amount: 'the amount could not be read',
+  too_many_decimals: 'more than two decimal places',
+  zero_amount: 'an amount of zero',
+  no_description: 'no description',
+  not_posted: 'not yet posted',
+}
+
+// The balance the person types. Same string arithmetic as the CSV parser,
+// for the same reason: no float ever touches money here.
+function parseBalance(raw: string): number | null {
+  const cents = parseAmountCents(raw)
+  return typeof cents === 'number' ? cents : null
+}
+
 export default function App() {
   const [tab, setTab] = useState<'plan' | 'wallet'>('plan')
   // The account the request is built from. A preset restores the fixture; the
   // two source buttons replace it wholesale. The lifecycle lives in a reducer
   // because the ways it goes wrong are about ordering, not rendering.
   const [acct, dispatch] = useReducer(accountReducer, FIXTURE, initial)
-  const { account, base, loading, error: loadError } = acct
+  const { account, base, loading, error: loadError, original, excluded } = acct
+  // The parsed rows stay in the browser so a re-import needs no second file
+  // read. They are NOT used for labelling: the server's labels are already
+  // brand-free, and labelling again here would add a second place a payee
+  // could reach the screen.
+  const importedRows = useRef<ReturnType<typeof parseBankCsv>['rows']>([])
+  const importSeq = useRef(0)
+  const [importBalance, setImportBalance] = useState('')
+  const [pendingFile, setPendingFile] = useState<string | null>(null)
+  const [importNote, setImportNote] = useState<string | null>(null)
+  const [rejected, setRejected] = useState<string[]>([])
   const seqRef = useRef(0)
   const loadCtl = useRef<AbortController | null>(null)
   const [opening, setOpening] = useState(FIXTURE.opening_balance_cents)
@@ -217,7 +266,7 @@ export default function App() {
     const mine = ++seqRef.current
     dispatch(start(kind, mine))
     try {
-      const loaded = await loadAccount(kind, ctl.signal)
+      const loaded = await loadAccount(kind === 'nessie' ? 'nessie' : 'modelled', ctl.signal)
       if (mine !== seqRef.current) return
       dispatch(succeed(mine, loaded.account, loaded.base))
       adopt(loaded.base, loaded.base.opening_balance_cents, loaded.base.buffer_cents)
@@ -227,217 +276,355 @@ export default function App() {
     }
   }
 
+  async function runImport(cents: number) {
+    loadCtl.current?.abort()
+    const ctl = new AbortController()
+    loadCtl.current = ctl
+    // The same single counter the other two sources use, so a preset click
+    // during a slow import still wins the race.
+    const mine = ++seqRef.current
+    dispatch(start('import', mine))
+    try {
+      const body = buildImportRequest(importedRows.current, cents, buffer)
+      const account = await loadImport(body, ctl.signal)
+      if (mine !== seqRef.current) return
+      importSeq.current++
+      const next = importToBase(account)
+      dispatch(succeed(mine, account, next))
+      adopt(next, next.opening_balance_cents, next.buffer_cents)
+    } catch (e: unknown) {
+      if (ctl.signal.aborted || mine !== seqRef.current) return
+      dispatch(fail(mine, e instanceof Error ? e.message : 'Could not import that export.'))
+    }
+  }
+
+  async function chooseFile(file: File | null) {
+    if (!file) return
+    setImportNote(null)
+    const parsed = parseBankCsv(await file.text())
+    const detail = parsed.rejected.map((r) => `line ${r.line}: ${REJECT_TEXT[r.reason]}`)
+    if (parsed.error !== null) {
+      importedRows.current = []
+      setPendingFile(null)
+      // The refusal does not erase the per-row reasons; they are how the
+      // person finds the line their bank wrote oddly.
+      setRejected(detail)
+      setImportNote(parsed.error)
+      return
+    }
+    importedRows.current = parsed.rows
+    const skipped = [
+      parsed.notPosted > 0 ? `${parsed.notPosted} not yet posted` : null,
+      parsed.rejected.length > 0 ? `${parsed.rejected.length} unreadable` : null,
+    ].filter(Boolean)
+    setPendingFile(
+      `${parsed.rows.length} transactions read` + (skipped.length ? `, ${skipped.join(', ')} skipped` : ''),
+    )
+    setRejected(detail)
+    setImportNote(null)
+  }
+
+  function toggleStream(streamId: string) {
+    if (original === null) return
+    const next = new Set(excluded)
+    if (next.has(streamId)) next.delete(streamId)
+    else next.add(streamId)
+    const rebuilt = scheduleAfterUntick(original, next, opening, buffer)
+    dispatch(streamsAction(next, rebuilt))
+    adopt(rebuilt, opening, buffer)
+  }
+
   const locked = count(ruledOut)
   const narration = narrateChart(res).join(' ')
+  // True when what is on screen answers exactly what is being asked right now.
+  // While it is false a slider is still moving or a solve is in flight, and the
+  // panels dim to say so.
+  const settled = solvedRequest !== null && sameInputs(solvedRequest, request)
 
   return (
-    <main className="shell">
-      <header className="topbar">
-        <div>
-          <p className="wordmark">
-            Safe to Spend <span>&nbsp;/&nbsp; the smallest plan that clears</span>
-          </p>
-          <p className="tagline">
-            {provenanceLine(account, base)} Move a slider or rule a change out, and the plan is
-            re-solved from scratch.
-          </p>
-        </div>
-        <nav className="tabs" aria-label="Views">
-          <button
-            type="button"
-            className={tab === 'plan' ? 'on' : ''}
-            aria-pressed={tab === 'plan'}
-            onClick={() => setTab('plan')}
-          >
-            Checking account
-          </button>
-          <button
-            type="button"
-            className={tab === 'wallet' ? 'on' : ''}
-            aria-pressed={tab === 'wallet'}
-            onClick={() => setTab('wallet')}
-          >
-            Demo wallet
-          </button>
-        </nav>
-      </header>
+    <div className="app">
+      <TopNav tab={tab} onTab={setTab} res={res} source={source} notice={notice} />
 
-      {tab === 'wallet' ? (
-        // Its OWN boundary, not the root one. A lazy chunk that fails to load
-        // throws into the nearest boundary, and if that were the root the whole
-        // planning demo would be replaced by a crash card over a side screen
-        // the judge was not even looking at.
-        <ErrorBoundary
-          inline={(detail) => (
-            <section className="wallet-down" role="alert">
-              <h2>The demo wallet did not load</h2>
-              <p>The checking account view is unaffected — switch back to it.</p>
-              <details>
-                <summary>What went wrong</summary>
-                <p className="crash-detail">{detail}</p>
-              </details>
+      <main className={`main${settled ? '' : ' is-solving'}`}>
+        {tab === 'wallet' ? (
+          // Its OWN boundary, not the root one. A lazy chunk that fails to load
+          // throws into the nearest boundary, and if that were the root the whole
+          // planning demo would be replaced by a crash card over a side screen
+          // the judge was not even looking at.
+          <ErrorBoundary
+            inline={(detail) => (
+              <section className="wallet-down" role="alert">
+                <h2>The demo wallet did not load</h2>
+                <p>The checking account view is unaffected — switch back to it.</p>
+                <details>
+                  <summary>What went wrong</summary>
+                  <p className="crash-detail">{detail}</p>
+                </details>
+              </section>
+            )}
+          >
+            <Suspense fallback={<p className="wallet-loading">Loading the demo wallet…</p>}>
+              <WalletView />
+            </Suspense>
+          </ErrorBoundary>
+        ) : (
+          <>
+            {/* The one card that lifts off the gradient: the verdict on the
+                left, the figures it is made of on the right. Keyed on the tier
+                so a verdict that reverses meaning fades in rather than
+                swapping under the eye. */}
+            <section className="hero" key={`tier-${res.tier}`}>
+              <div className="hero-copy">
+                {/* Where the numbers come from. Deliberately a sibling ABOVE
+                    the verdict rather than inside it: the verdict is an
+                    aria-live region, and provenance does not change on a
+                    re-solve, so announcing it again on every slider move
+                    would be noise. */}
+                <p className="eyebrow-note">{provenanceLine(account, base)}</p>
+                <VerdictBand res={res} req={request} note={qualifierNote(account)} />
+              </div>
+              <Stats res={res} />
             </section>
-          )}
-        >
-          <Suspense fallback={<p className="wallet-loading">Loading the demo wallet…</p>}>
-            <WalletView />
-          </Suspense>
-        </ErrorBoundary>
-      ) : (
-      <>
-      <section className="controls">
-        <label className="ctl">
-          <span className="ctl-head">
-            Starting balance
-            <b className="num">{money(opening)}</b>
-          </span>
-          <input
-            type="range"
-            min={sliderBounds(opening).min}
-            max={sliderBounds(opening).max}
-            step={500}
-            value={opening}
-            onChange={(e) => setOpening(Number(e.target.value))}
-          />
-          <span className="ctl-presets">
-            {SCENARIOS.map((s) => (
-              <button
-                key={s.key}
-                type="button"
-                title={`${money(s.request.opening_balance_cents)} to start, ${money(
-                  s.request.buffer_cents,
-                )} cushion`}
-                aria-pressed={
-                  account === null &&
-                  s.request.opening_balance_cents === opening &&
-                  s.request.buffer_cents === buffer
-                }
-                onClick={() => preset(s.request.opening_balance_cents, s.request.buffer_cents)}
-              >
-                {money(s.request.opening_balance_cents)}
-              </button>
-            ))}
-          </span>
-          <span className="ctl-presets ctl-sources">
-            <button
-              type="button"
-              title="Generate a fresh account on the server"
-              aria-pressed={account?.source === 'modelled'}
-              disabled={loading !== null}
-              onClick={() => void load('modelled')}
-            >
-              {loading === 'modelled' ? 'Loading…' : 'New modelled account'}
-            </button>
-            <button
-              type="button"
-              title="Seed an account into Capital One's Nessie sandbox and read it back"
-              aria-pressed={account?.source === 'nessie'}
-              disabled={loading !== null}
-              onClick={() => void load('nessie')}
-            >
-              {loading === 'nessie' ? 'Loading…' : 'Capital One sandbox'}
-            </button>
-          </span>
-          {loadError && (
-            <p className="ctl-note" role="status">
-              {loadError}
-            </p>
-          )}
-        </label>
 
-        <label className="ctl">
-          <span className="ctl-head">
-            Cushion to keep
-            <b className="num">{money(buffer)}</b>
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={10000}
-            step={500}
-            value={buffer}
-            onChange={(e) => setBuffer(Number(e.target.value))}
-          />
-          <span className="ctl-note">How much you want left over on the worst day.</span>
-        </label>
-      </section>
+            <div className="duo">
+              <section className="panel chart-panel">
+                <div className="panel-head">
+                  <div>
+                    <p className="panel-kicker">
+                      Daily balance · {shortDate(base.as_of)} to {shortDate(base.horizon_end)}
+                    </p>
+                    <h2>Where the money actually goes</h2>
+                  </div>
+                  <div className="legend">
+                    <span>
+                      <i className="l-base" />
+                      Do nothing
+                    </span>
+                    <span>
+                      <i className="l-plan" />
+                      With the plan
+                    </span>
+                    <span>
+                      <i className="l-zero" />
+                      Zero
+                    </span>
+                    <span>
+                      <i className="l-buffer" />
+                      {money(buffer)} cushion
+                    </span>
+                  </div>
+                </div>
+                <p className="narration" id="chart-text">
+                  {narration}
+                </p>
+                <BalanceChart res={res} req={request} describedBy="chart-text" />
+              </section>
 
-      <VerdictBand res={res} req={request} />
+              {isImport(account) && (
+                <ProvenancePanel account={account} excluded={excluded} onToggle={toggleStream} />
+              )}
 
-      <section className="band">
-        <div className="band-head">
-          <h2>
-            Daily balance, {shortDate(base.as_of)} to {shortDate(base.horizon_end)}
-          </h2>
-          <div className="legend">
-            <span>
-              <i className="l-base" />
-              Do nothing
-            </span>
-            <span>
-              <i className="l-plan" />
-              With the plan
-            </span>
-            <span>
-              <i className="l-zero" />
-              Zero
-            </span>
-            <span>
-              <i className="l-buffer" />
-              {money(buffer)} cushion
-            </span>
-          </div>
-        </div>
-        <p className="narration" id="chart-text">
-          {narration}
-        </p>
-        <BalanceChart res={res} req={request} describedBy="chart-text" />
-      </section>
+              <section className="panel controls-panel" aria-label="What if">
+                <div className="panel-head">
+                  <div>
+                    <p className="panel-kicker">What if</p>
+                    <h2>Move the inputs</h2>
+                    {/* The clause the old tagline carried. It belongs next to
+                        the controls it describes, not over the verdict. */}
+                    <p className="panel-lede">
+                      Move a slider or rule a change out, and the plan is re-solved from scratch.
+                    </p>
+                  </div>
+                </div>
 
-      <section className="band">
-        <div className="band-head">
-          <h2>
-            {res.plan.length === 0
-              ? emptyPlanText(res).heading
-              : `${res.plan.length} change${res.plan.length === 1 ? '' : 's'}, in the order they take effect`}
-          </h2>
-          {locked > 0 && (
-            <button type="button" className="reset" onClick={() => setRuledOut(NONE)}>
-              Clear {locked} override{locked === 1 ? '' : 's'}
-            </button>
-          )}
-        </div>
-        <PrescriptionList
-          req={request}
-          res={res}
-          ruledOut={ruledOut}
-          solvedRuledOut={solvedRuledOut}
-          newIds={newIds}
-          onToggle={onToggle}
-          onFocusRow={onFocusRow}
-        />
-      </section>
+                {/* One scenario control, not two. The presets that used to sit
+                    under the balance slider said the same thing as this. */}
+                <div className="switcher" role="group" aria-label="Starting position">
+                  {SCENARIOS.map((s) => (
+                    <button
+                      key={s.key}
+                      type="button"
+                      title={s.blurb}
+                      aria-pressed={
+                        account === null &&
+                        s.request.opening_balance_cents === opening &&
+                        s.request.buffer_cents === buffer
+                      }
+                      onClick={() =>
+                        preset(s.request.opening_balance_cents, s.request.buffer_cents)
+                      }
+                    >
+                      {money(s.request.opening_balance_cents)}
+                    </button>
+                  ))}
+                </div>
 
-      <ChatPanel
-        key={chatKey(account)}
-        req={request}
-        res={res}
-        source={source}
-        accountSource={account?.source ?? 'preset'}
-      />
-      </>
-      )}
+                <span className="ctl-presets ctl-sources">
+                  <button
+                    type="button"
+                    title="Generate a fresh account on the server"
+                    aria-pressed={account?.source === 'modelled'}
+                    disabled={loading !== null}
+                    onClick={() => void load('modelled')}
+                  >
+                    {loading === 'modelled' ? 'Loading…' : 'New modelled account'}
+                  </button>
+                  <button
+                    type="button"
+                    title="Seed an account into Capital One's Nessie sandbox and read it back"
+                    aria-pressed={account?.source === 'nessie'}
+                    disabled={loading !== null}
+                    onClick={() => void load('nessie')}
+                  >
+                    {loading === 'nessie' ? 'Loading…' : 'Capital One sandbox'}
+                  </button>
+                  <label
+                    className="ctl-file"
+                    title="Plan from your own bank export. Nothing is stored; merchant names are used to group the rows and are never returned."
+                  >
+                    <input
+                      type="file"
+                      accept=".csv,text/csv"
+                      disabled={loading !== null}
+                      onChange={(e) => {
+                        void chooseFile(e.target.files?.[0] ?? null)
+                        e.target.value = ''
+                      }}
+                    />
+                    <span>Import a bank export</span>
+                  </label>
+                </span>
+                {pendingFile && (
+                  <span className="ctl-import">
+                    <span className="ctl-note">{pendingFile}. Today's balance:</span>
+                    <input
+                      className="num"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="412.80"
+                      value={importBalance}
+                      aria-label="Your balance today, including anything that posted today"
+                      onChange={(e) => setImportBalance(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      disabled={loading !== null || parseBalance(importBalance) === null}
+                      onClick={() => {
+                        const cents = parseBalance(importBalance)
+                        if (cents !== null) void runImport(cents)
+                      }}
+                    >
+                      {loading === 'import' ? 'Planning…' : 'Plan from this'}
+                    </button>
+                  </span>
+                )}
+                {importNote && (
+                  <p className="ctl-note" role="status">
+                    {importNote}
+                  </p>
+                )}
+                {rejected.length > 0 && (
+                  <details className="ctl-note import-rejects">
+                    <summary>
+                      {rejected.length} {rejected.length === 1 ? 'row was' : 'rows were'} skipped
+                    </summary>
+                    <ul>
+                      {rejected.slice(0, 20).map((line) => (
+                        <li key={line}>{line}</li>
+                      ))}
+                      {rejected.length > 20 && <li>and {rejected.length - 20} more</li>}
+                    </ul>
+                  </details>
+                )}
+                {loadError && (
+                  <p className="ctl-note" role="status">
+                    {loadError}
+                  </p>
+                )}
 
-      <footer className="meta num">
-        {footerLines(res).map((line) => (
-          <span key={line}>{line}</span>
-        ))}
-        {source === 'local' && (
-          <span className="meta-local" title={notice ?? undefined}>
-            Running on the built-in solver
-          </span>
+                <div className="controls">
+                  <label className="ctl">
+                    <span className="ctl-head">
+                      Starting balance
+                      <b className="num">{money(opening)}</b>
+                    </span>
+                    <input
+                      type="range"
+                      min={sliderBounds(opening).min}
+                      max={sliderBounds(opening).max}
+                      step={500}
+                      value={opening}
+                      onChange={(e) => setOpening(Number(e.target.value))}
+                    />
+                    <span className="ctl-note">What is in the account this morning.</span>
+                  </label>
+
+                  <label className="ctl">
+                    <span className="ctl-head">
+                      Cushion to keep
+                      <b className="num">{money(buffer)}</b>
+                    </span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={10000}
+                      step={500}
+                      value={buffer}
+                      onChange={(e) => setBuffer(Number(e.target.value))}
+                    />
+                    <span className="ctl-note">How much you want left over on the worst day.</span>
+                  </label>
+                </div>
+              </section>
+            </div>
+
+            <div className="duo duo-start">
+              <section className="panel rx-panel">
+                <div className="panel-head">
+                  <div>
+                    <p className="panel-kicker">The plan</p>
+                    <h2>
+                      {res.plan.length === 0
+                        ? emptyPlanText(res).heading
+                        : `${res.plan.length} change${res.plan.length === 1 ? '' : 's'}, in the order they take effect`}
+                    </h2>
+                  </div>
+                  {locked > 0 && (
+                    <div className="panel-actions">
+                      <button type="button" className="reset" onClick={() => setRuledOut(NONE)}>
+                        Clear {locked} override{locked === 1 ? '' : 's'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <PrescriptionList
+                  req={request}
+                  res={res}
+                  ruledOut={ruledOut}
+                  solvedRuledOut={solvedRuledOut}
+                  newIds={newIds}
+                  onToggle={onToggle}
+                  onFocusRow={onFocusRow}
+                />
+              </section>
+
+              <ChatPanel
+                key={chatKey(account, importSeq.current)}
+                req={request}
+                res={res}
+                source={source}
+                accountSource={account?.source ?? 'preset'}
+              />
+            </div>
+          </>
         )}
-      </footer>
-    </main>
+
+        <footer className="meta">
+          {footerLines(res).map((line) => (
+            <span key={line}>{line}</span>
+          ))}
+        </footer>
+      </main>
+    </div>
   )
 }

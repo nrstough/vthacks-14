@@ -15,7 +15,7 @@ import pytest
 
 from app.schemas import SolveRequest
 from app.solver.solve import Settings, solve
-from app.solver.wording import BANNED
+from app.solver.wording import BANNED, OPTIMALITY_CLAIMS
 from tests.fixtures import planted
 from tests.fixtures.scenarios import SCENARIOS
 from tests.gen import instances
@@ -158,6 +158,38 @@ def test_one_load_bearing_change_still_says_the_rest_hold_the_cushion():
                 assert "The rest hold the cushion" in res.certificate.sentence
                 return
     pytest.skip("no case in the corpus has exactly one load-bearing change in a larger plan")
+
+
+def test_a_cushion_only_reason_never_reads_as_not_needed():
+    """A change with zero marginals is in the plan for a reason.
+
+    "Not needed to clear zero" is the sentence the left-out list already makes,
+    and reading it on a row the solver chose is how the plan reads as padding.
+    At tier 3 it is worse than confusing: nothing clears zero there, so the
+    claim is about a thing that never happens. Zero marginals prove only that
+    removing the change leaves the worst day exactly where it is, and the two
+    sentences say that and no more.
+    """
+    from app.schemas import CertificateItem
+    from app.solver.wording import CUSHION_ONLY_REASON, CUSHION_ONLY_REASON_GAP, plan_reason
+
+    item = CertificateItem(
+        candidate_id="c_a",
+        worst_shortfall_cents=0,
+        worst_date=None,
+        marginal_cents=0,
+        marginal_days=0,
+    )
+    assert plan_reason(item, plan_clears_zero=True) == CUSHION_ONLY_REASON
+    assert plan_reason(item, plan_clears_zero=False) == CUSHION_ONLY_REASON_GAP
+
+    for text in (CUSHION_ONLY_REASON, CUSHION_ONLY_REASON_GAP):
+        lowered = text.lower()
+        assert "not needed" not in lowered, text
+        for word in BANNED:
+            assert word not in lowered, text
+        for claim in OPTIMALITY_CLAIMS:
+            assert claim.lower() not in lowered, text
 
 
 def test_an_empty_plan_at_tier_three_does_not_claim_the_schedule_clears():

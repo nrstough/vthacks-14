@@ -663,3 +663,24 @@ Verified on the merged tree:
 **Not merged into `main`, deliberately.** `CLAUDE.md` says to check with the other sessions before
 fast-forwarding `main`, because it rewrites files under them, and another lane is live in that
 checkout right now. `frontend` is a fast-forward away whenever Nathan wants it.
+
+## Superseded, 2026-09-19 evening
+
+Two of this spec's decisions were deliberately overturned by
+`docs/specs/2026-09-19_ui-mise-tuning.md`, executed on `ui-design-system` the same evening. The
+rest of this document stands as written.
+
+- **D1 and AC1, "one identical control per row, same words, unchecked by default".** There is
+  still exactly one ruled-out set and one control per row, but the two sections now read it in
+  opposite directions and say so: plan rows ask "Can't do this" and start unticked, left-out
+  rows ask "Can do this" and **start ticked**, so unticking a left-out row is what rules it out.
+  Identical words over opposite states was the defect, not the fix; the reading lives in
+  `frontend/src/lib/cant.ts`. "None of the checkboxes start ticked" is no longer true of the
+  left-out list, and AC1's DOM count (`checkedCount 0`) no longer holds. `locks.in` is still
+  never sent from the UI.
+- **Scope and AC8, "`mockSolver.ts` must stay byte-identical to `main`".** Superseded by the
+  handoff-sanctioned wording change in that spec: the in-plan cushion-only reason is
+  solver-owned and `test_parity` compares `plan[].reason` field for field, so it had to change
+  in `backend/app/solver/wording.py` and `frontend/src/solver/mockSolver.ts` together. The
+  oracle now also exports `CUSHION_ONLY_REASON` and `CUSHION_ONLY_REASON_GAP`. Parity is the
+  gate that replaces the byte-identity check.

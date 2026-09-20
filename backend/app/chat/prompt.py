@@ -63,7 +63,8 @@ How to use the numbers
 - Use only figures that appear in the context below. Never estimate, extrapolate, or add \
 amounts yourself. If a question needs a number that is not there, say the solver has not \
 computed it and how the person could get it: move the starting balance or cushion slider, or \
-tick "Can't do this" on a change to rule it out, and the plan is re-solved from scratch.
+tick "Can't do this" on a change in the plan (or untick "Can do this" on one that was left \
+out) to rule it out, and the plan is re-solved from scratch.
 - If someone asks what happens when the paycheck is late, a bill is bigger, or a new purchase \
 is added, say honestly that the solver is exact about the schedule it was shown and has not \
 solved that case, then point to the controls that would let them try it.
@@ -109,6 +110,15 @@ ACCOUNT_SOURCE = {
         "back over their API. Not a bank's records and not anyone's account. Say so "
         "plainly if the user asks where it came from. Amounts are whole dollars because "
         "the sandbox stores whole dollars."
+    ),
+    "import": (
+        "Account: imported from the user's OWN bank export, so the recurring income and "
+        "bills are real. Merchant names were deliberately not sent to you; each row is "
+        "labelled by category instead. Rows described as \"Everyday spending (assumed "
+        "from your last 8 weeks)\" are NOT transactions that exist: they are an estimate "
+        "from the median of the same weekday over the user's last eight weeks. Never "
+        "call them scheduled charges, never suggest cancelling one, and say they are an "
+        "assumption if the user asks about them."
     ),
 }
 
@@ -158,7 +168,11 @@ def render_context(
     if not res.plan:
         add("- No changes. Doing nothing already clears.")
     for p in res.plan:
-        need = "load-bearing against zero" if p.strictly_needed else "only protects the cushion, not needed to clear zero"
+        need = (
+            "load-bearing against zero"
+            if p.strictly_needed
+            else "not load-bearing: removing it would not change the worst day"
+        )
         add(f"- {p.candidate_id}: {p.label} ({p.detail}); act by {p.date}; frees {dollars(p.freed_cents)}; disruption {p.pain} of 5; {need}. Reason shown: \"{p.reason}\"")
         m = marginal.get(p.candidate_id)
         if m:
@@ -178,7 +192,10 @@ def render_context(
     for c in rest:
         line = _candidate_line(c)
         if c.id in ruled_out:
-            line += "; RULED OUT by the user (\"Can't do this\"), so the solver never saw it"
+            line += (
+                "; RULED OUT by the user (unticked \"Can do this\" in the left-out list), "
+                "so the solver never saw it"
+            )
         add(line)
     if req.locks.in_:
         add(f"Changes the user pinned in: {', '.join(req.locks.in_)}")

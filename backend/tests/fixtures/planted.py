@@ -286,6 +286,35 @@ DEFER_LANDS_IN_HORIZON = req(
 DEFER_LANDS_IN_HORIZON_BALANCES = [5_000, 0, -5_000, -5_000]
 
 
+# A plan row at tier 3 whose removal would cost nothing, so the reason line has
+# to be the gap variant rather than "not to clear zero" — nothing clears zero
+# here.
+#
+#   do nothing:  60.00 | 40.00 | -160.00
+#   with c_hold: 60.00 | 60.00 | -160.00
+#
+# c_hold defers the 20.00 charge from the 2nd and hands it back on the 3rd, so
+# it lifts the 2nd to the 50.00 cushion and leaves the 3rd exactly where it was.
+# Marginals are zero on both terms, and the 200.00 charge on the 3rd is beyond
+# anything on offer, so the account is tier 3 whatever is done.
+#
+# It is PINNED, and it has to be. The objective ranks cardinality above
+# below-cushion exposure, and `buffer_missed` is already 1 at tier 3 because the
+# balance is under zero, let alone under the cushion. So for any freely chosen
+# tier 3 plan, dropping a zero-marginal row ties on days below zero, on the
+# worst shortfall and on buffer-missed while strictly lowering the count: the
+# smaller plan always wins. A tier 3 row with zero marginals is therefore
+# reachable only when the caller pins it in, which `locks.in` is exactly for.
+TIER3_CUSHION_ONLY = req(
+    days_end="03",
+    opening=6_000,
+    buffer=5_000,
+    scheduled=[txn("t_a", "02", -2_000), txn("t_b", "03", -20_000)],
+    candidates=[cand("c_hold", "t_a", 2_000, "01", recharge="03")],
+    locks={"in": ["c_hold"], "out": []},
+)
+
+
 # Two changes whose removal costs exactly the same. The sentence names one of
 # them, and which one must not depend on solver internals.
 EQUAL_MARGINALS = req(
