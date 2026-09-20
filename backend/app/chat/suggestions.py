@@ -117,9 +117,17 @@ def neutralise_markers(text: str) -> str:
     something written down rather than something being done.
     """
     return "\n".join(
-        _quote(line) if _STRIP_RE.match(line) else line
+        _quote(line) if _DISPLAY_RE.match(line) else line
         for line in text.split("\n")
     )
+
+
+# Display only, and deliberately NOT re.ASCII: a line indented with a
+# non-breaking space is not a marker as far as parsing is concerned, and must
+# not become one, but it still reads as live syntax on screen. A wider matcher
+# here closes that without touching what can be parsed -- the two jobs want
+# different strictness, so they get different patterns.
+_DISPLAY_RE = re.compile(r"^[\s*_>-]*SUGGEST\b.*$")
 
 
 def _quote(line: str) -> str:
@@ -145,11 +153,10 @@ def extract(reply: str) -> tuple[str, list[tuple[str, str]]]:
     raw marker stays in the body, where `neutralise_markers` quotes it. The
     offer is lost and nothing is wrong on screen, which is the right way round.
 
-    A marker line indented with NON-ASCII whitespace matches neither pattern
-    (`re.ASCII`), so it is neither read nor quoted and reaches the screen
-    looking like live syntax. Display-only — ids are still validated, so
-    nothing can be applied — but it is the D9 case with one leading character
-    added, and merchant descriptions are unfiltered.
+    A marker line indented with NON-ASCII whitespace is not read as an offer,
+    `_STRIP_RE` being `re.ASCII`. That is the right call for parsing and the
+    wrong one for display, so `neutralise_markers` uses a wider pattern and
+    quotes it anyway.
     """
     # rstrip first: a single trailing newline would otherwise end the walk on a
     # blank line before any marker had been seen, losing every offer and leaving

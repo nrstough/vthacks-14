@@ -346,6 +346,24 @@ the other lifecycle guards, since none of them can be exercised without a DOM.
 One Codex finding was documentation only: this spec described `CLAUDE.md`'s
 Checks section wrongly, corrected above.
 
+**Codex, third pass:** Fail, on the test rather than the code — and this was
+the sharpest finding of the night. `test_a_merchant_descriptor_cannot_forge_an_offer`,
+described throughout this spec as the load-bearing counterfactual, was
+**vacuous**. It put the marker text inside a sentence, where a marker is never
+read under either ordering, so it asserted nothing while appearing to assert
+the most important guard in the change. Codex proved it by reversing the
+extraction ordering in memory and watching all sixty-five tests stay green.
+Reproduced here before fixing, with the same result.
+
+The test now has the model echo the merchant's opaque REFERENCE on a trailing
+line of its own, which is the only route by which descriptor text can reach the
+position an offer is read from. Verified non-vacuous by the same mutation: with
+`extract(unmask_descriptors(reply, refs))` it fails, and only it fails.
+
+The lesson generalises past this test. A counterfactual that was never run
+against the mutation it claims to catch is a comment, not a test, and three
+review rounds had cited this one as evidence.
+
 **Codex, second pass:** Fail again, on the argument rather than the code. The
 justification for dropping the finish-reason gate rested on generator behaviour
 where it needed contract behaviour, and a truncated id can select a different
@@ -356,8 +374,8 @@ in a minute.
 
 ## Results
 
-**Backend:** 2377 passed, 10 deselected (`.venv/bin/pytest backend/ -q`, 23s).
-Baseline on the merged tree before this change was 2312, so 65 new tests, all
+**Backend:** 2378 passed, 10 deselected (`.venv/bin/pytest backend/ -q`, 23s).
+Baseline on the merged tree before this change was 2312, so 66 new tests, all
 in `backend/tests/test_chat_suggestions.py`.
 
 **Frontend:** build clean, lint clean with no warnings, 369 passed 0 failed
@@ -367,8 +385,12 @@ Build runs before test deliberately: `bundle.test.ts` reads `dist/assets` and
 refuses to skip when it is missing, so the documented order in `CLAUDE.md`
 would grep a stale bundle on a first run.
 
-**Existing tests changed: one.** `test_chat.py:112`, an exact dict equality on
-the whole response body, which cannot survive a new field. The plan expected
+**Existing tests changed: three.** `test_chat.py:112`, an exact dict equality on
+the whole response body, which cannot survive a new field; and the two
+monkeypatch sites at `:567` and `:598`, repointed at
+`generate_with_fallback_detailed` with a third element in their fakes when the
+finish-reason gate was restored. An earlier version of this line said one, which
+was true before that restoration and was not updated with it. The plan expected
 five; `generate_with_fallback` keeping its signature spared the rest (see
 Deviations).
 
