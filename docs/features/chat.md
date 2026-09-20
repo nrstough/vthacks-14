@@ -237,13 +237,24 @@ back to the local solver: a leftover button turned into a disclosure the footer
 then has to make. Amount offers are independent of the candidate set and are
 unaffected.
 
-**Known limits**, both deliberate and both fail-safe. An offer followed by a
-closing sentence is not read: the walk stops at the first trailing line that is
-not marker-shaped, so the offer is lost and the screen stays correct. And a
-marker indented with non-ASCII whitespace matches neither pattern, so it is
-neither read nor quoted and reaches the screen looking like live syntax —
-display-only, since ids are still validated, but it is the descriptor case with
-one leading character added.
+**Parsing and display use different patterns, on purpose.** Parsing is
+ASCII-only, because anything that normalises a character away lets the amount
+gate check for something an earlier step already removed — which is how a
+non-breaking space came to parse as a legal amount twice in this change.
+Display is wider, so a marker-shaped merchant name indented with a
+non-breaking space is quoted rather than left on screen looking like live
+syntax. Neither job wants the other's strictness.
+
+**Known limit.** An offer followed by a closing sentence is not read: the walk
+stops at the first trailing line that is not marker-shaped, so the offer is
+lost and the screen stays correct, which is the right way round.
+
+**One boundary this module does not own.** `extract_text` in `gemini.py` calls
+a Unicode-aware `.strip()` on the whole reply before any of this runs, so
+trailing whitespace of any kind is gone before the gate sees it. `12\xa0`
+therefore reads as `12` — the number that was written, so hygiene rather than a
+misreading. Tested explicitly, and left alone because that file belongs to
+another lane by agreement.
 
 ## Frontend
 
