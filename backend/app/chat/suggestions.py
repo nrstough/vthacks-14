@@ -51,9 +51,12 @@ _STRIP_RE = re.compile(r"^[\s*_>-]*SUGGEST\b.*$", re.ASCII)
 
 # Strict: the four verbs and nothing else. Tolerates the same decoration the
 # strip pattern does, or every bolded marker would strip and never parse, and
-# the feature would silently never fire.
+# the feature would silently never fire. The TRAILING class deliberately omits
+# `_`, which the leading one allows: an underscore is legal inside an id under
+# ID_RE, so stripping it turns `c_gym__` into `c_gym` -- normally a harmless
+# drop, but a retarget onto the wrong change when both ids exist.
 _PARSE_RE = re.compile(
-    r"^[\s*_>-]*SUGGEST\s+(RULE OUT|ALLOW|OPENING|CUSHION)\s*:\s*(.+?)[\s*_]*$",
+    r"^[\s*_>-]*SUGGEST\s+(RULE OUT|ALLOW|OPENING|CUSHION)\s*:\s*(.+?)[\s*]*$",
     re.ASCII,
 )
 
@@ -110,9 +113,14 @@ def neutralise_markers(text: str) -> str:
     something written down rather than something being done.
     """
     return "\n".join(
-        f'"{line.strip()}"' if _STRIP_RE.match(line) else line
+        _quote(line) if _STRIP_RE.match(line) else line
         for line in text.split("\n")
     )
+
+
+def _quote(line: str) -> str:
+    lead = line[: len(line) - len(line.lstrip())]
+    return f'{lead}"{line.strip()}"'
 
 
 def extract(reply: str) -> tuple[str, list[tuple[str, str]]]:
@@ -132,7 +140,12 @@ def extract(reply: str) -> tuple[str, list[tuple[str, str]]]:
     `neutralise_markers` quotes it. The offer is lost and nothing is wrong on
     screen, which is the right way round.
     """
-    lines = reply.split("\n")
+    # rstrip first: a single trailing newline would otherwise end the walk on a
+    # blank line before any marker had been seen, losing every offer and leaving
+    # the raw markers in the body. It only ever worked because extract_text
+    # happens to .strip() upstream -- a different module, on a file another lane
+    # edits. Depending on that was the bug; this is the fix.
+    lines = reply.rstrip().split("\n")
     cut = len(lines)
     found: list[tuple[str, str]] = []
 
@@ -174,20 +187,28 @@ def validate(
     for kind, value in raws:
         if len(kept) >= MAX_SUGGESTIONS:
             break
-        if (kind, value) in seen:
-            continue
-        seen.add((kind, value))
-
         try:
             if kind in ("rule_out", "allow"):
                 if value not in known:
                     continue
-                kept.append(Suggestion(kind=kind, candidate_id=value))
+                key = (kind, value)
             else:
                 cents = to_cents(value)
                 if cents is None or abs(cents) > CENTS_ABS:
                     continue
-                kept.append(Suggestion(kind=kind, amount_cents=cents))
+                # Keyed on the converted value, not the raw text. "$50",
+                # "50.00" and "$50.00" are one offer written three ways, and
+                # keying on the string would put three identical buttons on
+                # screen.
+                key = (kind, str(cents))
+            if key in seen:
+                continue
+            seen.add(key)
+            kept.append(
+                Suggestion(kind=kind, candidate_id=value)
+                if kind in ("rule_out", "allow")
+                else Suggestion(kind=kind, amount_cents=cents)
+            )
         except ValidationError:
             # A bad offer costs the offer, never the answer.
             continue

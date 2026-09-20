@@ -30,6 +30,10 @@ export interface Suggestion {
 
 const KINDS: readonly string[] = ['rule_out', 'allow', 'opening', 'cushion']
 
+// Mirrors MAX_SUGGESTIONS on the server. A response is not trusted to honour
+// its own cap.
+const MAX_SUGGESTIONS = 3
+
 // The server validated these already. This is the second check, because the
 // value crossing here ends up driving solver input, and `as` is a promise the
 // compiler cannot keep: a field that arrives malformed is a runtime shape, not
@@ -44,13 +48,19 @@ export function readSuggestions(raw: unknown): Suggestion[] {
     const id = s.candidate_id
     const cents = s.amount_cents
     const wantsId = s.kind === 'rule_out' || s.kind === 'allow'
+    // Exactly one payload, matching the kind — the same invariant the server's
+    // own validator enforces. Billing this as "the second check" while it was
+    // weaker than the first was the point of having it at all.
     if (wantsId) {
       if (typeof id !== 'string' || !id) continue
+      if (cents !== null && cents !== undefined) continue
       out.push({ kind: s.kind as SuggestionKind, candidate_id: id, amount_cents: null })
     } else {
       if (typeof cents !== 'number' || !Number.isSafeInteger(cents)) continue
+      if (id !== null && id !== undefined) continue
       out.push({ kind: s.kind as SuggestionKind, candidate_id: null, amount_cents: cents })
     }
+    if (out.length === MAX_SUGGESTIONS) break
   }
   return out
 }

@@ -115,7 +115,10 @@ tab switching. Merging `chat-output-budget` to `main`.
 5. No float appears in the money path.
 6. A merchant descriptor cannot produce a suggestion.
 7. An id absent from the request's candidates never becomes a suggestion.
-8. An approved amount is inside the slider bounds and on its step.
+8. An approved amount is inside the slider bounds. The cushion is additionally
+   on its step; the opening balance is deliberately not snapped (D5.3), and
+   this criterion originally said otherwise because it was not updated when
+   the Amendment overrode it.
 9. The value shown on the control is the value that applies.
 10. Neither "infeasible" nor "guaranteed" is reachable in a reply.
 
@@ -313,12 +316,12 @@ _Pending._
 
 ## Results
 
-**Backend:** 2362 passed, 10 deselected (`.venv/bin/pytest backend/ -q`, 23s).
-Baseline on the merged tree before this change was 2312, so 50 new tests, all
+**Backend:** 2367 passed, 10 deselected (`.venv/bin/pytest backend/ -q`, 27s).
+Baseline on the merged tree before this change was 2312, so 55 new tests, all
 in `backend/tests/test_chat_suggestions.py`.
 
-**Frontend:** build clean, lint clean with no warnings, 363 passed 0 failed
-(`npm run build && npm test && npm run lint`). Baseline was 344, so 19 new.
+**Frontend:** build clean, lint clean with no warnings, 369 passed 0 failed
+(`npm run build && npm test && npm run lint`). Baseline was 344, so 25 new.
 
 Build runs before test deliberately: `bundle.test.ts` reads `dist/assets` and
 refuses to skip when it is missing, so the documented order in `CLAUDE.md`
@@ -326,7 +329,24 @@ would grep a stale bundle on a first run.
 
 **Existing tests changed: one.** `test_chat.py:112`, an exact dict equality on
 the whole response body, which cannot survive a new field. The plan expected
-five; the additive `_detailed` variants in Step 1 spared the rest.
+five; `generate_with_fallback` keeping its signature spared the rest (see
+Deviations).
+
+### Which criteria are automated, and which are not
+
+Criteria 1, 2, 3, 5, 6, 7, 8, 9 and 10 have tests that exercise them.
+
+**Criterion 4 — "no suggestion reaches solver state without a tap" — is
+partly hand-verified.** The pure layer asserts that `resolve()` returns a value
+and mutates nothing, and `chat-suggestions.test.ts` reads `ChatPanel.tsx` as a
+file and pins that the single call to `onApply` sits inside a click handler and
+that `approve()` is reachable only from `onClick`. What is *not* automated is a
+rendered component receiving a reply and provably not applying it; that needs a
+DOM the runner does not have. The browser check below covers it for this build
+and not for the next one.
+
+An earlier version of this spec listed criterion 4 flat, with the limitation
+recorded only in a source comment that overstated it as impossible.
 
 ### Verified in the browser, against a live key
 
@@ -361,11 +381,25 @@ prop was wired to. Fixed in `0108130` with a counter bumped only in `adopt()`.
 
 ### Deviations from the plan
 
-- **Step 1 reduced to one line plus two additive variants**, after the lane
-  agreement with `ans-identity`, which also edits `gemini.py`. The `finishReason`
-  gate stayed as defence-in-depth; the critique had already shown it was not
-  load-bearing, since the amount pattern rejects every truncated marker that
-  survives `trim_to_sentence`.
+- **Step 1 reduced to one line, and the `finishReason` gate was dropped
+  entirely.** This supersedes "D2, corrected" in the Amendment above, which
+  specified `generate_detailed` / `generate_with_fallback_detailed` and a
+  discard of all offers on `MAX_TOKENS`. None of that shipped: `chat()` calls
+  the unchanged `generate_with_fallback`, and `detailed` appears nowhere in
+  `backend/`.
+
+  The reason is the lane agreement with `ans-identity`, which also edits
+  `gemini.py`; the footprint there was cut to the single `thought`-part filter.
+  The reason it was acceptable to drop is the critique's finding that the gate
+  defended against nothing reachable: `_AMOUNT_RE` rejects `$1,200.`, the only
+  truncation that survives `trim_to_sentence`, and any truncated id fails the
+  candidate-membership check. **The amount pattern and the id check are
+  therefore the whole defence on that path, and there is no second layer.**
+
+  An earlier version of this section claimed the variants shipped and the gate
+  survived as defence-in-depth. Both were false. The four positional callers
+  (`test_chat.py:340`, `:397`, `:406`, `:414`) were spared because
+  `generate_with_fallback` kept its signature, not because wrappers were added.
 - **`REF_RE` exported** from `app.chat`, not in the plan. The ANS lane depends
   on the masking pattern to strip references out of merchant text before a
   counterparty model sees them; it asked for a public alias rather than import

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { askViaApi, chatStatus } from '../lib/chat'
 import type { ChatTurn, Suggestion } from '../lib/chat'
 import type { Resolved } from '../lib/suggestions'
@@ -138,11 +138,21 @@ export default function ChatPanel({
     inFlight.current?.abort()
   }, [generation])
 
+  // The LIVE candidate ids, rebuilt whenever the request changes. An offer is
+  // re-checked against these at render and at tap, not against the set it was
+  // earned against.
+  const known = useMemo(() => new Set(req.candidates.map((c) => c.id)), [req.candidates])
+
   const nameOf = (id: string) =>
     req.candidates.find((c) => c.id === id)?.label ?? 'that change'
 
-  function approve(key: string, r: Resolved) {
+  // Resolved again at tap, against the candidate set as it is NOW. The value
+  // computed for the label was correct when it was rendered; this is the one
+  // that acts, and between the two the account may have moved.
+  function approve(key: string, s: Suggestion) {
     if (applied.has(key)) return
+    const r = resolve(s, req.opening_balance_cents, known)
+    if (!r) return
     setApplied((prev) => new Set(prev).add(key))
     onApply?.(r)
   }
@@ -172,7 +182,7 @@ export default function ChatPanel({
           <div key={i} className={`msg ${m.role === 'user' ? 'msg-user' : 'msg-bot'}`}>
             {m.text}
             {(offers[i] ?? []).map((s, j) => {
-              const r = resolve(s, req.opening_balance_cents)
+              const r = resolve(s, req.opening_balance_cents, known)
               if (!r) return null
               const key = keyOf(i, j)
               const done = applied.has(key)
@@ -184,7 +194,7 @@ export default function ChatPanel({
                   className="chat-apply"
                   disabled={done}
                   aria-label={done ? `Applied: ${text}` : `Apply: ${text}`}
-                  onClick={() => approve(key, r)}
+                  onClick={() => approve(key, s)}
                 >
                   {done ? `Applied — ${text}` : text}
                 </button>

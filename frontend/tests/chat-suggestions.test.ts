@@ -22,10 +22,13 @@ import {
   resolve,
 } from '../src/lib/suggestions.ts'
 import { allow, isRuledOut, ruleOut, toggle } from '../src/lib/overrides.ts'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { sliderBounds } from '../src/lib/accounts.ts'
 import { money } from '../src/lib/format.ts'
 
 const OPENING = 24_000
+const KNOWN = new Set(['c_gym', 'c_rent'])
 
 function offer(kind: Suggestion['kind'], id: string | null, cents: number | null): Suggestion {
   return { kind, candidate_id: id, amount_cents: cents }
@@ -41,15 +44,15 @@ test('an offer resolves to a value and moves nothing by itself', () => {
   // The whole feature in one assertion: resolving is a pure read. Anything
   // that changes has to be handed to a setter by App, on a tap.
   const before = new Set(['c_rent'])
-  const r = resolve(offer('rule_out', 'c_gym', null), OPENING)
+  const r = resolve(offer('rule_out', 'c_gym', null), OPENING, KNOWN)
   assert.deepEqual(r, { kind: 'rule_out', id: 'c_gym' })
   assert.deepEqual([...before], ['c_rent'])
   assert.equal(isRuledOut(before, 'c_gym'), false)
 })
 
 test('an offer with no usable payload resolves to nothing', () => {
-  assert.equal(resolve(offer('rule_out', null, null), OPENING), null)
-  assert.equal(resolve(offer('opening', null, null), OPENING), null)
+  assert.equal(resolve(offer('rule_out', null, null), OPENING, KNOWN), null)
+  assert.equal(resolve(offer('opening', null, null), OPENING, KNOWN), null)
 })
 
 // --------------------------------------------------------------------------
@@ -117,23 +120,23 @@ test('an opening balance outside the slider is pulled inside it', () => {
 test('the label carries the value that will actually apply', () => {
   // Acceptance criterion 9. The panel labels from `resolve` and App applies
   // from `resolve`, so a clamped offer cannot promise $250 and deliver $100.
-  const r = resolve(offer('cushion', null, 25_000), OPENING)
+  const r = resolve(offer('cushion', null, 25_000), OPENING, KNOWN)
   assert.deepEqual(r, { kind: 'cushion', cents: CUSHION_MAX })
   assert.equal(labelFor(r!, nameOf), `Set cushion to ${money(CUSHION_MAX)}`)
   assert.ok(!labelFor(r!, nameOf).includes('250'))
 })
 
 test('a label names the change rather than repeating the model', () => {
-  const r = resolve(offer('rule_out', 'c_gym', null), OPENING)
+  const r = resolve(offer('rule_out', 'c_gym', null), OPENING, KNOWN)
   assert.equal(labelFor(r!, nameOf), 'Rule out Gym membership')
 })
 
 test('no label uses a banned word', () => {
   const all = [
-    resolve(offer('rule_out', 'c_gym', null), OPENING),
-    resolve(offer('allow', 'c_gym', null), OPENING),
-    resolve(offer('opening', null, 20_000), OPENING),
-    resolve(offer('cushion', null, 5_000), OPENING),
+    resolve(offer('rule_out', 'c_gym', null), OPENING, KNOWN),
+    resolve(offer('allow', 'c_gym', null), OPENING, KNOWN),
+    resolve(offer('opening', null, 20_000), OPENING, KNOWN),
+    resolve(offer('cushion', null, 5_000), OPENING, KNOWN),
   ].map((r) => labelFor(r!, nameOf).toLowerCase())
   for (const text of all) {
     assert.doesNotMatch(text, /guarantee/)
@@ -170,4 +173,89 @@ test('a malformed suggestion off the wire is dropped, not coerced', () => {
 test('a response with no suggestions field reads as none', () => {
   assert.deepEqual(readSuggestions(undefined), [])
   assert.deepEqual(readSuggestions({}), [])
+})
+
+// --------------------------------------------------------------------------
+// the id is re-checked against the account as it is NOW
+// --------------------------------------------------------------------------
+
+test('an offer naming a change that is not in the account resolves to nothing', () => {
+  // The server validated the id when the offer was made. The account can move
+  // underneath an offer still on screen, and an unknown id reaching locks.out
+  // 422s the solve, which drops the app to the local solver — turning a stale
+  // offer into a disclosure the footer then has to make.
+  assert.equal(resolve(offer('rule_out', 'c_vanished', null), OPENING, KNOWN), null)
+  assert.equal(resolve(offer('allow', 'c_vanished', null), OPENING, KNOWN), null)
+})
+
+test('an amount offer does not depend on the candidate set', () => {
+  assert.deepEqual(resolve(offer('cushion', null, 5_000), OPENING, new Set()), {
+    kind: 'cushion',
+    cents: 5_000,
+  })
+})
+
+test('a suggestion carrying both payloads is refused off the wire', () => {
+  // The server's own validator forbids this shape. Billing the client check as
+  // a second look while it was weaker than the first defeated the point.
+  assert.deepEqual(
+    readSuggestions([{ kind: 'rule_out', candidate_id: 'c_gym', amount_cents: 5 }]),
+    [],
+  )
+})
+
+test('more offers than the cap are not trusted off the wire', () => {
+  const many = Array.from({ length: 50 }, () => ({
+    kind: 'rule_out',
+    candidate_id: 'c_gym',
+    amount_cents: null,
+  }))
+  assert.equal(readSuggestions(many).length, 3)
+})
+
+// --------------------------------------------------------------------------
+// the wiring, asserted on the source
+// --------------------------------------------------------------------------
+//
+// There is no DOM here, but the component is still a file. These read it and
+// pin the two invariants that no unit test of the pure layer can reach. They
+// are coarse by nature; a refactor will need them updated, which is the price
+// of covering the thing at all rather than declaring it uncoverable.
+
+const SRC = (f: string) =>
+  readFileSync(join(import.meta.dirname, '..', 'src', f), 'utf8')
+
+test('the panel only ever applies an offer from a click handler', () => {
+  // Acceptance criterion 4, as close as this runner gets to it: the single
+  // call to onApply lives inside `approve`, and `approve` is reached only from
+  // an onClick. Nothing on the receive path can call it.
+  const src = SRC('components/ChatPanel.tsx')
+  const calls = src.split('onApply?.(').length - 1
+  assert.equal(calls, 1, 'onApply should be called in exactly one place')
+
+  const body = src.slice(src.indexOf('function approve('))
+  const end = body.indexOf('\n  }')
+  assert.ok(body.slice(0, end).includes('onApply?.('), 'the call must be inside approve()')
+
+  assert.match(src, /onClick=\{\(\) => approve\(/)
+  // Two and only two: the declaration, and the click handler that reaches it.
+  // A third would be a second route into applying an offer, which is the thing
+  // this test exists to prevent.
+  const mentions = src.split('approve(').length - 1
+  assert.equal(mentions, 2, 'approve() should be declared once and called only from onClick')
+})
+
+test('the panel is told about accounts, not about solves', () => {
+  // The regression test for the one defect that shipped broken. `seq`
+  // increments on every solve, so wiring it to `generation` cleared the offer
+  // being approved at the moment of approving it. Every unit test passed
+  // either way, because the bug was in which counter a prop was given.
+  const app = SRC('App.tsx')
+  assert.match(app, /generation=\{accountGen\}/)
+  assert.doesNotMatch(app, /generation=\{seq\.current\}/)
+  const adopt = app.slice(app.indexOf('function adopt('))
+  assert.ok(
+    adopt.slice(0, adopt.indexOf('\n  }')).includes('setAccountGen'),
+    'adopt() must bump the account generation',
+  )
 })

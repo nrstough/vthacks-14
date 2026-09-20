@@ -376,3 +376,41 @@ def test_validate_drops_an_id_that_is_not_a_candidate(solved):
     req = SolveRequest.model_validate(raw)
     kept = validate([("rule_out", "nope"), ("rule_out", req.candidates[0].id)], req.candidates)
     assert [k.candidate_id for k in kept] == [req.candidates[0].id]
+
+
+# --------------------------------------------------------------------------
+# found by the post-commit audit
+# --------------------------------------------------------------------------
+
+
+def test_a_trailing_newline_does_not_swallow_every_offer():
+    """The walk used to stop on the blank line a trailing newline leaves, before
+    any marker had been seen — losing every offer and leaving the raw markers in
+    the body. It only ever worked because extract_text happens to .strip()
+    upstream, in a module another lane edits. That is not a guard, it is luck."""
+    assert extract("Prose.\nSUGGEST RULE OUT: c_a\n")[1] == [("rule_out", "c_a")]
+    assert extract("Prose.\nSUGGEST RULE OUT: c_a\n\n\n")[1] == [("rule_out", "c_a")]
+
+
+def test_an_underscore_at_the_end_of_an_id_is_not_stripped():
+    """`_` is legal inside an id under ID_RE. Stripping it normally fails safe,
+    as an unknown id — but where both `c_gym` and `c_gym__` exist it retargets
+    the offer onto the wrong change and labels the button with the wrong name."""
+    assert extract("P.\nSUGGEST RULE OUT: c_gym__")[1] == [("rule_out", "c_gym__")]
+
+
+def test_one_amount_written_three_ways_is_one_offer(client, solved, says):
+    """Deduping on the raw text put three identical buttons on screen."""
+    says("Try this.\nSUGGEST CUSHION: $50\nSUGGEST CUSHION: 50.00\nSUGGEST CUSHION: $50.00")
+    out = post(client, solved).json()["suggestions"]
+    assert out == [{"kind": "cushion", "candidate_id": None, "amount_cents": 5000}]
+
+
+def test_two_different_amounts_are_both_kept():
+    """The dedupe must not be so eager it drops a genuinely different offer."""
+    raws = [("cushion", "$50.00"), ("cushion", "$75.00")]
+    assert [s.amount_cents for s in validate(raws, [])] == [5000, 7500]
+
+
+def test_quoting_a_marker_shaped_line_keeps_its_indentation():
+    assert neutralise_markers("  SUGGEST: hi") == '  "SUGGEST: hi"'

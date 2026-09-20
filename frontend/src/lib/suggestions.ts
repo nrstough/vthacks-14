@@ -3,11 +3,17 @@
 // Every decision about a suggestion lives here as a plain function over plain
 // data, and for a reason beyond tidiness: the test runner is
 // `node --experimental-strip-types --test`, which has no DOM and no React
-// renderer. A component-level assertion that a suggestion does not apply
-// itself cannot be executed in this project tonight. So the rule that carries
-// the safety claim — an offer only ever becomes a value, never an action — is
-// asserted here, where it can be, and the component's job is reduced to
-// calling `resolve` and rendering what it returns.
+// renderer, so a rendered-component assertion is out of reach without a new
+// dependency. The rule that carries the safety claim — an offer only ever
+// becomes a value, never an action — is asserted here, where it can be, and
+// the component's job is reduced to calling `resolve` and rendering what it
+// returns.
+//
+// The component's half is not therefore untested: chat-suggestions.test.ts
+// reads ChatPanel.tsx as a file and pins that the one call to onApply sits
+// inside a click handler. Coarse, but it covers the invariant, and an earlier
+// version of this comment claimed the coverage was impossible when it was
+// merely inconvenient.
 //
 // `resolve` is also what keeps the button honest. The panel labels a control
 // with the value `resolve` gives it and `App` applies the value `resolve`
@@ -55,12 +61,27 @@ export function clampCushion(cents: number): number {
 // What this offer would actually do, or null if it would do nothing coherent.
 // The server validated the shape; this decides the value, because the bounds
 // belong to the screen and move with it.
-export function resolve(s: Suggestion, currentOpening: number): Resolved | null {
+//
+// The id is re-checked against the LIVE candidate set, not the one it was
+// earned against. The server validated it when the offer was made, and the
+// account can change underneath an offer that is still on screen. Without this
+// an unknown id reaches `locks.out`, the solve request 422s, and the app falls
+// back to the local solver — turning a stale offer into a disclosure the
+// footer then has to make.
+export function resolve(
+  s: Suggestion,
+  currentOpening: number,
+  known: ReadonlySet<string>,
+): Resolved | null {
   switch (s.kind) {
     case 'rule_out':
-      return s.candidate_id ? { kind: 'rule_out', id: s.candidate_id } : null
+      return s.candidate_id && known.has(s.candidate_id)
+        ? { kind: 'rule_out', id: s.candidate_id }
+        : null
     case 'allow':
-      return s.candidate_id ? { kind: 'allow', id: s.candidate_id } : null
+      return s.candidate_id && known.has(s.candidate_id)
+        ? { kind: 'allow', id: s.candidate_id }
+        : null
     case 'opening':
       return s.amount_cents === null
         ? null

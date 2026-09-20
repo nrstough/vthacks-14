@@ -57,12 +57,12 @@ to the screen and move with the value, so clamping happens in the client.
 | 422 | Malformed: empty conversation, last turn not the user's, or a solve that fails the contract's validation. |
 | 429 | Too many questions from one address too quickly. `Retry-After` carries the seconds. The panel says the explainer is resting; the plan on screen is untouched. |
 | 502 | Gemini was called and failed (quota, timeout, safety block, unreachable). `detail` carries the reason. Also when a reply was **only** offers, leaving no words: the upstream empty-answer check runs before the offers are stripped, so it passes, and an empty bubble would otherwise render. |
+| 503 | No key on the server. The panel shows "Explainer off". The solver is unaffected. |
 
 A malformed offer — unknown verb, invented id, unparseable amount, an amount
 past the schema's bound — costs **that offer**, not the turn. The reply is
 delivered with the bad offer dropped. Failing a whole answer over a bad marker
 would make the explainer less reliable than it was before offers existed.
-| 503 | No key on the server. The panel shows "Explainer off". The solver is unaffected. |
 
 `source` is what the client's nav chip says: `local` when the numbers came
 from the built-in fallback solver. The instruction tells the model, so it can
