@@ -49,9 +49,13 @@ VERBS = {
 # last line. NOT case-insensitive -- see the module docstring.
 _STRIP_RE = re.compile(r"^[\s*_>-]*SUGGEST\b.*$", re.ASCII)
 
-# Strict: the four verbs and nothing else. Tolerates the same decoration the
-# strip pattern does, or every bolded marker would strip and never parse, and
-# the feature would silently never fire. The TRAILING class deliberately omits
+# Strict: the four verbs and nothing else. Tolerates decoration BEFORE the
+# keyword, matching the strip pattern, or every bolded marker would strip and
+# never parse and the feature would silently never fire. Around the value the
+# tolerance is deliberately asymmetric: trailing `*` is stripped, leading `*` is
+# not, so `SUGGEST RULE OUT: **c_gym**` yields `**c_gym`, fails the membership
+# check and is dropped. Fail-safe, and the right way round now that stripping
+# characters out of a value is known to be able to retarget an offer. The TRAILING class deliberately omits
 # `_`, which the leading one allows: an underscore is legal inside an id under
 # ID_RE, so stripping it turns `c_gym__` into `c_gym` -- normally a harmless
 # drop, but a retarget onto the wrong change when both ids exist.
@@ -134,11 +138,18 @@ def extract(reply: str) -> tuple[str, list[tuple[str, str]]]:
     A trailing line that strips but does not parse is removed and yields no
     offer: the alternative is leaving a half-written directive on screen.
 
-    Known limit, deliberate: a marker followed by a closing sentence is not
-    read at all, because the walk stops at the first line from the end that is
-    not marker-shaped. The raw marker then stays in the body, where
-    `neutralise_markers` quotes it. The offer is lost and nothing is wrong on
-    screen, which is the right way round.
+    Two known limits, both deliberate and both fail-safe:
+
+    A marker followed by a closing sentence is not read at all, because the
+    walk stops at the first line from the end that is not marker-shaped. The
+    raw marker stays in the body, where `neutralise_markers` quotes it. The
+    offer is lost and nothing is wrong on screen, which is the right way round.
+
+    A marker line indented with NON-ASCII whitespace matches neither pattern
+    (`re.ASCII`), so it is neither read nor quoted and reaches the screen
+    looking like live syntax. Display-only — ids are still validated, so
+    nothing can be applied — but it is the D9 case with one leading character
+    added, and merchant descriptions are unfiltered.
     """
     # rstrip first: a single trailing newline would otherwise end the walk on a
     # blank line before any marker had been seen, losing every offer and leaving

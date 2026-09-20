@@ -301,8 +301,8 @@ recorded here rather than discovered at execution.
 | Test | Why |
 |---|---|
 | `test_chat.py:112` `test_reply_comes_back_with_the_model` | asserts `r.json() == {...}` by exact dict equality; any new response field fails it |
-| `test_chat.py:530` `test_the_conversation_history_is_masked_too` | monkeypatches `generate_with_fallback` with a 2-tuple return; D2 makes it a 3-tuple |
-| `test_chat.py:559` `test_the_fixed_brief_is_never_rewritten_by_a_descriptor` | same 2-tuple monkeypatch |
+| `test_chat.py:567` `test_the_conversation_history_is_masked_too` | monkeypatches `generate_with_fallback` with a 2-tuple return; D2 makes it a 3-tuple |
+| `test_chat.py:598` `test_the_fixed_brief_is_never_rewritten_by_a_descriptor` | same 2-tuple monkeypatch |
 | `test_chat.py:164` `test_the_instruction_never_uses_the_forbidden_words` | its `.replace()` whitelist is exactly the two literals at `prompt.py:50` and `:52`; new brief text must contain neither banned word and must leave those two sentences byte-identical |
 | `chat-errors.test.ts:38` | calls `askViaApi` with five positional args; a new parameter must be trailing and defaulted or `tsc -b` fails. `npm test` erases types and would not catch it; `npm run build` would |
 
@@ -397,9 +397,22 @@ prop was wired to. Fixed in `0108130` with a counter bumped only in `adopt()`.
   therefore the whole defence on that path, and there is no second layer.**
 
   An earlier version of this section claimed the variants shipped and the gate
-  survived as defence-in-depth. Both were false. The four positional callers
-  (`test_chat.py:340`, `:397`, `:406`, `:414`) were spared because
-  `generate_with_fallback` kept its signature, not because wrappers were added.
+  survived as defence-in-depth. Both were false. The positional callers spared
+  by `generate_with_fallback` keeping its signature are `test_chat.py:364`
+  (`gemini.generate`), `:421`, `:430` and `:438` — four, verified by grep at
+  `785a7fe`, not the four line numbers the first correction gave, which were a
+  guess dressed as a citation. `:448` and `:456` also call it positionally but
+  sit inside `pytest.raises`, so a return-shape change never reaches them. The
+  two monkeypatch sites are `:567` and `:598`.
+
+  **Why dropping the gate is safe, and not merely convenient.** The argument
+  rests on no truncated id ever passing the candidate check, and that is
+  provable rather than hopeful: `_SENTENCE_END` (`gemini.py:210`) requires
+  `[.!?]` before whitespace or end of string; `ID_RE` (`app/schemas.py:34`)
+  forbids `!` and `?`; and `_candidate_id` (`candidates/generator.py:45,49`)
+  always appends a non-empty action or digest, so no candidate id ends in a
+  dot. A truncation surviving `trim_to_sentence` mid-id therefore ends in `.`
+  and can never equal a candidate.
 - **`REF_RE` exported** from `app.chat`, not in the plan. The ANS lane depends
   on the masking pattern to strip references out of merchant text before a
   counterparty model sees them; it asked for a public alias rather than import

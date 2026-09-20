@@ -228,9 +228,22 @@ surface is the button, whose label is composed in the client from the validated
 payload and never from the model's prose — and which shows the post-clamp value,
 so what is approved is what lands.
 
-**Known limit.** An offer followed by a closing sentence is not read: the walk
-stops at the first trailing line that is not marker-shaped. The offer is lost
-and the screen stays correct, which is the right way round.
+**The id is re-checked against the account as it is now**, not the one the offer
+was earned against — at render, for the label, and again at tap, for the value
+that acts. The server validated it when the offer was made, but an offer can sit
+on screen while the account changes underneath it. Without the re-check an
+unknown id reaches `locks.out`, the solve request 422s, and the client falls
+back to the local solver: a leftover button turned into a disclosure the footer
+then has to make. Amount offers are independent of the candidate set and are
+unaffected.
+
+**Known limits**, both deliberate and both fail-safe. An offer followed by a
+closing sentence is not read: the walk stops at the first trailing line that is
+not marker-shaped, so the offer is lost and the screen stays correct. And a
+marker indented with non-ASCII whitespace matches neither pattern, so it is
+neither read nor quoted and reaches the screen looking like live syntax —
+display-only, since ids are still validated, but it is the descriptor case with
+one leading character added.
 
 ## Frontend
 

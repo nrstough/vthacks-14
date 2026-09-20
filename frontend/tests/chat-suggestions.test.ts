@@ -238,6 +238,13 @@ test('the panel only ever applies an offer from a click handler', () => {
   assert.ok(body.slice(0, end).includes('onApply?.('), 'the call must be inside approve()')
 
   assert.match(src, /onClick=\{\(\) => approve\(/)
+
+  // The deferred-response guard: a reply sent before an account change must
+  // not land after it. Delete either half and every behavioural test stays
+  // green, which is exactly the condition that let the accountGen defect ship.
+  assert.match(src, /const sentAt = generation/)
+  assert.match(src, /sentAt !== genNow\.current/)
+  assert.match(src, /genNow\.current = generation[\s\S]{0,80}inFlight\.current\?\.abort\(\)/)
   // Two and only two: the declaration, and the click handler that reaches it.
   // A third would be a second route into applying an offer, which is the thing
   // this test exists to prevent.
@@ -253,6 +260,13 @@ test('the panel is told about accounts, not about solves', () => {
   const app = SRC('App.tsx')
   assert.match(app, /generation=\{accountGen\}/)
   assert.doesNotMatch(app, /generation=\{seq\.current\}/)
+
+  // Criterion 9 holds only because the panel gets the UNDEBOUNCED request: the
+  // label clamps against req.opening_balance_cents and App re-clamps against
+  // the committed opening, and those are the same value only while this is
+  // `request`. Switching to `debounced` to cut chat re-renders would look like
+  // a tidy-up and would silently make the button lie by up to 150 ms.
+  assert.doesNotMatch(app, /req=\{debounced\}/)
   const adopt = app.slice(app.indexOf('function adopt('))
   assert.ok(
     adopt.slice(0, adopt.indexOf('\n  }')).includes('setAccountGen'),

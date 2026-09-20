@@ -146,9 +146,13 @@ export default function ChatPanel({
   const nameOf = (id: string) =>
     req.candidates.find((c) => c.id === id)?.label ?? 'that change'
 
-  // Resolved again at tap, against the candidate set as it is NOW. The value
-  // computed for the label was correct when it was rendered; this is the one
-  // that acts, and between the two the account may have moved.
+  // Resolved again at tap rather than trusting the value computed for the
+  // label. In practice the two agree: the handler is a fresh closure from the
+  // latest committed render, over the same `req` and `known` that produced the
+  // label, and `resolve` is pure. An account change would have cleared these
+  // offers during that same render, so there is no window in which this
+  // disagrees — it is defence, not a live guard, and saying otherwise would be
+  // the same overstatement the finishReason note already was.
   function approve(key: string, s: Suggestion) {
     if (applied.has(key)) return
     const r = resolve(s, req.opening_balance_cents, known)
