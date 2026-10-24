@@ -15,3 +15,4 @@ Checking.csv
 .deploy.env
 .claude/settings.local.json
 .vultr-instance.json
+.DS_Store

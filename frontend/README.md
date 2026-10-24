@@ -1,32 +1,36 @@
-# React + TypeScript + Vite
+# Safe to Spend: frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The single-page client for the cash-flow planner: Vite, React, TypeScript and
+Recharts. It calls a relative `/api/...`. In development Vite proxies that to the
+FastAPI backend on `127.0.0.1:8000` (set `VITE_API_TARGET` to point a second
+worktree at its own backend); in production FastAPI serves this bundle and the API
+from one origin, so the client code is the same in both.
 
-Currently, two official plugins are available:
+## Commands
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm ci          # install from the lockfile
+npm run dev     # Vite dev server on 5173
+npm run lint    # oxlint
+npm run build   # tsc -b, then vite build into dist/
+npm test        # Node's built-in test runner; reads dist/, so build first
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+The tests run under Node 22's `--experimental-strip-types`, so there is no test
+framework to install.
+
+## The local solver
+
+`src/solver/mockSolver.ts` is an exhaustive reference implementation of
+`POST /api/solve`, and it has two jobs:
+
+- **Offline fallback.** When the API is unreachable the page solves locally rather
+  than going blank, and the nav chip says "Running on the built-in solver". That
+  disclosure is deliberate: never remove it, and never present a local result as
+  the server's. The local solver refuses above 20 free changes.
+- **Oracle.** The backend suite runs it through Node (`backend/tests/oracle/`) as
+  the reference the CP-SAT solver is checked against. It has to stay runnable with
+  no npm packages, which is why its runtime imports carry explicit `.ts`
+  extensions.
+
+`src/types.ts` mirrors `docs/api-contract.md`; change the two together.
