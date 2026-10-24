@@ -1,9 +1,12 @@
-# API contract — `POST /api/solve`, `POST /api/candidates` and `POST /api/accounts/sample`
+# API contract — `POST /api/solve`, `/api/candidates`, `/api/accounts/sample`, `/api/accounts/nessie` and `/api/accounts/import`
 
 Frozen shape. The frontend builds against this; the solver targets it. All money is
 **integer cents**, all dates are `YYYY-MM-DD` strings in local time (no timezones,
 no datetimes). The frontend does no financial arithmetic: it renders what the
 solver returns.
+
+The explainer's routes, `POST /api/chat` and `GET /api/chat/status`, are specified in
+`docs/features/chat.md` → Contract.
 
 ## Request
 

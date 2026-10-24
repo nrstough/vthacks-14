@@ -11,7 +11,7 @@ Exact solver (OR-Tools CP-SAT), stateless server, no accounts, no database.
   `POST /api/accounts/nessie`, `POST /api/accounts/import`), the
   solver package (`backend/app/solver/`), the candidate generator
   (`backend/app/candidates/`) and the bank-export importer
-  (`backend/app/history/`), Python 3.14
+  (`backend/app/history/`), Python 3.12 on the box and in CI
 - `backend/tests/` — pytest suite; `tests/oracle/` runs the TypeScript stand-in solver
   through Node for parity checks
 - `frontend/` — Vite + React + TypeScript + Recharts; `src/solver/mockSolver.ts` is the
