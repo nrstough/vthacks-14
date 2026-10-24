@@ -11,6 +11,6 @@
 # The gate: .venv/bin/pytest backend/ -q -m "not perf"
 pytest==9.1.1
 
-# experiments/residual_forecast only. Not imported by app/ or by the backend
-# suite, and not part of the deploy.
+# experiments/residual_forecast and experiments/market_sim. Not imported by the
+# backend suite, and not part of the deploy.
 numpy==2.5.3

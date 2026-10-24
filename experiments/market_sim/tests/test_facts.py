@@ -7,11 +7,10 @@ default market is held to has a negative control that must fail it.
 import numpy as np
 import pytest
 
-from market_sim import simulate
+from market_sim import MarketConfig, StockConfig, simulate
 from market_sim.facts import check_cross_section, check_index, crisis_correlation
 
 N = 2520
-SEEDS = range(10)
 
 
 def facts_by_name(series):
@@ -20,38 +19,43 @@ def facts_by_name(series):
 
 @pytest.fixture(scope="module")
 def default_markets():
-    return [simulate(seed=s) for s in SEEDS]
+    return [simulate(seed=s) for s in range(10)]
 
 
 @pytest.fixture(scope="module")
-def default_pass_rates(default_markets):
-    rows = [facts_by_name(m.truth.market_return) for m in default_markets]
-    return {name: np.mean([r[name].passed for r in rows]) for name in rows[0]}
+def market_factor_facts():
+    # The market factor has its own streams, so these are the default
+    # market's factors; leaving out the stocks and signals makes forty cheap.
+    cfg = MarketConfig(n_days=N, stocks=StockConfig(n_assets=2), signals=(), n_decoys=0)
+    return [facts_by_name(simulate(cfg, seed=s).truth.market_return) for s in range(40)]
 
 
+# Minimums sit about three binomial standard errors below the pass rate
+# measured over 200 ten-year paths, so an honest change to the draws does not
+# trip them and a broken mechanism does.
 @pytest.mark.parametrize(
-    "fact, minimum",
+    "fact, measured, minimum",
     [
-        ("fat tails", 0.9),
-        ("power-law tail", 0.9),
-        ("volatility clustering", 0.9),
-        ("slow decay of clustering", 0.9),
-        ("leverage effect", 0.9),
-        # Real daily returns fail these two in some 20-year stretches too:
-        # the S&P 500's own block bootstrap passes them 90% and 78% of the time.
-        ("no linear autocorrelation", 0.7),
-        ("aggregational Gaussianity", 0.7),
+        ("fat tails", 1.000, 0.9),
+        ("power-law tail", 1.000, 0.9),
+        ("volatility clustering", 1.000, 0.9),
+        ("slow decay of clustering", 1.000, 0.9),
+        ("leverage effect", 0.995, 0.9),
+        # Real returns fail these two in some stretches too: the S&P 500's
+        # block bootstrap passes them 90% and 78% of the time over 20 years.
+        ("no linear autocorrelation", 0.905, 0.75),
+        ("aggregational Gaussianity", 0.810, 0.6),
     ],
 )
-def test_the_default_market_factor_shows_the_fact(default_pass_rates, fact, minimum):
-    assert default_pass_rates[fact] >= minimum
+def test_the_default_market_factor_shows_the_fact(market_factor_facts, fact, measured, minimum):
+    assert np.mean([row[fact].passed for row in market_factor_facts]) >= minimum
 
 
-def test_gain_loss_asymmetry_points_the_right_way_on_average(default_markets):
-    # The weakest fact. Innovations are symmetric, so the downside skew comes
-    # only from leverage and rare negative jumps; it is noisy seed to seed.
-    skews = [facts_by_name(m.truth.market_return)["gain/loss asymmetry"].value for m in default_markets]
-    assert np.median(skews) < 0
+def test_gain_loss_asymmetry_points_the_right_way_on_average(market_factor_facts):
+    # The weakest fact, passing in 47% of ten-year paths. Innovations are
+    # symmetric, so the downside skew comes only from leverage and rare
+    # negative jumps, and it is noisy path to path.
+    assert np.median([row["gain/loss asymmetry"].value for row in market_factor_facts]) < 0
 
 
 def test_correlations_rise_in_turbulence(default_markets):

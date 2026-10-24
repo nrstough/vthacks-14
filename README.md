@@ -77,5 +77,6 @@ Parity tests need Node ≥ 22 on PATH (they run the TS oracle with `--experiment
 - [Neural pilot report](docs/vthacks-training-pilot.md) — completed synthetic experiment; no advantage over the weekday baseline and no real-data validation.
 - [Nessie API brief](docs/nessie-agent-brief.md) and [competitive research](docs/overdraft-guard-research-and-neural-net.md) — dated research snapshots.
 - `experiments/residual_forecast/` — isolated NumPy pilot, preserved data, model checkpoints, audit, and reproduction instructions; not wired into the app.
+- `experiments/market_sim/` — a synthetic stock market with an answer key: planted signals among decoys, stylized facts checked against the S&P 500, and an oracle Sharpe ratio in closed form, for grading strategies and overfitting tests against known truth; not wired into the app. Spec: `docs/specs/2026-10-24_market-simulator.md`.
 
 - [Dataset sources and acquisition plan](docs/vthacks-dataset-research.md) — Nedbank/Zindi, MoneyData, IBM, licenses, access paths, and forecast suitability.
