@@ -124,6 +124,10 @@ What the table says:
   and rare negative jumps. Skewed-t innovations are the fix if it matters.
 - **The market factor has no autocorrelation at all.** The real index's lag-1 value was -0.07 over this
   period.
+- **Volatility memory is too short past about 50 days**, which the checks above do not see because the
+  slow-decay check stops at lag 50. At lag 100, the S&P's autocorrelation of absolute returns is still
+  0.120. The median simulated path is at 0.053, and only 4 of 40 paths reach 0.120. GARCH memory fades
+  exponentially, while real volatility has longer memory.
 
 The defaults were picked from a handful of candidates by in-band share, and tuning stopped there.
 Pushing further on one 20-year sample is the overfitting this package is meant to catch. Calibration is a
@@ -215,3 +219,5 @@ singular matrix. The config now refuses it with a message that says why
 2. **Calibrate properly.** Fit the market parameters by simulated method of moments against the facts
    above, with common random numbers across candidate parameters, and hold back a period it never sees.
 3. **Skewed-t innovations**, if gain/loss asymmetry turns out to matter for the study.
+4. **Longer volatility memory**, through a two-component GARCH or more persistent regimes, if the study
+   turns out to be sensitive to it.
