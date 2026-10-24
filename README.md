@@ -35,8 +35,9 @@ cd frontend && npm install
 ```
 
 `requirements.txt` is production only — what `backend/app/` imports, and what
-`deploy.sh` installs on the box. `requirements-dev.txt` adds pytest and the
-experiment tooling; rebuild the local venv from that one, or the gate will not run.
+`deploy.sh` installs on the box. `requirements-dev.txt` adds pytest and httpx2
+(starlette's `TestClient` imports it); rebuild the local venv from that one, or the
+gate will not run.
 
 Offline: `.venv/bin/pip install --no-index --find-links wheels -r backend/requirements-dev.txt`.
 `wheels/` is gitignored and macOS arm64 only, so it exists in the original

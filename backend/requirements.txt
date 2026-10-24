@@ -3,11 +3,14 @@
 # Test and experiment tooling lives in requirements-dev.txt.
 #
 # This list used to also carry pandas, scipy, RapidFuzz, python-multipart and
-# httpx2. None of them appeared anywhere in the codebase — not in app/, not in
+# httpx2. The first four appeared nowhere in the codebase — not in app/, not in
 # tests/, not in experiments/ — and pandas and scipy are the two slowest, most
-# fragile installs you could hand a fresh server. The box installs from PyPI
-# with no wheels/ to fall back on, so every package here is one more chance for
-# the deploy to die halfway through pip install.
+# fragile installs you could hand a fresh server. httpx2 was wrongly counted with
+# them: nothing imports it by name, but starlette's TestClient does, so every
+# test module that builds a TestClient needs it. It is a test dependency and
+# lives in requirements-dev.txt. The box installs from PyPI with no wheels/ to
+# fall back on, so every package here is one more chance for the deploy to die
+# halfway through pip install.
 #
 # pydantic is listed even though fastapi pulls it in anyway: app/schemas.py
 # imports it directly, and a direct import that leans on someone else's
