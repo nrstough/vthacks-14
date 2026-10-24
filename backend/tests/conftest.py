@@ -10,6 +10,7 @@ that ask for overlapping sets pay only for what is new.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -18,6 +19,36 @@ from typing import Any
 import pytest
 
 DUMP_TS = Path(__file__).parent / "oracle" / "dump.ts"
+
+
+# What app/chat/gemini.py and app/nessie/client.py read from the environment.
+_ENV_PREFIXES = ("GEMINI_", "NESSIE_")
+_ENV_NAMES = ("GOOGLE_API_KEY",)
+
+
+@pytest.fixture(autouse=True)
+def no_developer_env(request, monkeypatch):
+    """Start every test with no Gemini or Nessie settings in the environment.
+
+    `load_dotenv_once` copies the repository .env into os.environ on the first
+    `from_env()` of the run and never takes it back out, so without this a
+    test's answer depends on what that file says and on whether an earlier
+    test happened to trigger the load. Tests used to patch `_env_loaded` one
+    by one; test_chat.py's `fake` fixture records what happened when one did
+    not. Marking the file as already loaded keeps it out, and deleting the
+    variables clears a shell export or an earlier test's leftover. A test that
+    wants a value sets it itself, which happens after this runs.
+
+    The live tests (`-m nessie`) are exempt: reading the real key is their point.
+    """
+    if request.node.get_closest_marker("nessie"):
+        return
+    from app.chat import gemini
+
+    monkeypatch.setattr(gemini, "_env_loaded", True)
+    for name in list(os.environ):
+        if name.startswith(_ENV_PREFIXES) or name in _ENV_NAMES:
+            monkeypatch.delenv(name)
 
 
 def node_available() -> bool:

@@ -93,6 +93,10 @@ not already set in the environment. Optional: `GEMINI_MODEL` (default
 `gemini-3.6-flash,gemini-3.5-flash`; `gemini-2.5-flash` is retired and answers
 404), `GEMINI_TIMEOUT_S` (default 25).
 
+The backend suite never reads it: an autouse fixture in `backend/tests/conftest.py`
+marks `.env` as already loaded and clears every `GEMINI_*`, `GOOGLE_API_KEY` and
+`NESSIE_*` variable before each test, except the live `-m nessie` ones.
+
 Output budget: `maxOutputTokens` is 2048 with `thinkingLevel: low`. The 3.x
 flash models reason before answering and the reasoning counts against the cap;
 at the old cap of 600, 3.8-flash's ~460 reasoning tokens left ~140 for the
