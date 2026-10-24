@@ -447,8 +447,12 @@ Then the backend gate, because the parity tests run this frontend's oracle:
 ## Known gaps
 
 - No DOM test runner (none installable from the hotel); component rendering is verified by hand.
-- Bundle is 637 kB / 189 kB gzip in one chunk, almost all Recharts. It was two chunks while the
-  wallet was lazily loaded. Only worth acting on if the deployed demo feels slow.
+- Bundle is 652 kB / 195 kB gzip, all loaded on first paint, in two chunks: the app at 269 kB /
+  85 kB gzip and `charts` (Recharts, d3, Redux Toolkit and the React modules they share) at
+  383 kB / 110 kB gzip. The split is `build.rolldownOptions.output.codeSplitting` in
+  `vite.config.ts`; it keeps both under the 500 kB warning and lets an app-only redeploy leave
+  the chart chunk cached. The chart is not lazy-loaded, because it is on the first screen.
+  Shrinking the total is only worth acting on if the deployed demo feels slow.
 - No dark mode.
 - Switching tabs does not preserve scroll position. The document shrinks while Ask is showing,
   so the browser clamps the offset and returning to Plan does not land where you left.

@@ -20,4 +20,26 @@ export default defineConfig({
       },
     },
   },
+  // Recharts and what it pulls in (d3, Redux Toolkit, immer, es-toolkit, …) is
+  // more than half the bundle, is imported only by BalanceChart, and changes far
+  // less often than the app. Its own chunk keeps both under the 500 kB warning
+  // and lets an app-only redeploy leave it cached. It is still a static import,
+  // preloaded from index.html, not lazy-loaded: the chart is on the first screen.
+  // Rolldown also moves the small React modules the chart shares with the app
+  // into this chunk (includeDependenciesRecursively, on by default), so the two
+  // chunks never import each other in a cycle.
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: 'charts',
+              test: /node_modules[\\/](recharts|victory-vendor|d3-[^\\/]+|internmap|@reduxjs[\\/]toolkit|redux|redux-thunk|react-redux|reselect|immer|es-toolkit|decimal\.js-light|eventemitter3|use-sync-external-store|clsx)[\\/]/,
+            },
+          ],
+        },
+      },
+    },
+  },
 })
