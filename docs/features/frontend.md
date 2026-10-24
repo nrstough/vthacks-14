@@ -46,7 +46,8 @@ sufficient on its own — see the styling notes.
   exception on record is solver-owned *wording*, which has to move in both implementations at
   once or `test_parity` fails: see "Reasons on plan rows".
 - The fixtures: `src/fixtures/scenarios.ts`, three presets whose on-screen values are canaries
-  (see below).
+  (see below). `backend/tests/fixtures/scenarios.py` is a hand copy, and `test_parity` fails
+  if the two drift, so change both together.
 - Loaded accounts: `POST /api/accounts/sample` (modelled) and `POST /api/accounts/nessie`
   (seeded into Capital One's sandbox and read back), each followed by
   `POST /api/candidates`. See "Account sources".

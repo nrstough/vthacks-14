@@ -10,6 +10,8 @@ There is exactly one intended disagreement, asserted rather than tolerated: see
 from __future__ import annotations
 
 import json
+import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -62,6 +64,32 @@ def _solve(raw: dict, settings: Settings | None = None) -> dict:
 def test_demo_accounts_match_the_reference(name, oracle):
     raw = SCENARIOS[name]
     assert_agrees(raw, _solve(raw), oracle([raw])[0])
+
+
+@requires_node
+def test_the_demo_accounts_are_the_frontends_demo_accounts():
+    """tests/fixtures/scenarios.py is a hand port of frontend/src/fixtures/scenarios.ts.
+
+    The test above is evidence about the data a judge sees only while the two
+    copies agree, and nothing else would notice one drifting. Read the
+    TypeScript the way Node runs it and compare after both pass through the
+    request schema, so a default the frontend leaves out (`previous_plan`) is
+    not a difference and every changed value is.
+    """
+    script = (
+        "import { SCENARIOS } from '../../../frontend/src/fixtures/scenarios.ts';"
+        "console.log(JSON.stringify(SCENARIOS.map((s) => [s.key, s.request])))"
+    )
+    out = subprocess.run(
+        ["node", "--no-warnings", "--experimental-strip-types", "--input-type=module", "-e", script],
+        capture_output=True, text=True, timeout=60, cwd=Path(__file__).parent / "oracle",
+    )
+    assert out.returncode == 0, out.stderr
+    theirs = json.loads(out.stdout)
+    assert [key for key, _ in theirs] == list(SCENARIOS)
+    for key, request in theirs:
+        ours = SolveRequest.model_validate(SCENARIOS[key]).model_dump()
+        assert SolveRequest.model_validate(request).model_dump() == ours, key
 
 
 @requires_node
