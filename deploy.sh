@@ -260,9 +260,33 @@ if ! grep -qi '<div id="root"' <<<"$page"; then
   exit 1
 fi
 
-asset="$(grep -oE '/assets/[A-Za-z0-9._-]+\.js' <<<"$page" | head -1)"
-if [[ -n "$asset" ]] && ! curl -fsS --max-time 20 -o /dev/null "$ORIGIN$asset"; then
-  echo "the page references $asset and it does not load" >&2
+# Every script chunk, not just the first. Since the chart split the first match
+# is only the index chunk, and a page whose charts chunk 404s still renders
+# nothing. The page's own references are what a visitor's browser fetches; the
+# local build's dist/assets/*.js adds any chunk the app loads later by import(),
+# and rsync --delete above makes the box's copy the same set of files.
+assets="$(
+  {
+    grep -oE '/assets/[A-Za-z0-9._-]+\.js' <<<"$page" || true
+    for f in frontend/dist/assets/*.js; do
+      if [[ -f "$f" ]]; then printf '/assets/%s\n' "${f##*/}"; fi
+    done
+  } | sort -u
+)"
+if [[ -z "$assets" ]]; then
+  echo "$ORIGIN/ references no /assets/*.js and the build has none: nothing would run" >&2
+  exit 1
+fi
+broken=""
+while IFS= read -r asset; do
+  code="$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' "$ORIGIN$asset" || true)"
+  if [[ "$code" != "200" ]]; then
+    echo "$ORIGIN$asset answered ${code:-nothing}, not 200" >&2
+    broken=yes
+  fi
+done <<<"$assets"
+if [[ -n "$broken" ]]; then
+  echo "the page's script chunks do not all load" >&2
   exit 1
 fi
 
