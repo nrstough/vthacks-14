@@ -1,5 +1,5 @@
 # Production only. deploy.sh rsyncs this file to the box and pip-installs it
-# there, so it holds exactly what `backend/app/` imports and nothing else.
+# there, so it holds what `backend/app/` needs to run and nothing else.
 # Test and experiment tooling lives in requirements-dev.txt.
 #
 # This list used to also carry pandas, scipy, RapidFuzz, python-multipart and
@@ -28,4 +28,9 @@ fastapi==0.141.1
 numpy==2.5.3
 ortools==9.15.6755
 pydantic==2.13.5
+# app/ never imports starlette, but every route runs on it, and fastapi 0.141.1
+# asks only for starlette>=0.46.0, so an unpinned install takes whatever is
+# newest on PyPI the day the box runs pip. 1.10.0 is the version the suite was
+# verified against; move it together with fastapi, on purpose.
+starlette==1.10.0
 uvicorn==0.53.0

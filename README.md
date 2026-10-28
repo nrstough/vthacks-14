@@ -34,8 +34,9 @@ python3 -m venv .venv && .venv/bin/pip install -r backend/requirements-dev.txt
 cd frontend && npm install
 ```
 
-`requirements.txt` is production only — what `backend/app/` imports, and what
-`deploy.sh` installs on the box. `requirements-dev.txt` adds pytest and httpx2
+`requirements.txt` is production only — what `backend/app/` imports, plus uvicorn and a
+starlette pin (fastapi leaves it open), and what `deploy.sh` installs on the box.
+`requirements-dev.txt` adds pytest and httpx2
 (starlette's `TestClient` imports it); rebuild the local venv from that one, or the
 gate will not run.
 
