@@ -100,9 +100,10 @@ cd frontend && npm run lint && npm run build
 ## Things that are deliberate, do not "fix" them
 
 - **The frontend falls back to its local solver when the API is unreachable,**
-  and says so in the footer. Venue wifi can die during judging. Never remove
-  the chip that discloses it; never claim solver results that did not come
-  from the solver.
+  and says so in a chip, "Running on the built-in solver", which today sits
+  in the top nav (`frontend/src/components/TopNav.tsx`). Venue wifi can die
+  during judging. Never remove or hide that chip, wherever the layout puts
+  it; never claim solver results that did not come from the solver.
 - **Money is integer cents everywhere.** No floats touch money.
 - **The word "infeasible" never reaches the user.** When no plan clears, the
   product names the outside amount needed and the date it is needed by.
