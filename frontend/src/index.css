@@ -1323,6 +1323,19 @@ details.considered[open] summary { margin-bottom: var(--s1); }
   transition: opacity var(--dur-2) var(--ease);
 }
 
+/* An answer carried over from the previous account (App's `carried`: a large
+   account skips the local placeholder) is withheld rather than dimmed, because
+   it would read as this account's. The cards, the provenance line and the
+   controls stay, so the page keeps its shape until this account's first
+   answer lands. */
+.main.is-carried .hero-copy > :not(.eyebrow-note),
+.main.is-carried .stats,
+.main.is-carried .chart-panel > *,
+.main.is-carried .rx-panel > *,
+.main.is-carried > .meta {
+  visibility: hidden;
+}
+
 /* ---------- responsive ---------- */
 
 @media (max-width: 1280px) {

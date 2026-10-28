@@ -66,7 +66,14 @@ Three controls beside the presets load a whole account, not just a pair of balan
 - **Loading clears every override** and the previous plan. Carrying them would name
   candidate ids the new account has never heard of, which is a 422 on the whole solve.
 - **The base, the balances and the on-screen answer change in one batch**, so the old
-  account's rows are never clickable under the new account's sliders.
+  account's rows are never clickable under the new account's sliders. The answer in that batch
+  comes from the built-in solver, which is exhaustive and runs on the main thread, so it is
+  computed only for up to 14 changes (`src/lib/placeholder.ts`; about 0.3 s of frozen page at
+  16, over a second at 18). Above that, until this account's first answer lands, the previous
+  answer is withheld: `.main.is-carried` hides its verdict, figures, chart, plan and footer
+  (the cards, the provenance line and the controls stay), and the plan list and the explainer
+  are `inert`, so its rows cannot be clicked and no question goes out with another account's
+  plan.
 - **`limit` is pinned to 18** on the candidates call. The built-in solver is exhaustive and
   refuses above 20, and it runs inside the solve effect's `.catch`, where a throw is an
   unhandled rejection and a silently stale screen. The fallback is wrapped too.

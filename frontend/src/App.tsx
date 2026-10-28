@@ -38,6 +38,7 @@ import type { Tab } from './lib/tabs.ts'
 import { DEFAULT_TAB, isPlanVisible } from './lib/tabs.ts'
 import { decideConsidered } from './lib/considered.ts'
 import { useDebounced } from './lib/useDebounced'
+import { placeholderSolve } from './lib/placeholder.ts'
 import { solve } from './solver/mockSolver'
 import type { SolveRequest, SolveResponse } from './types'
 
@@ -109,7 +110,9 @@ export default function App() {
   )
 
   // Seeded from the local solver so the first paint is instant and the page is
-  // never blank, then replaced by the server's answer when it arrives.
+  // never blank, then replaced by the server's answer when it arrives. The seed
+  // is always the demo fixture, eleven changes, well inside the cap adopt()
+  // puts on its placeholder (lib/placeholder.ts), so this one is unconditional.
   const [res, setRes] = useState(() => solve(request, []))
   // Which overrides the answer on screen was actually solved with. The reasons
   // under the left-out changes are statements about THAT solve, so they cannot
@@ -121,6 +124,14 @@ export default function App() {
   const [solvedRequest, setSolvedRequest] = useState<SolveRequest | null>(null)
   const [source, setSource] = useState<'local' | 'server'>('local')
   const [notice, setNotice] = useState<string | null>(null)
+  // True while `res` is still the PREVIOUS account's. adopt() skips the local
+  // placeholder for a large account, so there is no answer for this one until
+  // the effect's first lands. Meanwhile the old answer is withheld, not merely
+  // dimmed (`is-carried` hides it, since it would read as this account's), and
+  // the plan list and the explainer are inert: the old account's rows are never
+  // clickable under the new account's sliders, and no question goes out with a
+  // plan from a different account.
+  const [carried, setCarried] = useState(false)
   const seq = useRef(0)
   // A re-solve moves rows between the plan and the left-out list, unmounting
   // their checkboxes. Track the row the user is actually on rather than the one
@@ -197,6 +208,7 @@ export default function App() {
       )
       setSource(from)
       setNotice(msg)
+      setCarried(false)
     }
 
     solveViaApi(debounced, before, ctl.signal)
@@ -339,11 +351,13 @@ export default function App() {
     // imperatively to focus it, and the resulting toggle writes `open` back to
     // true — quietly undoing the collapse three lines above.
     focused.current = null
-    try {
-      setRes(solve({ ...next, opening_balance_cents: cents, buffer_cents: cushion }, []))
-    } catch {
-      // Too many changes for the exhaustive stand-in; the effect will answer.
-    }
+    // This account's answer from the built-in solver, in the same batch as the
+    // account and balances above. Skipped above the cap, where the exhaustive
+    // search would freeze the page for longer than the server takes to answer;
+    // `carried` then withholds the old answer until the effect replaces it.
+    const local = placeholderSolve({ ...next, opening_balance_cents: cents, buffer_cents: cushion })
+    if (local) setRes(local)
+    setCarried(local === null)
   }
 
   function preset(cents: number, cushion: number) {
@@ -446,7 +460,7 @@ export default function App() {
     <div className="app">
       <TopNav tab={tab} onTab={setTab} res={res} source={source} notice={notice} />
 
-      <main className={`main${settled ? '' : ' is-solving'}`}>
+      <main className={`main${settled ? '' : ' is-solving'}${carried ? ' is-carried' : ''}`}>
         {/* The planning view is a conditional render, not a hidden one. Two
             reasons, both deliberate: the chart's ResponsiveContainer sizes
             itself from its parent, and a parent inside `display: none` is
@@ -667,7 +681,7 @@ export default function App() {
               </section>
             </div>
 
-            <section className="panel rx-panel">
+            <section className="panel rx-panel" inert={carried}>
                 <div className="panel-head">
                   <div>
                     <p className="panel-kicker">The plan</p>
@@ -714,7 +728,7 @@ export default function App() {
             — the panel's own root is a `.panel`, and this stylesheet gives
             that `display: flex`, which would beat the browser's rule for the
             attribute and leave the whole thing on screen. */}
-        <div hidden={tab !== 'ask'}>
+        <div hidden={tab !== 'ask'} inert={carried}>
           <ChatPanel
             key={chatKey(account, importSeq.current)}
             req={request}
